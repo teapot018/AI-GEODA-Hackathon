@@ -1,0 +1,1477 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="넥슨 FC 온라인 소재 구단주 조회 · 스쿼드 메이커 · 모의 상자 개봉 시뮬레이터 (서버 없이 브라우저만으로 동작)">
+</head>
+<body>
+<title>FC 스쿼드 콘솔</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   토큰 — 라이트가 기본, 다크는 토큰만 재정의
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --ground:#F1F4EF; --surface:#FFFFFF; --surface-2:#F6F8F4; --surface-3:#EAEEE7;
+  --line:rgba(11,21,18,.11); --line-strong:rgba(11,21,18,.22);
+  --ink:#0B1512; --ink-2:#43574E; --ink-3:#7C8F86;
+  --accent:#F2B33D; --accent-ink:#1A1206; --accent-text:#8A5D0B; --accent-soft:rgba(242,179,61,.16);
+  --good:#167A54; --good-soft:rgba(22,122,84,.12);
+  --bad:#C2402C;  --bad-soft:rgba(194,64,44,.12);
+  --shadow:0 1px 2px rgba(11,21,18,.06),0 12px 28px -18px rgba(11,21,18,.45);
+  --shadow-lift:0 2px 6px rgba(11,21,18,.10),0 22px 44px -22px rgba(11,21,18,.55);
+
+  /* 피치와 선수 카드는 "물리적 사물"이라 테마와 무관하게 고정한다.
+     실물 카드가 조명 아래서 늘 같은 색인 것과 같다. */
+  --turf-a:#17392A; --turf-b:#102A1F; --chalk:rgba(255,255,255,.22);
+  --card-bg:#111C18; --card-bg-2:#0B1512; --card-ink:#EDF2EA; --card-ink-2:#93A79C;
+  --t-normal:#94A79C; --t-mid:#7FCBA4; --t-high:#5BC8DE; --t-legend:#B79BE8; --t-icon:#F2B33D;
+
+  --r:14px; --r-sm:9px;
+  --f-display:"Black Han Sans","IBM Plex Sans KR",sans-serif;
+  --f-body:"IBM Plex Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0B1512; --surface:#12211C; --surface-2:#182B24; --surface-3:#1F362D;
+    --line:rgba(232,237,230,.10); --line-strong:rgba(232,237,230,.20);
+    --ink:#E8EDE6; --ink-2:#A8BBB1; --ink-3:#6F857B;
+    --accent:#F2B33D; --accent-ink:#1A1206; --accent-text:#F2B33D; --accent-soft:rgba(242,179,61,.13);
+    --good:#4ADE9B; --good-soft:rgba(74,222,155,.12);
+    --bad:#F2705C;  --bad-soft:rgba(242,112,92,.13);
+    --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 14px 30px -18px rgba(0,0,0,.9);
+    --shadow-lift:0 1px 0 rgba(255,255,255,.06) inset,0 26px 50px -22px rgba(0,0,0,.95);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0B1512; --surface:#12211C; --surface-2:#182B24; --surface-3:#1F362D;
+  --line:rgba(232,237,230,.10); --line-strong:rgba(232,237,230,.20);
+  --ink:#E8EDE6; --ink-2:#A8BBB1; --ink-3:#6F857B;
+  --accent:#F2B33D; --accent-ink:#1A1206; --accent-text:#F2B33D; --accent-soft:rgba(242,179,61,.13);
+  --good:#4ADE9B; --good-soft:rgba(74,222,155,.12);
+  --bad:#F2705C;  --bad-soft:rgba(242,112,92,.13);
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 14px 30px -18px rgba(0,0,0,.9);
+  --shadow-lift:0 1px 0 rgba(255,255,255,.06) inset,0 26px 50px -22px rgba(0,0,0,.95);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--f-body); font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  word-break:keep-all;      /* 한국어는 낱글자가 아니라 어절 단위로 끊는다 */
+  overflow-wrap:break-word; /* 끊을 데가 없는 긴 문자열은 그래도 넘기지 않는다 */
+}
+h1,h2,h3{margin:0; text-wrap:balance}
+button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+.num{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+
+/* ── 상단 바: 중계 하단자막을 위로 올린 형태 ───────────────── */
+.bar{
+  position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:6px;
+  height:54px; padding:0 14px; background:var(--surface);
+  border-bottom:1px solid var(--line); box-shadow:var(--shadow);
+}
+.mark{display:flex; align-items:center; gap:9px; margin-right:8px; flex-shrink:0}
+.mark-b{
+  display:grid; place-items:center; width:30px; height:30px; border-radius:8px;
+  background:var(--accent); color:var(--accent-ink);
+  font-family:var(--f-display); font-size:15px; letter-spacing:-.02em;
+}
+.mark-t{font-family:var(--f-display); font-size:16px; letter-spacing:.01em}
+@media (max-width:560px){.mark-t{display:none}}
+.tabs{display:flex; gap:3px; flex:1; overflow-x:auto; scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex-shrink:0; padding:7px 13px; border-radius:8px; font-size:12.5px; font-weight:500;
+  color:var(--ink-3); white-space:nowrap; transition:background .15s,color .15s;
+}
+.tab:hover{background:var(--surface-2); color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--accent); color:var(--accent-ink); font-weight:600}
+.mode{
+  display:flex; align-items:center; gap:5px; flex-shrink:0; padding:5px 9px;
+  border:1px solid var(--line-strong); border-radius:8px;
+  font-size:10.5px; font-weight:600; color:var(--ink-2); letter-spacing:.02em;
+}
+.mode i{width:6px; height:6px; border-radius:50%; background:var(--accent); font-style:normal}
+.mode b{font-weight:600}
+@media (max-width:680px){.mode b{display:none} .mode{padding:5px 7px}}
+.tglt{padding:6px; border-radius:8px; color:var(--ink-3); flex-shrink:0}
+.tglt:hover{background:var(--surface-2); color:var(--ink)}
+
+.wrap{max-width:1240px; margin:0 auto; padding:20px 14px 56px}
+.view[hidden]{display:none}
+.vhead{margin-bottom:16px}
+.vhead h1{font-family:var(--f-display); font-size:26px; letter-spacing:.005em; line-height:1.2}
+.vhead p{margin:5px 0 0; font-size:12.5px; color:var(--ink-3); max-width:62ch}
+
+/* ── 패널 ─────────────────────────────────────────────────── */
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow)}
+.phead{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:13px 15px; border-bottom:1px solid var(--line)}
+.phead>div:first-child{min-width:0}
+.phead>:last-child{flex-shrink:0}
+.phead h2{font-size:12.5px; font-weight:600; letter-spacing:.02em}
+.phead p{margin:3px 0 0; font-size:11px; color:var(--ink-3)}
+.pbody{padding:15px}
+.grid2{display:grid; gap:16px; grid-template-columns:minmax(0,1fr) 372px}
+@media (max-width:1000px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.stack{display:flex; flex-direction:column; gap:16px}
+
+/* 오른쪽 레일: 화면에 붙여 두고 레일 자체가 스크롤한다.
+   선택한 선수의 강화 패널이 항상 맨 위에 보이도록 순서를 고정. */
+@media (min-width:1001px){
+  .sq-rail{position:sticky; top:70px; align-self:start; max-height:calc(100dvh - 86px); overflow-y:auto}
+}
+.sq-search{display:flex; flex-direction:column}
+.sq-search .results{max-height:min(52vh,480px)}
+
+/* ── 폼 ───────────────────────────────────────────────────── */
+.field{
+  width:100%; height:38px; padding:0 12px; border:1px solid var(--line-strong); border-radius:var(--r-sm);
+  background:var(--surface-2); color:var(--ink); font:inherit; font-size:13px;
+}
+.field::placeholder{color:var(--ink-3)}
+.field:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+select.field{cursor:pointer; -webkit-appearance:none; appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) 17px,calc(100% - 11px) 17px; background-size:4px 4px; background-repeat:no-repeat}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; height:38px; padding:0 16px;
+  border-radius:var(--r-sm); background:var(--accent); color:var(--accent-ink);
+  font-size:13px; font-weight:600; white-space:nowrap; transition:filter .15s,transform .1s;
+}
+.btn:hover{filter:brightness(1.07)} .btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.42; cursor:not-allowed; filter:none; transform:none}
+.btn-o{background:none; border:1px solid var(--line-strong); color:var(--ink)}
+.btn-o:hover{border-color:var(--accent); color:var(--accent-text); filter:none}
+.btn-s{height:29px; padding:0 10px; font-size:11.5px; border-radius:7px}
+.chips{display:flex; flex-wrap:wrap; gap:5px; align-items:center}
+.chip{padding:3px 9px; border:1px solid var(--line-strong); border-radius:99px; font-size:11px; color:var(--ink-2)}
+.chip:hover{border-color:var(--accent); color:var(--accent-text)}
+
+/* ── 라벨·배지 ────────────────────────────────────────────── */
+.eyebrow{font-size:9.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3)}
+.badge{display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:5px; font-size:10.5px; font-weight:600; background:var(--surface-3); color:var(--ink-2)}
+.badge.gold{background:var(--accent-soft); color:var(--accent-text)}
+.badge.good{background:var(--good-soft); color:var(--good)}
+.badge.bad{background:var(--bad-soft); color:var(--bad)}
+
+/* ── 수치 타일 ────────────────────────────────────────────── */
+.tiles{display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+.tile{padding:9px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm)}
+.tile dt{font-size:9.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3)}
+.tile dd{margin:2px 0 0; font-family:var(--f-mono); font-size:18px; font-weight:600; line-height:1.15; letter-spacing:-.02em}
+.tile dd small{display:block; font-family:var(--f-body); font-size:10px; font-weight:400; color:var(--ink-3); letter-spacing:0; margin-top:2px}
+.tile.good dd{color:var(--good)} .tile.bad dd{color:var(--bad)}
+
+/* ── 스탯 바 ──────────────────────────────────────────────── */
+.sb{display:flex; align-items:center; gap:8px; font-size:11.5px}
+.sb b{width:40px; flex-shrink:0; font-weight:500; color:var(--ink-3)}
+.sb i{flex:1; height:5px; border-radius:99px; background:var(--surface-3); overflow:hidden; font-style:normal}
+.sb i>u{display:block; height:100%; border-radius:99px; text-decoration:none; transition:width .45s cubic-bezier(.2,.8,.3,1)}
+.sb em{width:24px; flex-shrink:0; text-align:right; font-family:var(--f-mono); font-style:normal; font-weight:600}
+
+/* ── 선수 카드 (테마 무관 고정 팔레트) ─────────────────────── */
+.pc{
+  --tier:var(--t-normal);
+  position:relative; width:var(--cw,104px); border-radius:11px; overflow:hidden; text-align:left;
+  background:linear-gradient(168deg,color-mix(in srgb,var(--tier) 22%,var(--card-bg)) 0%,var(--card-bg-2) 62%);
+  border:1px solid rgba(255,255,255,.09); color:var(--card-ink);
+  box-shadow:0 8px 18px -12px rgba(0,0,0,.85); transition:transform .16s,box-shadow .16s;
+  display:block; font-size:calc(var(--cw,104px)*.098);
+}
+button.pc:hover{transform:translateY(-3px); box-shadow:0 16px 26px -14px rgba(0,0,0,.9)}
+.pc::before{content:""; position:absolute; inset:0 0 auto; height:2px; background:var(--tier)}
+.pc-top{display:flex; align-items:flex-start; justify-content:space-between; padding:7px 8px 0}
+.pc-ovr{font-family:var(--f-mono); font-size:1.65em; font-weight:600; line-height:1; letter-spacing:-.03em}
+.pc-pos{display:block; margin-top:1px; font-size:.85em; font-weight:600; color:var(--card-ink-2)}
+.pc-gr{font-family:var(--f-mono); font-size:.85em; font-weight:600; color:var(--t-icon)}
+.pc-face{display:grid; place-items:center; height:calc(var(--cw,104px)*.42)}
+.pc-face span{
+  display:grid; place-items:center; width:calc(var(--cw,104px)*.38); height:calc(var(--cw,104px)*.38);
+  border-radius:50%; background:color-mix(in srgb,var(--tier) 24%,transparent);
+  border:1px solid color-mix(in srgb,var(--tier) 45%,transparent);
+  font-family:var(--f-display); font-size:calc(var(--cw,104px)*.19); color:var(--card-ink); line-height:1;
+}
+.pc-foot{padding:5px 8px 7px; border-top:1px solid rgba(255,255,255,.08)}
+.pc-name{display:block; font-weight:700; font-size:1.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pc-sn{display:block; font-size:.85em; color:var(--card-ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pc-val{display:block; margin-top:2px; font-family:var(--f-mono); font-size:.85em; font-weight:600; color:var(--t-mid)}
+.pc-est{position:absolute; right:4px; bottom:4px; padding:0 3px; border-radius:3px; background:rgba(0,0,0,.5); font-size:.78em; color:var(--card-ink-2)}
+.pc[data-fit="warn"]{border-color:rgba(242,179,61,.6)}
+.pc[data-fit="bad"]{border-color:rgba(242,112,92,.7)}
+.pc[data-sel="1"]{box-shadow:0 0 0 2px var(--accent),0 16px 26px -14px rgba(0,0,0,.9)}
+
+/* ── 피치 ─────────────────────────────────────────────────── */
+.pitch{
+  /* 세로가 길어 데스크톱에서 골키퍼가 화면 밖으로 밀린다. 높이를 뷰포트에 맞추되,
+     max-height + margin:auto 는 flex column 에서 stretch 를 꺼 폭을 0 으로 무너뜨리므로
+     폭을 직접 계산하고 align-self 로 가운데 정렬한다. */
+  position:relative; aspect-ratio:70/92; align-self:center;
+  width:min(100%, calc((100dvh - 132px) * 70 / 92));
+  border-radius:var(--r); overflow:hidden;
+  background:
+    repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 42px,transparent 42px 84px),
+    linear-gradient(178deg,var(--turf-a),var(--turf-b));
+  border:1px solid var(--line);
+}
+.pitch .ln{position:absolute; border:1px solid var(--chalk); pointer-events:none}
+.slot{position:absolute; transform:translate(-50%,-50%)}
+.slot.over .pc,.slot.over .empty{outline:2px dashed var(--accent); outline-offset:3px}
+.empty{
+  display:grid; place-items:center; gap:2px; width:56px; height:74px; border-radius:11px;
+  border:1.5px dashed rgba(255,255,255,.28); background:rgba(255,255,255,.05);
+  color:rgba(255,255,255,.72); font-size:11px; font-weight:600;
+}
+.empty:hover{border-color:var(--accent); color:var(--accent)}
+.empty[data-sel="1"]{border-style:solid; border-color:var(--accent); background:rgba(242,179,61,.16); color:var(--accent)}
+.rm{
+  position:absolute; top:-6px; right:-6px; display:grid; place-items:center; width:19px; height:19px;
+  border-radius:50%; background:var(--card-bg); border:1px solid rgba(255,255,255,.18);
+  color:var(--card-ink-2); font-size:12px; line-height:1; opacity:0; transition:opacity .15s;
+}
+.slot:hover .rm,.rm:focus{opacity:1}
+.rm:hover{color:var(--bad)}
+.fitflag{
+  position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); white-space:nowrap;
+  padding:0 5px; border-radius:4px; font-size:9px; font-weight:700; letter-spacing:.02em;
+}
+.fitflag.warn{background:var(--accent); color:var(--accent-ink)}
+.fitflag.bad{background:#F2705C; color:#2A0D08}
+
+/* ── 검색 결과 그리드 ─────────────────────────────────────── */
+.results{display:grid; gap:9px; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); align-content:start}
+.scroll{overflow-y:auto; overscroll-behavior:contain}
+
+/* ── 표 ───────────────────────────────────────────────────── */
+table{width:100%; border-collapse:collapse; font-size:12px}
+thead th{
+  position:sticky; top:0; z-index:1; padding:7px 10px; background:var(--surface);
+  font-size:9.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-3); text-align:left; border-bottom:1px solid var(--line);
+}
+tbody td{padding:7px 10px; border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:0}
+.r{text-align:right} .c{text-align:center}
+.tw{overflow-x:auto}
+
+/* ── 매치 행 ──────────────────────────────────────────────── */
+.match{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface-2); overflow:hidden}
+.match+.match{margin-top:7px}
+.match>button{display:flex; align-items:center; gap:11px; width:100%; padding:9px 11px; text-align:left}
+.match>button:hover{background:var(--surface-3)}
+.res{display:grid; place-items:center; width:29px; height:29px; flex-shrink:0; border-radius:8px; font-family:var(--f-display); font-size:13px}
+.res.w{background:var(--good-soft); color:var(--good)}
+.res.l{background:var(--bad-soft); color:var(--bad)}
+.res.d{background:var(--surface-3); color:var(--ink-2)}
+.score{font-family:var(--f-mono); font-size:15px; font-weight:600; letter-spacing:-.02em}
+.mmeta{display:flex; gap:11px; font-size:10.5px; color:var(--ink-3); flex-shrink:0}
+@media (max-width:640px){.mmeta{display:none}}
+.lineup{padding:11px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:7px}
+
+/* ── 개봉 무대 ────────────────────────────────────────────── */
+.stage{position:relative; display:grid; place-items:center; min-height:302px; padding:22px; overflow:hidden}
+/* place-items:center 는 자식을 content 폭으로 줄인다. 결과 그리드는 무대 전체를 써야 한다. */
+#stage-in{width:100%}
+.empty-state{margin-inline:auto}
+.flare{
+  position:absolute; inset:0; pointer-events:none; opacity:0;
+  background:radial-gradient(circle at 50% 46%,var(--accent-soft),transparent 62%);
+}
+.stage[data-phase="open"] .flare{animation:flare 1s ease-out}
+@keyframes flare{0%{opacity:0;transform:scale(.4)}45%{opacity:1}100%{opacity:0;transform:scale(1.9)}}
+.crate{
+  display:grid; place-items:center; width:96px; height:96px; border-radius:18px;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 26%,var(--card-bg)),var(--card-bg-2));
+  border:1px solid rgba(242,179,61,.4); color:var(--accent);
+  font-family:var(--f-display); font-size:30px;
+}
+.stage[data-phase="open"] .crate{animation:rattle .42s ease-in-out infinite}
+@keyframes rattle{0%,100%{transform:translate(0) rotate(0)}25%{transform:translate(-5px,1px) rotate(-3deg)}75%{transform:translate(5px,-1px) rotate(3deg)}}
+.pull{display:grid; gap:9px; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); width:100%; justify-items:center}
+.pull>div{animation:deal .42s cubic-bezier(.2,.85,.3,1.1) both}
+@keyframes deal{from{opacity:0;transform:translateY(18px) scale(.92)}to{opacity:1;transform:none}}
+.pull .cap{margin-top:5px; text-align:center; font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:4px; display:inline-block}
+.empty-state{text-align:center; color:var(--ink-3); max-width:34ch}
+.empty-state strong{display:block; margin-bottom:4px; color:var(--ink-2); font-size:13px}
+.empty-state p{margin:0; font-size:11.5px; line-height:1.6}
+
+.boxes{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(184px,1fr))}
+.box{padding:13px; text-align:left; border:1px solid var(--line); border-radius:var(--r); background:var(--surface); box-shadow:var(--shadow); transition:transform .15s,box-shadow .15s,border-color .15s}
+.box:hover{transform:translateY(-2px); box-shadow:var(--shadow-lift)}
+.box[aria-pressed="true"]{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent),var(--shadow-lift)}
+.box h3{font-size:13.5px; font-weight:700; margin:7px 0 3px}
+.box p{margin:0; font-size:11px; color:var(--ink-3); line-height:1.5; min-height:2lh}
+.box .price{display:block; margin-top:8px; font-family:var(--f-mono); font-size:12px; font-weight:600}
+
+.note{padding:11px 15px; border-top:1px solid var(--line); font-size:10.5px; line-height:1.6; color:var(--ink-3)}
+.note b{color:var(--ink-2)}
+.note code{font-family:var(--f-mono); font-size:10px; padding:1px 4px; border-radius:4px; background:var(--surface-3); white-space:nowrap}
+.swatch{width:9px; height:9px; border-radius:2px; flex-shrink:0; display:inline-block}
+
+.legend{display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); margin-top:20px}
+.legend div{padding:11px 13px; border-radius:var(--r-sm); border:1px solid var(--line); background:var(--surface)}
+.legend h3{font-size:11.5px; font-weight:700; margin-bottom:3px}
+.legend p{margin:0; font-size:10.5px; line-height:1.6; color:var(--ink-3)}
+
+.foot{max-width:1240px; margin:0 auto; padding:0 14px 40px; font-size:10.5px; line-height:1.7; color:var(--ink-3)}
+.foot b{color:var(--ink-2)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+}
+</style>
+
+<header class="bar">
+  <div class="mark"><span class="mark-b">FC</span><span class="mark-t">스쿼드 콘솔</span></div>
+  <nav class="tabs" role="tablist" aria-label="화면 전환">
+    <button class="tab" role="tab" aria-selected="true"  data-view="squad">스쿼드 메이커</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="manager">구단주 조회</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="pack">모의 상자 개봉</button>
+  </nav>
+  <span class="mode" title="이 페이지는 서버 없이 브라우저에서만 동작합니다. 넥슨 Open API 대신 저장소와 동일한 결정적 샘플 데이터를 씁니다."><i></i><b>샘플 데이터</b></span>
+  <button class="tglt" id="theme" aria-label="라이트/다크 전환" title="라이트/다크 전환">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M5.6 5.6 7.2 7.2M16.8 16.8l1.6 1.6M18.4 5.6 16.8 7.2M7.2 16.8l-1.6 1.6"/></svg>
+  </button>
+</header>
+
+<div class="wrap">
+
+<!-- ══════════════ 스쿼드 메이커 ══════════════ -->
+<section class="view" id="v-squad" role="tabpanel" aria-label="스쿼드 메이커">
+  <div class="vhead">
+    <h1>스쿼드 메이커</h1>
+    <p>선수를 피치로 끌어다 놓거나, 빈 자리를 먼저 고르고 검색 결과를 클릭하세요. 배치한 스쿼드는 이 브라우저에 저장됩니다.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pbody" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px">
+      <span class="eyebrow" style="margin-right:2px">포메이션</span>
+      <div class="chips" id="formations"></div>
+      <button class="btn btn-o btn-s" id="sq-clear" style="margin-left:auto">전체 비우기</button>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="stack">
+      <div class="pitch" id="pitch"></div>
+      <div id="sq-rate"></div>
+    </div>
+
+    <div class="stack sq-rail">
+      <div id="sq-enh"></div>
+      <div class="panel sq-search">
+        <div class="phead">
+          <div><h2>선수 검색</h2><p id="sq-hint">이름 또는 초성으로 찾으세요</p></div>
+          <button class="btn btn-o btn-s" id="sq-auto">자동 채우기</button>
+        </div>
+        <div class="pbody" style="display:grid; gap:8px; padding-bottom:11px">
+          <input class="field" id="q" placeholder="선수 이름 또는 초성 (예: ㅅㅎㅁ)" aria-label="선수 검색" autocomplete="off">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+            <select class="field" id="f-season" aria-label="시즌 필터"></select>
+            <select class="field" id="f-pos" aria-label="포지션 필터"></select>
+          </div>
+          <p style="margin:0; font-size:10.5px; color:var(--ink-3)" id="q-count"></p>
+        </div>
+        <div class="scroll results" id="sq-results" style="padding:0 15px 15px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ 구단주 조회 ══════════════ -->
+<section class="view" id="v-manager" role="tabpanel" aria-label="구단주 조회" hidden>
+  <div class="vhead">
+    <h1>구단주 조회</h1>
+    <p>닉네임 → OUID → 계정 정보 순으로 조회합니다. 저장소 버전은 이 흐름을 넥슨 Open API 로 실제 호출하고, 이 페이지는 같은 로직을 샘플 데이터 위에서 돌립니다.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px">
+    <div class="pbody">
+      <form id="mg-form" style="display:flex; gap:8px; flex-wrap:wrap">
+        <input class="field" id="mg-q" placeholder="구단주 닉네임" aria-label="구단주 닉네임" maxlength="24" style="flex:1; min-width:180px">
+        <button class="btn" type="submit">조회</button>
+      </form>
+      <div class="chips" style="margin-top:10px">
+        <span class="eyebrow">예시</span>
+        <button class="chip" data-nick="강남_피파장인">강남_피파장인</button>
+        <button class="chip" data-nick="월클도전중">월클도전중</button>
+        <button class="chip" data-nick="박스깡의신">박스깡의신</button>
+      </div>
+    </div>
+  </div>
+  <div id="mg-out"></div>
+</section>
+
+<!-- ══════════════ 모의 상자 개봉 ══════════════ -->
+<section class="view" id="v-pack" role="tabpanel" aria-label="모의 상자 개봉" hidden>
+  <div class="vhead">
+    <h1>모의 상자 개봉</h1>
+    <p>실제 결제도, 아이템 획득도 없는 시뮬레이션입니다. 확률과 기대값을 열기 전에 모두 공개하고, 시드를 남겨 같은 결과를 다시 뽑을 수 있게 합니다.</p>
+  </div>
+
+  <div class="boxes" id="boxes" style="margin-bottom:16px"></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="phead">
+        <div><h2 id="pk-name">—</h2><p id="pk-sub"></p></div>
+        <span class="badge" id="pk-pity" hidden></span>
+      </div>
+      <div class="stage" id="stage" data-phase="idle">
+        <div class="flare"></div>
+        <div id="stage-in"></div>
+      </div>
+      <div class="pbody" style="display:flex; gap:8px; border-top:1px solid var(--line)">
+        <button class="btn" id="pk-1" style="flex:1">1회 개봉</button>
+        <button class="btn btn-o" id="pk-10" style="flex:1">10회 연속</button>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div id="pk-odds"></div>
+      <div id="pk-stats"></div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="foot">
+  <p>넥슨 FC 온라인을 소재로 한 <b>비공식 팬 프로젝트</b>입니다. 이 페이지는 서버 없이 브라우저에서만 도는 판이라 넥슨 Open API 를 직접 호출하지 않고, 저장소와 동일한 결정적 샘플 데이터 위에서 같은 로직을 돌립니다. 능력치·오버롤·BP 가치·강화 상승폭·팀컬러는 공개 API 에 없는 항목이라 자체 추정 모델이고, 상자 확률과 가격도 샘플 값입니다. 실제 게임 수치와 다를 수 있습니다.</p>
+</footer>
+
+<script>
+/* ── 선수 시드 (저장소 src/lib/players/dataset.ts 에서 그대로 추출) ──
+   [이름, 국적, 클럽, 리그, 포지션, OVR, 속도, 슛, 패스, 드리블, 수비, 피지컬, 개인기, 약발, 주발, GK여부] */
+const P=[["알리송","브라질","리버풀","프리미어리그","GK",89,56,40,65,62,32,78,1,3,"오른발",1],["노이어","독일","바이에른 뮌헨","분데스리가","GK",88,60,45,70,68,35,80,1,4,"오른발",1],["쿠르투아","벨기에","레알 마드리드","라리가","GK",90,52,38,62,58,30,82,1,3,"왼발",1],["조현우","대한민국","울산","K리그","GK",82,55,35,55,52,28,74,1,3,"오른발",1],["판 다이크","네덜란드","리버풀","프리미어리그","CB,LCB",90,79,60,71,72,90,86,2,3,"오른발",0],["마르퀴뇨스","브라질","PSG","리그앙","CB,RCB,CDM",88,82,55,74,76,87,80,2,3,"오른발",0],["루벤 디아스","포르투갈","맨체스터 시티","프리미어리그","CB",88,71,48,70,68,89,87,2,3,"오른발",0],["김민재","대한민국","바이에른 뮌헨","분데스리가","CB,RCB",86,82,46,66,68,86,88,2,3,"오른발",0],["알라바","오스트리아","레알 마드리드","라리가","LCB,CB,LB",86,78,70,82,79,84,78,3,3,"왼발",0],["알렉산더 아놀드","잉글랜드","리버풀","프리미어리그","RB,RWB,RM",87,80,71,90,80,80,74,3,4,"오른발",0],["칸셀루","포르투갈","바르셀로나","라리가","RB,LB,RWB",86,86,72,85,87,78,72,4,3,"오른발",0],["테오 에르난데스","프랑스","AC 밀란","세리에A","LB,LWB,LM",86,92,74,79,84,77,82,4,3,"왼발",0],["마르셀루","브라질","레알 마드리드","라리가","LB,LWB",87,84,74,85,90,76,70,5,4,"왼발",0],["카푸","브라질","AC 밀란","세리에A","RB,RWB",88,91,70,81,86,84,79,4,3,"오른발",0],["말디니","이탈리아","AC 밀란","세리에A","LCB,CB,LB",91,83,60,79,80,92,85,3,4,"오른발",0],["카세미루","브라질","맨체스터 유나이티드","프리미어리그","CDM,CM",87,68,76,79,76,88,90,3,3,"오른발",0],["로드리","스페인","맨체스터 시티","프리미어리그","CDM,CM",89,66,78,86,82,87,86,2,3,"오른발",0],["크로스","독일","레알 마드리드","라리가","CM,LCM,CDM",89,62,82,92,84,74,76,3,4,"오른발",0],["모드리치","크로아티아","레알 마드리드","라리가","CM,RCM,CAM",89,74,79,89,89,72,66,4,4,"오른발",0],["데 브라이너","벨기에","맨체스터 시티","프리미어리그","CAM,RCM,CM",92,76,88,94,88,65,78,4,5,"오른발",0],["지단","프랑스","레알 마드리드","라리가","CAM,CM",93,78,86,92,94,66,80,5,4,"오른발",0],["이강인","대한민국","PSG","리그앙","CAM,RM,RW",84,76,79,85,87,55,62,4,3,"왼발",0],["베르캄프","네덜란드","아스날","프리미어리그","CF,CAM",91,78,89,89,91,46,76,4,4,"오른발",0],["제라드","잉글랜드","리버풀","프리미어리그","CM,CAM,RCM",90,79,89,90,85,79,86,4,4,"오른발",0],["비에이라","프랑스","아스날","프리미어리그","CDM,CM",89,76,76,82,82,88,92,3,3,"오른발",0],["베컴","잉글랜드","맨체스터 유나이티드","프리미어리그","RM,RCM,RW",89,76,84,93,84,66,76,4,4,"오른발",0],["손흥민","대한민국","토트넘","프리미어리그","LW,ST,LM",89,89,89,82,87,44,76,4,5,"오른발",0],["음바페","프랑스","레알 마드리드","라리가","ST,LW,LS",92,97,90,80,92,36,78,5,4,"오른발",0],["홀란드","노르웨이","맨체스터 시티","프리미어리그","ST",91,89,94,65,80,45,90,3,4,"왼발",0],["메시","아르헨티나","인터 마이애미","MLS","RW,CF,CAM",93,80,89,91,94,34,64,4,4,"왼발",0],["호날두","포르투갈","알 나스르","기타","ST,LW",91,85,93,78,85,34,77,5,4,"오른발",0],["호나우두","브라질","레알 마드리드","라리가","ST,CF",93,95,93,76,93,32,82,5,4,"오른발",0],["앙리","프랑스","아스날","프리미어리그","ST,LW",91,94,90,80,90,40,79,5,4,"오른발",0],["비니시우스","브라질","레알 마드리드","라리가","LW,LM,ST",89,95,83,78,92,30,70,5,4,"오른발",0],["살라","이집트","리버풀","프리미어리그","RW,ST,RM",89,90,88,81,88,45,76,4,3,"왼발",0],["레반도프스키","폴란드","바르셀로나","라리가","ST",90,78,92,79,85,44,83,4,4,"오른발",0],["벤제마","프랑스","알 이티하드","기타","ST,CF",90,79,89,84,88,40,78,4,4,"오른발",0],["네이마르","브라질","산투스","기타","LW,CAM,CF",89,87,83,86,93,36,62,5,5,"오른발",0],["카카","브라질","AC 밀란","세리에A","CAM,CF,CM",90,88,87,86,90,45,78,4,4,"오른발",0],["드로그바","코트디부아르","첼시","프리미어리그","ST",89,84,90,74,82,44,92,3,4,"오른발",0],["박지성","대한민국","맨체스터 유나이티드","프리미어리그","RM,LM,CM",85,88,76,80,84,72,80,3,4,"오른발",0],["황희찬","대한민국","울버햄튼","프리미어리그","LW,ST",82,90,79,71,80,42,78,3,3,"오른발",0],["김승규","대한민국","알 샤밥","기타","GK",78,52,32,52,48,26,70,1,3,"오른발",1],["구성윤","대한민국","김천","K리그","GK",70,48,28,46,42,22,64,1,2,"오른발",1],["김영권","대한민국","울산","K리그","CB,LCB",76,68,42,62,60,77,78,2,3,"왼발",0],["정승현","대한민국","울산","K리그","CB,RCB",71,66,38,56,54,72,75,2,2,"오른발",0],["김진수","대한민국","전북","K리그","LB,LWB",76,80,60,74,74,73,70,3,3,"왼발",0],["설영우","대한민국","츠르베나 즈베즈다","기타","RB,LB,RWB",74,82,55,71,74,70,66,3,3,"오른발",0],["홍철","대한민국","대구","K리그","LB,LWB,LM",72,78,58,70,71,66,64,3,2,"왼발",0],["박용우","대한민국","알 아인","기타","CDM,CM",73,62,58,71,68,74,76,2,3,"오른발",0],["백승호","대한민국","버밍엄","기타","CM,CDM",76,66,72,78,76,70,72,3,3,"오른발",0],["정우영","대한민국","우니온 베를린","분데스리가","LM,CAM,LW",78,82,74,76,82,48,62,4,3,"오른발",0],["이승우","대한민국","수원FC","K리그","CAM,RW,ST",75,84,74,72,83,36,58,4,3,"왼발",0],["문선민","대한민국","전북","K리그","RW,LW",71,88,66,64,74,38,60,3,3,"오른발",0],["고영준","대한민국","포항","K리그","CAM,RM",69,76,64,68,74,42,56,3,2,"오른발",0],["엄지성","대한민국","스완지","기타","LW,RW",70,85,62,62,76,34,58,3,3,"오른발",0],["조규성","대한민국","미트윌란","기타","ST",77,78,78,62,70,40,82,3,3,"오른발",0],["오현규","대한민국","헹크","기타","ST",72,84,71,55,68,32,74,3,3,"오른발",0],["나상호","대한민국","FC서울","K리그","RW,ST,LW",74,86,71,64,76,36,62,3,3,"왼발",0],["송민규","대한민국","전북","K리그","LW,CAM",73,80,70,68,76,38,62,3,3,"오른발",0],["이순민","대한민국","광주","K리그","CDM,CM",68,64,52,64,62,70,70,2,2,"오른발",0],["양현준","대한민국","셀틱","기타","RW,LW",71,89,62,60,78,32,56,4,2,"오른발",0],["황인범","대한민국","페예노르트","기타","CM,CDM,CAM",79,70,72,81,79,68,68,3,4,"오른발",0],["주민규","대한민국","대전","K리그","ST",75,68,78,60,68,34,78,2,3,"오른발",0]];
+/* ── 시즌 ──────────────────────────────────────────────────
+   티어는 오버롤 보정과 가치 배수를 함께 정한다.               */
+const TIER = {
+  icon:   {bonus: 5, mul: 6.0, css:'var(--t-icon)'},
+  legend: {bonus: 4, mul: 3.6, css:'var(--t-legend)'},
+  high:   {bonus: 2, mul: 2.2, css:'var(--t-high)'},
+  mid:    {bonus: 0, mul: 1.3, css:'var(--t-mid)'},
+  base:   {bonus:-2, mul: 1.0, css:'var(--t-normal)'},
+};
+const SEASONS = [
+  {id:300, short:'23UP',  full:'23UP (23 Ultimate Player)',        tier:'high'},
+  {id:274, short:'ICON',  full:'ICON (Icon)',                      tier:'icon'},
+  {id:268, short:'TC',    full:'TC (Team Color)',                  tier:'legend'},
+  {id:256, short:'22TT',  full:'22TT (22 Team of the Tournament)', tier:'high'},
+  {id:245, short:'NG',    full:'NG (Next Generation)',             tier:'high'},
+  {id:234, short:'LH',    full:'LH (Live Heroes)',                 tier:'legend'},
+  {id:212, short:'MC',    full:'MC (Mobile Class)',                tier:'high'},
+  {id:101, short:'20KL',  full:'20KL (2020 K League)',             tier:'base'},
+];
+
+/* ── 한글 초성 검색 ────────────────────────────────────────
+   완성형 한글은 0xAC00 + (초성×21 + 중성)×28 + 종성 규칙으로 배열된다.
+   역산해 초성만 뽑으면 "ㅅㅎㅁ" 으로 손흥민을 찾을 수 있다.        */
+const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const FOLD = {'ㄲ':'ㄱ','ㄸ':'ㄷ','ㅃ':'ㅂ','ㅆ':'ㅅ','ㅉ':'ㅈ'};
+const CHOSET = new Set([...CHO, ...Object.keys(FOLD)]);
+const norm = s => s.toLowerCase().replace(/[\s.'`·・-]/g,'');
+const isCho = q => {const c=q.replace(/\s+/g,''); return !!c && [...c].every(ch=>CHOSET.has(ch));};
+function choKey(text){
+  let out='';
+  for(const ch of norm(text)){
+    const c = ch.charCodeAt(0);
+    out += (c>=0xac00 && c<=0xd7a3) ? CHO[Math.floor((c-0xac00)/588)] : ch;
+  }
+  return [...out].map(ch=>FOLD[ch]||ch).join('');
+}
+function score(name, query){
+  const q = norm(query);
+  if(!q) return 0;
+  if(isCho(query)){
+    const k = choKey(name), qk = [...q].map(ch=>FOLD[ch]||ch).join('');
+    return k===qk ? 100 : k.startsWith(qk) ? 80 : k.includes(qk) ? 55 : 0;
+  }
+  const t = norm(name);
+  if(t===q) return 100;
+  if(t.startsWith(q)) return 85;
+  if(t.includes(q)) return 60;
+  return choKey(name).includes(choKey(query)) ? 30 : 0;
+}
+
+/* ── 시드 난수 (xmur3 + mulberry32) ────────────────────────
+   같은 시드는 언제나 같은 결과. 확률 검증과 결과 공유에 쓴다.    */
+function hash32(str){
+  let h = 1779033703 ^ str.length;
+  for(let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h<<13)|(h>>>19); }
+  return () => { h = Math.imul(h ^ h>>>16, 2246822507); h = Math.imul(h ^ h>>>13, 3266489909); h ^= h>>>16; return h>>>0; };
+}
+function rngOf(seed){
+  let a = hash32(seed)() >>> 0;
+  const next = () => { a = (a + 0x6d2b79f5)>>>0; let t=a; t = Math.imul(t ^ t>>>15, t|1); t ^= t + Math.imul(t ^ t>>>7, t|61); return ((t ^ t>>>14)>>>0)/4294967296; };
+  return {seed, next,
+    int:(lo,hi)=>Math.floor(next()*(hi-lo+1))+lo,
+    pick:arr=>arr[Math.floor(next()*arr.length)]};
+}
+function weighted(rng, items, weightOf){
+  let total = 0; const cum = items.map(it => total += Math.max(0, weightOf(it)));
+  if(total <= 0) return items[0];
+  const target = rng.next()*total;
+  let lo=0, hi=items.length-1;
+  while(lo<hi){ const mid=(lo+hi)>>1; if(cum[mid]<=target) lo=mid+1; else hi=mid; }
+  return items[lo];
+}
+
+/* ── 포맷 ─────────────────────────────────────────────────── */
+function bp(v){
+  if(!isFinite(v)) return '-';
+  const s = v<0?'-':'', n = Math.abs(v);
+  if(n >= 1e8){ const h=Math.floor(n/1e8), t=n%1e8; return s+h.toLocaleString('ko-KR')+'억'+(t?' '+Math.floor(t/1e4).toLocaleString('ko-KR')+'만':''); }
+  if(n >= 1e4){ const h=Math.floor(n/1e4), t=n%1e4; return s+h.toLocaleString('ko-KR')+'만'+(t?' '+t.toLocaleString('ko-KR'):''); }
+  return s+n.toLocaleString('ko-KR');
+}
+const nf = n => (isFinite(n) ? n.toLocaleString('ko-KR') : '-');
+const pct = (r,d=2) => (isFinite(r) ? (r*100).toFixed(d)+'%' : '-');
+function when(iso){
+  const d = new Date(iso);
+  return isNaN(d) ? iso : new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'short'}).format(d);
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el = (sel, root=document) => root.querySelector(sel);
+
+/* ── 가치·강화 모델 ────────────────────────────────────────
+   공개 API 에 시세와 강화 상승폭이 없어 자체 추정한다.
+   실제 시세 소스가 생기면 이 두 상수만 갈아끼우면 된다.        */
+const GRADE_MUL  = [1,1.5,2.4,4.0,6.8,12,23,48,110,280];
+const OVR_GAIN   = [0,1,2,3,4,6,8,11,14,18];
+const STAT_GAIN  = [1,1.012,1.025,1.038,1.052,1.078,1.105,1.14,1.185,1.24];
+const UP_RATE    = [.95,.90,.80,.65,.50,.34,.20,.11,.05];
+const clampG = g => Math.max(1, Math.min(10, Math.round(g)));
+const baseValue = ovr => Math.round(900 * Math.pow(1.315, Math.max(0, ovr-60)) / 100) * 100;
+const valueOf = (ovr, tier, grade=1) =>
+  Math.round(baseValue(ovr) * TIER[tier].mul * GRADE_MUL[clampG(grade)-1] / 1000) * 1000;
+
+function enhance(card, grade){
+  const g = clampG(grade), f = STAT_GAIN[g-1];
+  const cs = n => Math.max(1, Math.min(130, Math.round(n*f)));
+  return {
+    grade: g,
+    ovr: card.ovr + OVR_GAIN[g-1],
+    stats: card.stats.map(cs),
+    value: valueOf(card.ovr, card.tier, g),
+  };
+}
+function upOdds(from, to){
+  let rate = 1, tries = 0;
+  for(let g=clampG(from); g<clampG(to); g++){ const r = UP_RATE[g-1] ?? .05; rate *= r; tries += 1/r; }
+  return {rate, tries};
+}
+
+/* ── 카탈로그: 선수 × 시즌 = 카드 ─────────────────────────── */
+const STAT_LABELS = ['속도','슛','패스','드리블','수비','피지컬'];
+function pidOf(name){
+  let h = 2166136261;
+  for(let i=0;i<name.length;i++){ h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return 100000 + ((h>>>0) % 800000);
+}
+const CARDS = [];
+for(const s of SEASONS){
+  for(const p of P){
+    const [name,nation,club,league,pos,ovr,pac,sho,pas,dri,def,phy,sm,wf,foot,gk] = p;
+    CARDS.push({
+      spid: s.id*1e6 + pidOf(name),
+      name, nation, club, league, foot, sm, wf, gk: !!gk,
+      positions: pos.split(','),
+      season: s, tier: s.tier,
+      ovr: Math.max(40, Math.min(120, ovr + TIER[s.tier].bonus)),
+      stats: [pac,sho,pas,dri,def,phy],
+      key: norm(name), cho: choKey(name),
+    });
+  }
+}
+const BY_SPID = new Map(CARDS.map(c => [c.spid, c]));
+
+function searchCards({query='', season=0, position='', limit=40}){
+  const hits = [];
+  for(const c of CARDS){
+    if(season && c.season.id !== season) continue;
+    if(position && !c.positions.includes(position)) continue;
+    const sc = query.trim() ? score(c.name, query) : 1;
+    if(!sc) continue;
+    hits.push([sc, c]);
+  }
+  hits.sort((a,b) => b[0]-a[0] || b[1].ovr-a[1].ovr || b[1].season.id-a[1].season.id);
+
+  let cards = hits.map(h => h[1]);
+  if(!query.trim()){
+    // 둘러보기 모드에서는 선수당 최고 카드 한 장만 (같은 얼굴이 8번 반복되지 않도록)
+    const seen = new Set();
+    cards = cards.filter(c => !seen.has(c.name) && seen.add(c.name));
+  }
+  return {cards: cards.slice(0, limit), total: cards.length};
+}
+
+/* ── 카드 렌더 ─────────────────────────────────────────────
+   외부 이미지는 이 페이지에서 불러올 수 없어(CSP), 선수 얼굴 대신
+   시즌 티어색으로 물든 이니셜 로델을 쓴다.                      */
+function cardHTML(card, {grade=1, w=104, fit, sel=false, value=false, tag='div', attrs=''} = {}){
+  const e = enhance(card, grade);
+  const fitAttr = fit === undefined ? '' : fit >= .94 ? '' : fit >= .8 ? ' data-fit="warn"' : ' data-fit="bad"';
+  return `<${tag} class="pc"${fitAttr}${sel?' data-sel="1"':''} ${attrs}
+    style="--cw:${w}px;--tier:${TIER[card.tier].css}"
+    title="${esc(card.name)} · ${esc(card.season.full)} · OVR ${e.ovr}">
+    <div class="pc-top">
+      <span><b class="pc-ovr">${e.ovr}</b><span class="pc-pos">${card.positions[0]}</span></span>
+      ${grade>1 ? `<span class="pc-gr">+${grade}</span>` : ''}
+    </div>
+    <div class="pc-face"><span>${esc(card.name.slice(0,1))}</span></div>
+    <div class="pc-foot">
+      <span class="pc-name">${esc(card.name)}</span>
+      <span class="pc-sn">${esc(card.season.short)}</span>
+      ${value ? `<span class="pc-val">${bp(e.value)}</span>` : ''}
+    </div>
+  </${tag}>`;
+}
+
+/* ── 포메이션 ──────────────────────────────────────────────
+   x: 0(왼쪽)~100(오른쪽), y: 0(상대 골대)~100(우리 골대)        */
+const FORMATIONS = [
+  {id:'4-3-3', name:'4-3-3', desc:'측면 윙어를 활용한 정통 공격형', slots:[
+    ['gk','GK',50,90],['lb','LB',11,71],['lcb','LCB',34,78],['rcb','RCB',66,78],['rb','RB',89,71],
+    ['lcm','LCM',27,52],['cm','CM',50,57],['rcm','RCM',73,52],
+    ['lw','LW',16,22],['st','ST',50,13],['rw','RW',84,22]]},
+  {id:'4-2-3-1', name:'4-2-3-1', desc:'더블 볼란치로 중원을 잠그는 밸런스형', slots:[
+    ['gk','GK',50,90],['lb','LB',11,71],['lcb','LCB',34,78],['rcb','RCB',66,78],['rb','RB',89,71],
+    ['ldm','LDM',34,60],['rdm','RDM',66,60],
+    ['lam','LAM',17,37],['cam','CAM',50,34],['ram','RAM',83,37],['st','ST',50,12]]},
+  {id:'4-4-2', name:'4-4-2', desc:'두 줄 수비와 투톱, 가장 무난한 형태', slots:[
+    ['gk','GK',50,90],['lb','LB',10,71],['lcb','LCB',35,78],['rcb','RCB',65,78],['rb','RB',90,71],
+    ['lm','LM',12,48],['lcm','LCM',37,54],['rcm','RCM',63,54],['rm','RM',88,48],
+    ['ls','LS',38,16],['rs','RS',62,16]]},
+  {id:'4-1-2-1-2', name:'다이아몬드', desc:'중앙 과밀 다이아몬드, 짧은 패스에 강함', slots:[
+    ['gk','GK',50,90],['lb','LB',10,71],['lcb','LCB',35,78],['rcb','RCB',65,78],['rb','RB',90,71],
+    ['cdm','CDM',50,63],['lcm','LCM',24,48],['rcm','RCM',76,48],['cam','CAM',50,32],
+    ['ls','LS',38,14],['rs','RS',62,14]]},
+  {id:'3-5-2', name:'3-5-2', desc:'윙백을 올려 측면 숫자를 만드는 공격형', slots:[
+    ['gk','GK',50,90],['lcb','LCB',28,78],['cb','CB',50,81],['rcb','RCB',72,78],
+    ['lwb','LWB',9,52],['cdm','CDM',50,60],['rwb','RWB',91,52],
+    ['lcm','LCM',30,40],['rcm','RCM',70,40],['ls','LS',38,14],['rs','RS',62,14]]},
+  {id:'5-3-2', name:'5-3-2', desc:'스리백 + 윙백, 역습 지향 수비형', slots:[
+    ['gk','GK',50,90],['lwb','LWB',8,64],['lcb','LCB',30,80],['cb','CB',50,83],['rcb','RCB',70,80],['rwb','RWB',92,64],
+    ['lcm','LCM',27,48],['cm','CM',50,52],['rcm','RCM',73,48],['ls','LS',38,15],['rs','RS',62,15]]},
+];
+
+/* ── 포지션 적합도 ─────────────────────────────────────────── */
+const ARCH = {GK:'gk',SW:'cb',CB:'cb',RCB:'cb',LCB:'cb',RB:'fb',LB:'fb',RWB:'fb',LWB:'fb',
+  CDM:'dm',RDM:'dm',LDM:'dm',CM:'cm',RCM:'cm',LCM:'cm',CAM:'am',RAM:'am',LAM:'am',CF:'am',
+  RM:'wing',LM:'wing',RW:'wing',LW:'wing',RF:'wing',LF:'wing',ST:'st',RS:'st',LS:'st'};
+const LINE = {GK:'d',SW:'d',CB:'d',RCB:'d',LCB:'d',RB:'d',LB:'d',RWB:'d',LWB:'d',
+  CDM:'m',RDM:'m',LDM:'m',CM:'m',RCM:'m',LCM:'m',RM:'m',LM:'m',CAM:'m',RAM:'m',LAM:'m',
+  CF:'a',RF:'a',LF:'a',RW:'a',LW:'a',ST:'a',RS:'a',LS:'a'};
+function fitOf(card, slotPos){
+  if(card.positions[0] === slotPos) return 1;
+  if(card.positions.includes(slotPos)) return .94;
+  const t = ARCH[slotPos];
+  if(card.positions.some(p => ARCH[p] === t)) return .82;
+  if((card.positions[0]==='GK') !== (slotPos==='GK')) return .35;
+  return .62;
+}
+
+/* ── 팀컬러 (자체 근사) ────────────────────────────────────
+   실제 팀컬러는 넥슨이 정한 고정 조합 목록이고 공개 API 에 없다.
+   여기서는 같은 클럽/국가/리그 인원수 임계치로 근사한다.        */
+const TC_RULES = {
+  club:   {label:'클럽', th:[4,6,8],  bonus:[1.2,2.4,3.6]},
+  nation: {label:'국가', th:[4,6,9],  bonus:[.9,1.8,2.8]},
+  league: {label:'리그', th:[5,8,11], bonus:[.7,1.5,2.2]},
+};
+function teamColors(cards){
+  const out = [], hints = [];
+  for(const [kind, rule] of Object.entries(TC_RULES)){
+    const counts = new Map();
+    for(const c of cards){ const k = c[kind]; if(k) counts.set(k, (counts.get(k)||0)+1); }
+    for(const [label, n] of counts){
+      const lv = n>=rule.th[2] ? 3 : n>=rule.th[1] ? 2 : n>=rule.th[0] ? 1 : 0;
+      if(lv) out.push({label:`${label} · ${rule.label}`, n, lv, bonus:rule.bonus[lv-1]});
+      else if(rule.th[0]-n <= 2) hints.push({label:`${label} · ${rule.label}`, need:rule.th[0]-n});
+    }
+  }
+  out.sort((a,b) => b.lv-a.lv || b.n-a.n);
+  hints.sort((a,b) => a.need-b.need);
+  return {colors: out, hints: hints.slice(0,3)};
+}
+
+function rateSquad(entries){
+  if(!entries.length) return null;
+  const {colors, hints} = teamColors(entries.map(e => e.card));
+  const chem = Math.min(8, colors.reduce((s,c) => s+c.bonus, 0));
+  const lines = {d:[], m:[], a:[]}, avg = [0,0,0,0,0,0], misfits = [];
+  let wsum = 0, raw = 0, total = 0;
+
+  for(const en of entries){
+    const e = enhance(en.card, en.grade), fit = fitOf(en.card, en.pos);
+    raw += e.ovr; wsum += e.ovr*fit; total += e.value;
+    if(fit < .94) misfits.push(en.card.name);
+    (lines[LINE[en.pos]] || lines.m).push(e.ovr*fit);
+    e.stats.forEach((v,i) => avg[i] += v);
+  }
+  const n = entries.length;
+  const mean = a => a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : 0;
+  return {
+    n, overall: Math.round(wsum/n + chem), raw: Math.round(raw/n),
+    chem: Math.round(chem*10)/10, colors, hints, total, misfits,
+    lines: {d: mean(lines.d), m: mean(lines.m), a: mean(lines.a)},
+    avg: avg.map(v => Math.round(v/n)),
+  };
+}
+
+/* ── 스쿼드 상태 (localStorage 저장) ───────────────────────── */
+const STORE_KEY = 'fc-squad-console:v1';
+const squad = {fid:'4-3-3', slots:{}, sel:null};
+try{
+  const raw = localStorage.getItem(STORE_KEY);
+  if(raw){
+    const s = JSON.parse(raw);
+    if(FORMATIONS.some(f => f.id === s.fid)) squad.fid = s.fid;
+    for(const [k,v] of Object.entries(s.slots||{})){
+      const card = BY_SPID.get(v.spid);
+      if(card) squad.slots[k] = {card, grade: clampG(v.grade||1)};
+    }
+  }
+}catch(err){ /* 프라이빗 모드 등에서 접근이 막히면 그냥 빈 스쿼드로 시작 */ }
+
+function save(){
+  try{
+    const slots = {};
+    for(const [k,v] of Object.entries(squad.slots)) slots[k] = {spid: v.card.spid, grade: v.grade};
+    localStorage.setItem(STORE_KEY, JSON.stringify({fid: squad.fid, slots}));
+  }catch(err){ /* 저장 실패는 무시 — 화면 동작에는 지장이 없다 */ }
+}
+const formation = () => FORMATIONS.find(f => f.id === squad.fid) || FORMATIONS[0];
+
+function place(slotId, card){
+  for(const [k,v] of Object.entries(squad.slots)) if(v.card.spid === card.spid && k !== slotId) delete squad.slots[k];
+  squad.slots[slotId] = {card, grade: squad.slots[slotId]?.grade || 1};
+  squad.sel = null; save(); renderSquad();
+}
+function swap(a, b){
+  if(a === b) return;
+  const A = squad.slots[a], B = squad.slots[b];
+  if(B) squad.slots[a] = B; else delete squad.slots[a];
+  if(A) squad.slots[b] = A; else delete squad.slots[b];
+  squad.sel = null; save(); renderSquad();
+}
+
+/* ── 스쿼드 화면 ───────────────────────────────────────────── */
+const DND_CARD = 'card:', DND_SLOT = 'slot:';   // text/plain 페이로드 접두사
+
+function renderPitch(){
+  const f = formation();
+  const lines = `
+    <div class="ln" style="inset:10px; border-radius:6px"></div>
+    <div class="ln" style="left:10px; right:10px; top:50%; height:0; border-width:1px 0 0"></div>
+    <div class="ln" style="left:50%; top:50%; width:74px; height:74px; margin:-37px 0 0 -37px; border-radius:50%"></div>
+    <div class="ln" style="left:50%; bottom:10px; width:44%; height:58px; margin-left:-22%; border-width:1px 1px 0"></div>
+    <div class="ln" style="left:50%; top:10px; width:44%; height:58px; margin-left:-22%; border-width:0 1px 1px"></div>
+    <div class="ln" style="left:50%; bottom:10px; width:22%; height:26px; margin-left:-11%; border-width:1px 1px 0"></div>
+    <div class="ln" style="left:50%; top:10px; width:22%; height:26px; margin-left:-11%; border-width:0 1px 1px"></div>`;
+
+  const slots = f.slots.map(([id, pos, x, y]) => {
+    const en = squad.slots[id];
+    const inner = en
+      ? `<div draggable="true" data-drag-slot="${id}" style="position:relative">
+           ${cardHTML(en.card, {grade: en.grade, w: 88, fit: fitOf(en.card, pos), sel: squad.sel===id, tag:'button', attrs:`data-pick-slot="${id}"`})}
+           <button class="rm" data-rm="${id}" aria-label="${esc(en.card.name)} 제외">×</button>
+           ${(() => { const fit = fitOf(en.card, pos);
+              return fit >= .94 ? '' : `<span class="fitflag ${fit>=.8?'warn':'bad'}">${pos} ${fit>=.8?'보통':'부적합'}</span>`; })()}
+         </div>`
+      : `<button class="empty" data-pick-slot="${id}"${squad.sel===id?' data-sel="1"':''}><span>＋</span><span>${pos}</span></button>`;
+    return `<div class="slot" data-slot="${id}" style="left:${x}%; top:${y}%">${inner}</div>`;
+  }).join('');
+
+  el('#pitch').innerHTML = lines + slots;
+}
+
+function renderRating(){
+  const f = formation();
+  const entries = f.slots
+    .filter(([id]) => squad.slots[id])
+    .map(([id, pos]) => ({id, pos, card: squad.slots[id].card, grade: squad.slots[id].grade}));
+  const r = rateSquad(entries);
+  const box = el('#sq-rate');
+
+  if(!r){
+    box.innerHTML = `<div class="panel"><div class="pbody" style="display:grid; place-items:center; padding:34px">
+      <div class="empty-state"><strong>아직 배치한 선수가 없습니다</strong>
+      <p>오른쪽에서 선수를 찾아 피치로 끌어다 놓거나, 빈 자리를 눌러 선택한 뒤 카드를 클릭하세요.</p></div></div></div>`;
+    return;
+  }
+
+  const bar = (label, v) => {
+    const col = v>=90 ? 'var(--t-high)' : v>=80 ? 'var(--good)' : v>=70 ? 'var(--accent)' : 'var(--ink-3)';
+    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/110*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
+  };
+
+  box.innerHTML = `<div class="panel">
+    <div class="phead">
+      <div><h2>스쿼드 평가</h2><p>${r.n} / ${f.slots.length}명 배치 · ${esc(f.desc)}</p></div>
+      <span class="badge ${r.n===f.slots.length?'good':''}">${r.n===f.slots.length?'완성':`${f.slots.length-r.n}자리 남음`}</span>
+    </div>
+    <div class="pbody">
+      <dl class="tiles" style="margin:0">
+        <div class="tile"><dt>종합</dt><dd>${r.overall}<small>${r.chem>0?`팀컬러 +${r.chem}`:'팀컬러 없음'}</small></dd></div>
+        <div class="tile"><dt>수비</dt><dd>${r.lines.d||'–'}</dd></div>
+        <div class="tile"><dt>미드필드</dt><dd>${r.lines.m||'–'}</dd></div>
+        <div class="tile"><dt>공격</dt><dd>${r.lines.a||'–'}</dd></div>
+      </dl>
+      <div style="display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(216px,1fr)); margin-top:15px">
+        <div>
+          <p class="eyebrow" style="margin:0 0 7px">평균 능력치</p>
+          <div style="display:grid; gap:6px">${STAT_LABELS.map((l,i) => bar(l, r.avg[i])).join('')}</div>
+        </div>
+        <div>
+          <p class="eyebrow" style="margin:0 0 7px">팀컬러 · 자체 근사</p>
+          ${r.colors.length ? `<div style="display:grid; gap:5px">${r.colors.slice(0,5).map(c =>
+            `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 9px; background:var(--surface-2); border:1px solid var(--line); border-radius:7px">
+              <span style="font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(c.label)}</span>
+              <span style="display:flex; gap:6px; flex-shrink:0; align-items:center">
+                <span class="num" style="font-size:11px; color:var(--ink-3)">${c.n}명</span>
+                <span class="badge ${c.lv>=2?'gold':''}">Lv.${c.lv}</span></span>
+            </div>`).join('')}</div>`
+            : `<p style="margin:0; font-size:11.5px; color:var(--ink-3)">발동한 팀컬러가 없습니다. 같은 클럽·국가·리그 선수를 모아 보세요.</p>`}
+          ${r.hints.length ? `<p style="margin:7px 0 0; font-size:10.5px; color:var(--ink-3)">${r.hints.map(h => `${esc(h.label)} <b style="color:var(--accent-text)">${h.need}명</b>`).join(' · ')} 더 모으면 발동합니다.</p>` : ''}
+          ${r.misfits.length ? `<p style="margin:7px 0 0; font-size:10.5px; color:var(--bad)">포지션이 맞지 않음 — ${esc(r.misfits.join(', '))}</p>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="note" style="display:flex; justify-content:space-between; align-items:center">
+      <span>스쿼드 총 추정 가치</span>
+      <b class="num" style="font-size:14px; color:var(--good)">${bp(r.total)} BP</b>
+    </div>
+  </div>`;
+}
+
+function renderEnhance(){
+  const box = el('#sq-enh');
+  const en = squad.sel && squad.slots[squad.sel];
+  if(!en){ box.innerHTML = ''; return; }
+
+  const e = enhance(en.card, en.grade);
+  const odds = upOdds(1, en.grade);
+  const curve = Array.from({length:10}, (_,i) => enhance(en.card, i+1));
+  // +1 → +10 가치가 280배까지 벌어져 선형 축으로 그리면 앞의 여덟 칸이 바닥에 붙는다.
+  // 로그 축으로 그려 단계별 증가를 읽을 수 있게 하고, 축 종류를 명시한다.
+  const lo = Math.log(curve[0].value), hi = Math.log(curve[9].value);
+  const barH = v => 8 + (hi > lo ? (Math.log(v) - lo) / (hi - lo) * 92 : 92);
+  const bar = (label, v) => {
+    const col = v>=90 ? 'var(--t-high)' : v>=80 ? 'var(--good)' : v>=70 ? 'var(--accent)' : 'var(--ink-3)';
+    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/110*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
+  };
+
+  box.innerHTML = `<div class="panel">
+    <div class="phead"><div><h2>강화 시뮬레이션</h2><p>${esc(en.card.name)} · ${esc(en.card.season.full)}</p></div></div>
+    <div class="pbody" style="display:grid; gap:13px">
+      <div style="display:flex; align-items:center; gap:12px">
+        <b class="num" style="width:38px; text-align:center; font-size:22px; color:var(--accent-text)">+${en.grade}</b>
+        <input type="range" min="1" max="10" step="1" value="${en.grade}" id="grade" aria-label="강화 단계"
+               style="flex:1; accent-color:var(--accent); cursor:pointer">
+      </div>
+      <dl class="tiles" style="margin:0">
+        <div class="tile"><dt>오버롤</dt><dd>${e.ovr}<small>기본 ${en.card.ovr}</small></dd></div>
+        <div class="tile good"><dt>추정 가치</dt><dd style="font-size:14px">${bp(e.value)}<small>BP</small></dd></div>
+        <div class="tile ${odds.rate<.05?'bad':''}"><dt>+1→현재</dt><dd style="font-size:14px">${pct(odds.rate,1)}<small>기대 ${odds.tries.toFixed(1)}회 시도</small></dd></div>
+      </dl>
+      <div style="display:grid; gap:6px">${STAT_LABELS.map((l,i) => bar(l, e.stats[i])).join('')}</div>
+      <div>
+        <p class="eyebrow" style="margin:0 0 7px">강화 단계별 추정 가치 <span style="text-transform:none; letter-spacing:0; color:var(--ink-3)">· 로그 축</span></p>
+        <div style="display:flex; align-items:flex-end; gap:4px; height:62px">
+          ${curve.map(c => `<button data-grade="${c.grade}" title="+${c.grade} · OVR ${c.ovr} · ${bp(c.value)} BP"
+            style="flex:1; border-radius:4px 4px 0 0; height:${barH(c.value)}%;
+            background:${c.grade===en.grade?'var(--accent)':'var(--surface-3)'}"></button>`).join('')}
+        </div>
+        <div style="display:flex; gap:4px; margin-top:3px">
+          ${curve.map(c => `<span class="num" style="flex:1; text-align:center; font-size:8.5px; color:var(--ink-3)">${c.grade}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="note">가치와 상승폭은 공개 API 에 없는 항목이라 자체 추정 모델입니다. 실제 거래소 시세와 다릅니다.</div>
+  </div>`;
+}
+
+let sqResults = [];
+function renderResults(){
+  const q = el('#q').value;
+  const season = Number(el('#f-season').value) || 0;
+  const pos = el('#f-pos').value;
+  const {cards, total} = searchCards({query:q, season, position:pos, limit:48});
+  sqResults = cards;
+
+  el('#q-count').innerHTML = `${nf(total)}건 중 ${cards.length}건 표시` +
+    (q.trim() && isCho(q) ? ' <span class="badge gold" style="margin-left:4px">초성 검색</span>' : '');
+  const selSlot = squad.sel && formation().slots.find(s => s[0] === squad.sel);
+  el('#sq-hint').textContent = selSlot
+    ? `‘${selSlot[1]}’ 자리에 넣을 선수를 고르세요`
+    : '카드를 피치로 끌어다 놓거나, 자리를 먼저 고르세요';
+
+  el('#sq-results').innerHTML = cards.length
+    ? cards.map(c => `<div draggable="true" data-drag-card="${c.spid}">${cardHTML(c, {w:96, value:true, tag:'button', attrs:`data-add="${c.spid}" style="width:100%"`})}</div>`).join('')
+    : `<div class="empty-state" style="grid-column:1/-1; justify-self:center; padding:26px 0">
+         <strong>검색 결과가 없습니다</strong><p>다른 이름이나 초성으로 찾거나, 시즌·포지션 필터를 풀어 보세요.</p></div>`;
+}
+
+function renderSquad(){
+  el('#formations').innerHTML = FORMATIONS.map(f =>
+    `<button class="chip" data-formation="${f.id}" title="${esc(f.desc)}"
+      style="${f.id===squad.fid?'background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600':''}">${esc(f.name)}</button>`).join('');
+  renderPitch(); renderRating(); renderEnhance(); renderResults();
+}
+
+/* ── 구단주 조회 ───────────────────────────────────────────
+   저장소 버전은 /api/manager → 넥슨 Open API 를 호출한다.
+   이 페이지는 서버가 없어 같은 모양의 데이터를 닉네임 시드로
+   결정적으로 만들어 쓴다 — 같은 닉네임은 언제나 같은 결과.     */
+const DIVISIONS = {800:'슈퍼 챔피언스',900:'챔피언스',1000:'슈퍼 챌린지',1100:'챌린지1',1200:'챌린지2',
+  1300:'챌린지3',2000:'월드클래스1',2100:'월드클래스2',2200:'월드클래스3',2300:'프로1',2400:'프로2',2500:'프로3'};
+const MATCH_TYPES = {50:'공식경기', 52:'감독모드', 40:'친선경기', 60:'볼타 공식경기'};
+const RIVALS = ['강남_피파장인','역삼동케인','컨트롤러파괴자','수비만해요','무패신화','박스깡의신','월클도전중','드리블머신','골든볼','손세이셔널'];
+const DIV_POOL = [800,900,1000,1100,1200,2000,2100,2200,2300];
+
+const ouidOf = nick => {
+  const r = rngOf('ouid:'+nick);
+  return Array.from({length:4}, () => Math.floor(r.next()*0xffffffff).toString(16).padStart(8,'0')).join('');
+};
+
+function pickAt(rng, pos){
+  const exact = CARDS.filter(c => c.positions.includes(pos));
+  const near  = CARDS.filter(c => c.positions.some(p => ARCH[p] === ARCH[pos]));
+  return rng.pick(exact.length ? exact : near.length ? near : CARDS);
+}
+const LINEUP_POS = ['GK','LB','LCB','RCB','RB','LCM','CM','RCM','LW','ST','RW'];
+
+function buildManager(nick){
+  const r = rngOf('basic:'+nick);
+  const level = r.int(40,130);
+  const divisions = [50,52].map(mt => ({
+    mt, div: r.pick(DIV_POOL),
+    date: new Date(Date.now() - r.int(30,900)*864e5).toISOString(),
+  }));
+
+  const matches = Array.from({length:8}, (_,i) => {
+    const m = rngOf(`match:${nick}:${i}`);
+    const o = m.next();
+    const res = o < .45 ? '승' : o < .85 ? '패' : '무';
+    const mine = res==='승' ? m.int(2,5) : res==='패' ? m.int(0,2) : m.int(1,3);
+    const theirs = res==='승' ? Math.max(0, mine - m.int(1,3)) : res==='패' ? mine + m.int(1,3) : mine;
+    return {
+      id: `${i}`, res, mine, theirs, rival: m.pick(RIVALS.filter(n => n !== nick).concat(RIVALS.length ? [] : ['상대 구단주'])),
+      mt: 50, date: new Date(Date.now() - m.int(1,480)*36e5).toISOString(),
+      poss: m.int(35,65), shots: mine + m.int(3,12), pass: m.int(72,92), rating: (6 + m.next()*2).toFixed(1),
+      lineup: LINEUP_POS.map(pos => ({pos, card: pickAt(m, pos), grade: m.next()<.6 ? 1 : m.int(2,8), goal: m.next()<.14 ? 1 : 0})),
+    };
+  });
+
+  const trade = kind => Array.from({length:14}, (_,i) => {
+    const t = rngOf(`trade:${nick}:${kind}:${i}`);
+    return {kind, card: t.pick(CARDS), grade: t.next()<.75 ? 1 : t.int(2,6),
+      value: t.int(3,900)*1e4, date: new Date(Date.now() - (i+1)*t.int(2,30)*36e5).toISOString()};
+  });
+  const buy = trade('buy'), sell = trade('sell');
+  const sum = a => a.reduce((s,x) => s+x.value, 0);
+
+  return {nick, ouid: ouidOf(nick), level, divisions, matches,
+    assets: {buy: sum(buy), sell: sum(sell), recent: [...buy, ...sell].sort((a,b) => b.date.localeCompare(a.date)).slice(0,14),
+             nBuy: buy.length, nSell: sell.length}};
+}
+
+function renderManager(nick){
+  const m = buildManager(nick);
+  const best = [...m.divisions].sort((a,b) => a.div-b.div)[0];
+  const w = m.matches.filter(x => x.res==='승').length;
+  const l = m.matches.filter(x => x.res==='패').length;
+  const net = m.assets.sell - m.assets.buy;
+  const resCls = r => r==='승' ? 'w' : r==='패' ? 'l' : 'd';
+
+  el('#mg-out').innerHTML = `
+  <div class="stack">
+    <div class="panel">
+      <div class="pbody" style="display:flex; flex-wrap:wrap; align-items:center; gap:14px; border-bottom:1px solid var(--line)">
+        <span style="display:grid; place-items:center; width:52px; height:52px; border-radius:14px;
+          background:var(--accent-soft); color:var(--accent-text); font-family:var(--f-display); font-size:24px">${esc(m.nick.slice(0,1))}</span>
+        <div style="min-width:0; flex:1">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:7px">
+            <h2 style="font-family:var(--f-display); font-size:19px">${esc(m.nick)}</h2>
+            <span class="badge gold">Lv. ${m.level}</span>
+            <span class="badge">${esc(DIVISIONS[best.div])}</span>
+          </div>
+          <p class="num" style="margin:3px 0 0; font-size:10px; color:var(--ink-3); word-break:break-all">OUID ${m.ouid}</p>
+        </div>
+      </div>
+      <div class="pbody">
+        <dl class="tiles" style="margin:0">
+          <div class="tile"><dt>레벨</dt><dd>${m.level}</dd></div>
+          <div class="tile"><dt>역대 최고 등급</dt><dd style="font-size:13px">${esc(DIVISIONS[best.div])}<small>${MATCH_TYPES[best.mt]}</small></dd></div>
+          <div class="tile"><dt>최근 8경기</dt><dd style="font-size:15px">${w}승 ${8-w-l}무 ${l}패</dd></div>
+          <div class="tile ${net>=0?'good':'bad'}"><dt>순손익</dt><dd style="font-size:13px">${net>=0?'+':''}${bp(net)}<small>매도 − 매입</small></dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div class="phead"><div><h2>최근 매치 기록</h2><p>행을 펼치면 출전 명단 11인이 나옵니다</p></div>
+          <span class="badge">${MATCH_TYPES[50]}</span></div>
+        <div class="pbody">
+          ${m.matches.map(x => `
+          <div class="match">
+            <button data-match="${x.id}" aria-expanded="false">
+              <span class="res ${resCls(x.res)}">${x.res}</span>
+              <span style="flex:1; min-width:0">
+                <span class="score">${x.mine} <span style="color:var(--ink-3)">:</span> ${x.theirs}</span>
+                <span style="display:block; font-size:10.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">vs ${esc(x.rival)} · ${when(x.date)}</span>
+              </span>
+              <span class="mmeta">
+                <span>점유 <b class="num">${x.poss}%</b></span>
+                <span>슛 <b class="num">${x.shots}</b></span>
+                <span>평점 <b class="num">${x.rating}</b></span>
+              </span>
+            </button>
+            <div class="lineup" id="lu-${x.id}" hidden>
+              ${x.lineup.map(p => `<span style="position:relative">${cardHTML(p.card, {grade:p.grade, w:64})}
+                ${p.goal ? `<span style="position:absolute; top:-5px; right:-5px; display:grid; place-items:center; width:16px; height:16px; border-radius:50%; background:var(--accent); color:var(--accent-ink); font-size:9px; font-weight:700">${p.goal}</span>` : ''}
+              </span>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead">
+          <div><h2>구단 자금 흐름</h2><p>최근 이적시장 거래 기준</p></div>
+          <span class="badge" title="넥슨 Open API 는 보유 BP·캐시 잔액을 제공하지 않습니다. 거래 내역으로 계산한 값입니다.">잔액 아님</span>
+        </div>
+        <div class="pbody">
+          <dl class="tiles" style="margin:0 0 12px">
+            <div class="tile bad"><dt>매입</dt><dd style="font-size:13px">${bp(m.assets.buy)}<small>${m.assets.nBuy}건</small></dd></div>
+            <div class="tile good"><dt>매도</dt><dd style="font-size:13px">${bp(m.assets.sell)}<small>${m.assets.nSell}건</small></dd></div>
+          </dl>
+          <div class="tw scroll" style="max-height:296px; border:1px solid var(--line); border-radius:var(--r-sm)">
+            <table>
+              <thead><tr><th>선수</th><th class="c">강화</th><th class="r">거래가</th><th class="r">구분</th></tr></thead>
+              <tbody>${m.assets.recent.map(t => `<tr>
+                <td><span style="display:flex; align-items:center; gap:6px">
+                  <b class="num" style="padding:0 4px; border-radius:3px; background:var(--surface-3); font-size:10px">${t.card.ovr}</b>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(t.card.name)}</span></span></td>
+                <td class="c">${t.grade>1 ? `<span class="badge gold">+${t.grade}</span>` : '<span style="color:var(--ink-3)">–</span>'}</td>
+                <td class="r num" style="font-weight:600">${bp(t.value)}</td>
+                <td class="r"><span class="badge ${t.kind==='sell'?'good':'bad'}">${t.kind==='sell'?'매도':'매입'}</span></td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="note"><b>보유 자산은 공개 API 에 없습니다.</b> 넥슨이 주는 건 이적시장 거래 내역뿐이라, 잔액 대신 자금 흐름으로 대신 보여줍니다.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── 상자 정의 ─────────────────────────────────────────────
+   확률과 가격 모두 이 프로젝트가 정한 샘플 값이다. 넥슨은 확률을
+   게임 내 '확률 공개' 페이지에 공시하고 API 로는 주지 않는다.
+   실제 값으로 바꾸려면 이 배열만 교체하면 나머지는 그대로 돈다.   */
+const BOXES = [
+  {id:'premium-bp', name:'BP 프리미엄 팩', sub:'BP 로 사는 기본 팩. 스쿼드 뼈대를 무난하게 채운다.',
+   cur:'BP', price:5_000_000, draws:3, tiers:[
+    {id:'common', label:'일반 · OVR ~79',   p:.62,  css:'var(--t-normal)', rare:1, f:{max:79}},
+    {id:'rare',   label:'레어 · OVR 80–84', p:.27,  css:'var(--t-mid)',    rare:2, f:{min:80,max:84}},
+    {id:'epic',   label:'에픽 · OVR 85–88', p:.093, css:'var(--t-high)',   rare:3, f:{min:85,max:88}},
+    {id:'legend', label:'레전드 · OVR 89+', p:.016, css:'var(--t-legend)', rare:4, f:{min:89}},
+    {id:'icon',   label:'아이콘',            p:.001, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+  {id:'ultimate', name:'얼티밋 셀렉트 팩', sub:'캐시 전용. 고오버롤 확률이 크게 올라간 프리미엄 상자.',
+   cur:'캐시', price:12_900, draws:1, pity:{tier:'legend', after:20}, tiers:[
+    {id:'common', label:'일반 · OVR ~82',   p:.34,  css:'var(--t-normal)', rare:1, f:{max:82}},
+    {id:'rare',   label:'레어 · OVR 83–86', p:.42,  css:'var(--t-mid)',    rare:2, f:{min:83,max:86}},
+    {id:'epic',   label:'에픽 · OVR 87–89', p:.19,  css:'var(--t-high)',   rare:3, f:{min:87,max:89}},
+    {id:'legend', label:'레전드 · OVR 90+', p:.042, css:'var(--t-legend)', rare:4, f:{min:90}},
+    {id:'icon',   label:'아이콘',            p:.008, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+  {id:'lucky', name:'이벤트 럭키 박스', sub:'싸고 많이. 다섯 장을 한 번에 열지만 대부분 저오버롤이다.',
+   cur:'BP', price:2_400_000, draws:5, tiers:[
+    {id:'common', label:'일반 · OVR ~76',   p:.78,   css:'var(--t-normal)', rare:1, f:{max:76}},
+    {id:'rare',   label:'레어 · OVR 77–82', p:.185,  css:'var(--t-mid)',    rare:2, f:{min:77,max:82}},
+    {id:'epic',   label:'에픽 · OVR 83–87', p:.032,  css:'var(--t-high)',   rare:3, f:{min:83,max:87}},
+    {id:'legend', label:'레전드 · OVR 88+', p:.0028, css:'var(--t-legend)', rare:4, f:{min:88}},
+    {id:'icon',   label:'아이콘',            p:.0002, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+  {id:'icon-fix', name:'아이콘 확정 팩', sub:'아이콘이 100% 나온다. 대신 어떤 아이콘일지는 운.',
+   cur:'캐시', price:99_000, draws:1, tiers:[
+    {id:'icon-lo', label:'아이콘 · OVR ~91', p:.72, css:'var(--t-legend)', rare:4, f:{tiers:['icon'], max:91}},
+    {id:'icon-hi', label:'아이콘 · OVR 92+', p:.28, css:'var(--t-icon)',   rare:5, f:{tiers:['icon'], min:92}}]},
+];
+
+const poolCache = new Map();
+function poolFor(f){
+  const key = JSON.stringify([f.tiers||null, f.min??null, f.max??null]);
+  let pool = poolCache.get(key);
+  if(!pool){
+    pool = CARDS.filter(c =>
+      (!f.tiers || f.tiers.includes(c.tier)) &&
+      (f.min === undefined || c.ovr >= f.min) &&
+      (f.max === undefined || c.ovr <= f.max));
+    poolCache.set(key, pool);
+  }
+  return pool;
+}
+
+/** 등급 확률 합이 1인지 검증. 표에 그대로 노출한다. */
+const probSum = box => box.tiers.reduce((s,t) => s+t.p, 0);
+
+function openBox(box, times, seed){
+  const rng = rngOf(seed);
+  const live = box.tiers.filter(t => poolFor(t.f).length > 0);
+  const tiers = live.length ? live : box.tiers;
+  if(live.length !== box.tiers.length){
+    // 풀이 빈 등급은 확률이 나머지로 재분배된다 — 표와 실제 분포가 어긋나므로 알린다.
+    console.warn('[pack] 뽑을 카드가 없는 등급:', box.tiers.filter(t => !live.includes(t)).map(t => t.id));
+  }
+
+  const out = [];
+  for(let i = 0; i < times*box.draws; i++){
+    const target = box.pity && tiers.find(t => t.id === box.pity.tier);
+    let tier, fromPity = false;
+    if(target && pack.pity + 1 >= box.pity.after){ tier = target; fromPity = true; }
+    else tier = weighted(rng, tiers, t => t.p);
+
+    if(target) pack.pity = tier.rare >= target.rare ? 0 : pack.pity + 1;
+
+    const pool = poolFor(tier.f);
+    const card = pool[rng.int(0, pool.length-1)];
+    const grade = tier.rare >= 4 && rng.next() < .15 ? rng.int(2,4) : 1;
+    out.push({tier, card, grade, value: valueOf(card.ovr, card.tier, grade), fromPity});
+  }
+  return {seed: rng.seed, cards: out, total: out.reduce((s,c) => s+c.value, 0),
+          cost: box.price * times, cur: box.cur};
+}
+
+/** 열기 전에 보여줄 기대값. 풀을 균등 표본으로 훑어 평균 가치를 낸다. */
+function describe(box){
+  const tiers = box.tiers.map(t => {
+    const pool = poolFor(t.f);
+    const step = Math.max(1, Math.floor(pool.length/24));
+    const sample = [];
+    for(let i = 0; i < pool.length && sample.length < 24; i += step) sample.push(pool[i]);
+    const avg = sample.length ? Math.round(sample.reduce((s,c) => s + valueOf(c.ovr, c.tier, 1), 0)/sample.length) : 0;
+    return {...t, size: pool.length, avg, once: 1 - Math.pow(1-t.p, box.draws)};
+  });
+  const ev = Math.round(tiers.reduce((s,t) => s + t.p*t.avg, 0) * box.draws);
+  return {tiers, ev, ratio: box.cur === 'BP' ? ev/box.price : null, sum: probSum(box)};
+}
+
+/* ── 상자 화면 ─────────────────────────────────────────────── */
+const pack = {boxId:'premium-bp', pity:0, phase:'idle', last:null,
+              stats:{opens:0, cards:0, bp:0, cash:0, gain:0, byTier:{}, best:null}};
+const curBox = () => BOXES.find(b => b.id === pack.boxId);
+
+function renderBoxes(){
+  el('#boxes').innerHTML = BOXES.map(b => `
+    <button class="box" data-box="${b.id}" aria-pressed="${b.id===pack.boxId}">
+      <span class="badge ${b.cur==='캐시'?'gold':''}">${b.cur}</span>
+      <h3>${esc(b.name)}</h3>
+      <p>${esc(b.sub)}</p>
+      <span class="price">${nf(b.price)} ${b.cur} · ${b.draws}장</span>
+      ${b.pity ? `<span style="display:block; margin-top:3px; font-size:10px; color:var(--accent-text)">천장 ${b.pity.after}회</span>` : ''}
+    </button>`).join('');
+}
+
+function renderStage(){
+  const b = curBox();
+  el('#pk-name').textContent = b.name;
+  el('#pk-sub').textContent = `1회 개봉 = ${b.draws}장 · ${nf(b.price)} ${b.cur}`;
+  const pityEl = el('#pk-pity');
+  if(b.pity){ pityEl.hidden = false; pityEl.textContent = `천장까지 ${Math.max(0, b.pity.after - pack.pity)}회`; }
+  else pityEl.hidden = true;
+
+  const stage = el('#stage');
+  stage.dataset.phase = pack.phase;
+  const inner = el('#stage-in');
+
+  if(pack.phase === 'open'){
+    inner.innerHTML = `<div style="display:grid; place-items:center; gap:13px">
+      <div class="crate">?</div>
+      <p style="margin:0; font-size:11.5px; color:var(--ink-3)">상자를 여는 중…</p></div>`;
+  } else if(pack.last){
+    const r = pack.last;
+    inner.innerHTML = `<div style="width:100%">
+      <div class="pull">${r.cards.map((c,i) => `
+        <div style="animation-delay:${Math.min(i*80, 780)}ms; text-align:center">
+          ${cardHTML(c.card, {grade:c.grade, w:110, value:true})}
+          <span class="cap" style="background:${c.tier.css}; color:#0B1512">${esc(c.tier.label.split(' · ')[0])}</span>
+          ${c.fromPity ? '<span class="badge gold" style="margin-left:3px">천장</span>' : ''}
+        </div>`).join('')}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:baseline;
+                  margin-top:15px; padding-top:12px; border-top:1px solid var(--line); font-size:11.5px">
+        <span style="color:var(--ink-3)">이번 개봉 총 가치 <b class="num" style="color:var(--good); font-size:13px">${bp(r.total)} BP</b></span>
+        <span class="num" style="font-size:10px; color:var(--ink-3)" title="같은 시드를 넣으면 같은 결과가 나옵니다">seed ${esc(r.seed.slice(0,14))}</span>
+      </div></div>`;
+  } else {
+    inner.innerHTML = `<div class="empty-state"><strong>아직 연 상자가 없습니다</strong>
+      <p>아래 버튼으로 시작하세요. 추첨은 시드 난수로 돌아가며, 결과에 남는 시드로 같은 판을 다시 뽑을 수 있습니다.</p></div>`;
+  }
+}
+
+function renderOdds(){
+  const b = curBox(), d = describe(b);
+  el('#pk-odds').innerHTML = `<div class="panel">
+    <div class="phead">
+      <div><h2>확률과 기대값</h2><p>1회 개봉 = ${b.draws}장</p></div>
+      <span class="badge ${Math.abs(d.sum-1)<1e-9?'good':'bad'}">확률 합 ${pct(d.sum,3)}</span>
+    </div>
+    <div class="pbody" style="padding-bottom:11px">
+      <dl class="tiles" style="margin:0">
+        <div class="tile"><dt>가격</dt><dd style="font-size:14px">${nf(b.price)}<small>${b.cur}</small></dd></div>
+        <div class="tile"><dt>기대 가치</dt><dd style="font-size:14px">${bp(d.ev)}<small>BP · 추정</small></dd></div>
+        <div class="tile ${d.ratio===null?'':d.ratio>=1?'good':'bad'}"><dt>가치÷가격</dt>
+          <dd style="font-size:14px">${d.ratio===null?'—':d.ratio.toFixed(2)+'배'}<small>${d.ratio===null?'캐시 상자':d.ratio>=1?'기대상 이득':'기대상 손해'}</small></dd></div>
+      </dl>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>등급</th><th class="r">확률</th><th class="r">1회 내</th><th class="r">풀</th><th class="r">평균 가치</th></tr></thead>
+        <tbody>${d.tiers.map(t => `<tr>
+          <td><span style="display:flex; align-items:center; gap:6px">
+            <i class="swatch" style="background:${t.css}"></i>${esc(t.label)}</span></td>
+          <td class="r num" style="font-weight:600">${pct(t.p,3)}</td>
+          <td class="r num" style="color:var(--ink-3)">${pct(t.once,2)}</td>
+          <td class="r num" style="color:${t.size?'var(--ink-3)':'var(--bad)'}">${nf(t.size)}</td>
+          <td class="r num" style="color:var(--good)">${bp(t.avg)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="note"><b>이 확률은 샘플 값입니다.</b> 실제 FC 온라인 확률은 게임 내 ‘확률 공개’ 페이지에 공시되며 Open API 로는 제공되지 않습니다. 저장소에서는 <code>src/lib/pack/boxes.ts</code> 만 바꾸면 됩니다.</div>
+  </div>`;
+}
+
+function renderPackStats(){
+  const s = pack.stats;
+  const roi = s.bp > 0 ? s.gain/s.bp : null;
+  el('#pk-stats').innerHTML = `<div class="panel">
+    <div class="phead"><div><h2>이번 세션 누적</h2><p>새로고침하면 초기화됩니다</p></div>
+      <button class="btn btn-o btn-s" id="pk-reset"${s.opens?'':' disabled'}>리셋</button></div>
+    <div class="pbody">
+      <dl class="tiles" style="margin:0">
+        <div class="tile"><dt>개봉</dt><dd>${nf(s.opens)}<small>${s.cards}장</small></dd></div>
+        <div class="tile good"><dt>획득 가치</dt><dd style="font-size:13px">${bp(s.gain)}<small>BP</small></dd></div>
+        <div class="tile bad"><dt>BP 지출</dt><dd style="font-size:13px">${bp(s.bp)}</dd></div>
+        <div class="tile ${roi===null?'':roi>=1?'good':'bad'}"><dt>회수율</dt>
+          <dd style="font-size:13px">${roi===null?'—':pct(roi,1)}<small>${roi===null?'캐시만 개봉':roi>=1?'본전 이상':'본전 미만'}</small></dd></div>
+      </dl>
+      ${s.cash ? `<p style="margin:9px 0 0; font-size:10.5px; color:var(--ink-3)">캐시 지출 ${nf(s.cash)}원 — 시뮬레이션이며 실제 결제가 아닙니다.</p>` : ''}
+      ${Object.keys(s.byTier).length ? `
+      <p class="eyebrow" style="margin:14px 0 6px">등급별 획득</p>
+      <div style="display:grid; gap:4px">${Object.entries(s.byTier).sort((a,b) => b[1]-a[1]).map(([k,v]) => `
+        <div style="display:flex; justify-content:space-between; gap:8px; font-size:11.5px">
+          <span style="color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(k)}</span>
+          <span class="num" style="flex-shrink:0; font-weight:600">${v}장 <span style="font-weight:400; color:var(--ink-3)">${pct(v/Math.max(1,s.cards),1)}</span></span>
+        </div>`).join('')}</div>` : ''}
+      ${s.best ? `
+      <p class="eyebrow" style="margin:14px 0 6px">최고 획득</p>
+      <div style="display:flex; align-items:center; gap:10px">
+        ${cardHTML(s.best.card, {grade:s.best.grade, w:62})}
+        <div><p style="margin:0; font-size:12.5px; font-weight:700">${esc(s.best.card.name)}</p>
+        <p class="num" style="margin:1px 0 0; font-size:11px; color:var(--good)">${bp(s.best.value)} BP</p>
+        <p style="margin:1px 0 0; font-size:10px; color:var(--ink-3)">${esc(s.best.card.season.short)} · OVR ${s.best.card.ovr}</p></div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPack(){ renderBoxes(); renderStage(); renderOdds(); renderPackStats(); }
+
+function pull(times){
+  if(pack.phase === 'open') return;
+  const b = curBox();
+  pack.phase = 'open'; pack.last = null; renderStage();
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => {
+    const r = openBox(b, times, `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`);
+    pack.last = r; pack.phase = 'done';
+
+    const s = pack.stats;
+    s.opens += times; s.cards += r.cards.length; s.gain += r.total;
+    if(b.cur === 'BP') s.bp += r.cost; else s.cash += r.cost;
+    for(const c of r.cards){
+      const k = c.tier.label.split(' · ')[0];
+      s.byTier[k] = (s.byTier[k] || 0) + 1;
+      if(!s.best || c.value > s.best.value) s.best = c;
+    }
+    renderPack();
+  }, reduce ? 0 : (times === 1 ? 820 : 520));
+}
+
+/* ── 화면 전환 ─────────────────────────────────────────────── */
+function showView(name){
+  for(const tab of document.querySelectorAll('.tab')) tab.setAttribute('aria-selected', String(tab.dataset.view === name));
+  for(const v of document.querySelectorAll('.view')) v.hidden = (v.id !== 'v-'+name);
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+/* ── 이벤트 (위임) ─────────────────────────────────────────── */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-view],[data-formation],[data-pick-slot],[data-rm],[data-add],[data-grade],[data-box],[data-match],[data-nick]');
+  if(!t) return;
+
+  if(t.dataset.view){ showView(t.dataset.view); return; }
+
+  if(t.dataset.formation){
+    const next = FORMATIONS.find(f => f.id === t.dataset.formation);
+    const prev = formation();
+    if(next.id === prev.id) return;
+    // 포메이션을 바꿔도 선수를 잃지 않도록 적합도가 가장 높은 새 자리로 옮긴다.
+    const pool = prev.slots.map(([id]) => squad.slots[id]).filter(Boolean);
+    const placed = {};
+    for(const [id, pos] of next.slots){
+      if(!pool.length) break;
+      let bi = 0, bf = -1;
+      pool.forEach((en, i) => { const f = fitOf(en.card, pos); if(f > bf){ bf = f; bi = i; } });
+      placed[id] = pool.splice(bi, 1)[0];
+    }
+    squad.fid = next.id; squad.slots = placed; squad.sel = null; save(); renderSquad(); return;
+  }
+
+  if(t.dataset.rm){ delete squad.slots[t.dataset.rm]; squad.sel = null; save(); renderSquad(); return; }
+
+  if(t.dataset.pickSlot){ squad.sel = squad.sel === t.dataset.pickSlot ? null : t.dataset.pickSlot; renderSquad(); return; }
+
+  if(t.dataset.add){
+    const card = BY_SPID.get(Number(t.dataset.add));
+    if(!card) return;
+    if(squad.sel){ place(squad.sel, card); }
+    else {
+      // 자리를 안 골랐으면 가장 잘 맞는 빈 자리에 넣는다.
+      const open = formation().slots.filter(([id]) => !squad.slots[id]);
+      if(!open.length){ el('#sq-hint').textContent = '빈 자리가 없습니다. 카드를 빼거나 자리를 골라 교체하세요.'; return; }
+      const best = open.reduce((a,b) => fitOf(card, b[1]) > fitOf(card, a[1]) ? b : a);
+      place(best[0], card);
+    }
+    return;
+  }
+
+  if(t.dataset.grade){ squad.slots[squad.sel].grade = Number(t.dataset.grade); save(); renderSquad(); return; }
+
+  if(t.dataset.box){ pack.boxId = t.dataset.box; pack.pity = 0; pack.last = null; pack.phase = 'idle'; renderPack(); return; }
+
+  if(t.dataset.match){
+    const lu = el('#lu-'+t.dataset.match);
+    const open = lu.hidden;
+    lu.hidden = !open; t.setAttribute('aria-expanded', String(open));
+    return;
+  }
+
+  if(t.dataset.nick){ el('#mg-q').value = t.dataset.nick; renderManager(t.dataset.nick); return; }
+});
+
+document.addEventListener('input', e => {
+  if(e.target.id === 'q'){ renderResults(); return; }
+  if(e.target.id === 'grade' && squad.sel && squad.slots[squad.sel]){
+    squad.slots[squad.sel].grade = clampG(Number(e.target.value));
+    save(); renderPitch(); renderRating(); renderEnhance();
+  }
+});
+document.addEventListener('change', e => {
+  if(e.target.id === 'f-season' || e.target.id === 'f-pos') renderResults();
+});
+
+el('#sq-clear').addEventListener('click', () => { squad.slots = {}; squad.sel = null; save(); renderSquad(); });
+el('#sq-auto').addEventListener('click', () => {
+  // 화면에 보이는 결과만 쓰면 오버롤 순 상위(= 공격수 아이콘)만 남아
+  // 수비 자리에 공격수가 들어간다. 자리마다 전체 카탈로그를 훑는다.
+  // 시즌 필터가 걸려 있으면 그 범위는 존중한다.
+  const season = Number(el('#f-season').value) || 0;
+  const pool = season ? CARDS.filter(c => c.season.id === season) : CARDS;
+  const used = new Set(Object.values(squad.slots).map(v => v.card.spid));
+  const byName = new Set(Object.values(squad.slots).map(v => v.card.name));
+
+  for(const [id, pos] of formation().slots){
+    if(squad.slots[id]) continue;
+    let best = null, bs = -1;
+    for(const c of pool){
+      if(used.has(c.spid) || byName.has(c.name)) continue;   // 같은 선수 중복 배치 금지
+      const s = c.ovr * Math.pow(fitOf(c, pos), 3);          // 적합도를 강하게 반영
+      if(s > bs){ bs = s; best = c; }
+    }
+    if(best){ squad.slots[id] = {card: best, grade: 1}; used.add(best.spid); byName.add(best.name); }
+  }
+  save(); renderSquad();
+});
+
+el('#mg-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = el('#mg-q').value.trim();
+  if(v) renderManager(v);
+});
+
+el('#pk-1').addEventListener('click', () => pull(1));
+el('#pk-10').addEventListener('click', () => pull(10));
+document.addEventListener('click', e => {
+  if(e.target.id === 'pk-reset'){
+    pack.stats = {opens:0, cards:0, bp:0, cash:0, gain:0, byTier:{}, best:null};
+    pack.pity = 0; pack.last = null; pack.phase = 'idle'; renderPack();
+  }
+});
+
+/* ── 드래그 앤 드롭 ────────────────────────────────────────── */
+document.addEventListener('dragstart', e => {
+  const card = e.target.closest('[data-drag-card]');
+  const slot = e.target.closest('[data-drag-slot]');
+  if(card){ e.dataTransfer.setData('text/plain', DND_CARD + card.dataset.dragCard); e.dataTransfer.effectAllowed = 'copy'; }
+  else if(slot){ e.dataTransfer.setData('text/plain', DND_SLOT + slot.dataset.dragSlot); e.dataTransfer.effectAllowed = 'move'; }
+});
+document.addEventListener('dragover', e => {
+  const slot = e.target.closest('.slot');
+  if(!slot) return;
+  e.preventDefault();
+  slot.classList.add('over');
+});
+document.addEventListener('dragleave', e => {
+  const slot = e.target.closest('.slot');
+  if(slot && !slot.contains(e.relatedTarget)) slot.classList.remove('over');
+});
+document.addEventListener('drop', e => {
+  const slot = e.target.closest('.slot');
+  if(!slot) return;
+  e.preventDefault();
+  slot.classList.remove('over');
+  const data = e.dataTransfer.getData('text/plain') || '';
+  if(data.startsWith(DND_SLOT)) swap(data.slice(DND_SLOT.length), slot.dataset.slot);
+  else if(data.startsWith(DND_CARD)){
+    const card = BY_SPID.get(Number(data.slice(DND_CARD.length)));
+    if(card) place(slot.dataset.slot, card);
+  }
+});
+
+/* ── 테마 ─────────────────────────────────────────────────── */
+const THEME_KEY = 'fc-squad-console:theme';
+try{
+  const saved = localStorage.getItem(THEME_KEY);
+  if(saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+}catch(err){ /* 저장소 접근 불가 — 시스템 설정을 그대로 따른다 */ }
+el('#theme').addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try{ localStorage.setItem(THEME_KEY, next); }catch(err){}
+});
+
+/* ── 초기화 ───────────────────────────────────────────────── */
+el('#f-season').innerHTML = '<option value="">전체 시즌</option>' +
+  SEASONS.map(s => `<option value="${s.id}">${esc(s.full)}</option>`).join('');
+el('#f-pos').innerHTML = '<option value="">전체 포지션</option>' +
+  [...new Set(CARDS.flatMap(c => c.positions))].sort().map(p => `<option value="${p}">${p}</option>`).join('');
+
+renderSquad();
+renderPack();
+</script>
+
+</body>
+</html>
