@@ -29,6 +29,33 @@ npm run dev                    # http://localhost:3000
 | `npm start` | 빌드 결과 실행 |
 | `npm run typecheck` | 타입 검사 |
 | `npm run lint` | ESLint |
+| `npm run check:api` | **넥슨 API 점검** — 키가 통하는지, 최신 시즌이 잡히는지 |
+
+### 키를 넣기 전에: `npm run check:api`
+
+키가 실제로 동작하는지, 그리고 **최신 시즌까지 검색되는지**를 앱을 띄우기 전에
+확인하는 스크립트입니다. 의존성 없이 Node 만으로 돕니다.
+
+```bash
+npm run check:api                                  # .env.local 의 NX_API_KEY 사용
+node scripts/check-api.mjs --nickname 내구단주명      # 매치 상세까지 끝까지 조회
+node scripts/check-api.mjs --key test_xxx          # 키를 직접 넘겨 확인
+node scripts/check-api.mjs --json                  # 결과를 JSON 으로 (CI 용)
+```
+
+확인하는 것:
+
+1. **정적 메타** 5종이 열리는가 (인증 불필요)
+2. **최신 시즌이 메타에 들어와 있는가** — seasonId 내림차순 상위 8개 시즌과 시즌별 카드 수를 찍어 줍니다.
+   여기에 최신 시즌이 보이면 이 앱은 코드 수정 없이 그 시즌까지 검색합니다.
+3. **키가 실제로 통하는가** — 넥슨이 돌려준 `OPENAPI000xx` 코드로만 판정합니다.
+   프록시가 가로챈 403 처럼 넥슨에 닿지도 못한 응답은 "판정 보류"로 두고 키가 유효하다고 말하지 않습니다.
+4. `--nickname` 을 주면 **ouid → 계정정보 → 매치 목록 → 매치 상세 → 출전 선수와 메타 조인**까지 실제로 흘려 봅니다.
+
+종료 코드는 정상 0, 키 불가·메타 접근 실패 1 이라 CI 에 그대로 걸 수 있습니다.
+
+> **테스트 키(`test_`)와 배포 키(`live_`)** — 테스트 키는 유효기간과 호출 한도가 짧습니다.
+> 스크립트가 접두사를 보고 경고해 주며, 상시 운영에는 `live_` 키를 발급해 쓰세요.
 
 ### API 키 발급
 
@@ -77,6 +104,9 @@ src/
 │       │   └── [spid]/             카드 상세 + 강화 +1~+10 곡선
 │       └── pack/                   상자 목록 / ?box= 확률·기대값
 │           └── open/               POST 서버 추첨
+│
+├── scripts/
+│   └── check-api.mjs               넥슨 API 점검 (npm run check:api)
 │
 ├── components/
 │   ├── layout/SiteHeader.tsx
