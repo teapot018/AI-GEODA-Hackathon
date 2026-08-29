@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+      'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-pitch-950 text-slate-200;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 다크 UI 에서 기본 스크롤바가 튀어 보이는 걸 완화 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0f18;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #25344a;
+    border-radius: 999px;
+    border: 2px solid #0a0f18;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #33475f;
+  }
+
+  ::selection {
+    background: rgba(34, 225, 255, 0.3);
+  }
+}
+
+@layer components {
+  /* 페이지 배경의 은은한 그리드 + 상단 글로우 */
+  .app-backdrop {
+    background-image:
+      radial-gradient(70rem 40rem at 50% -12rem, rgba(34, 225, 255, 0.1), transparent 60%),
+      linear-gradient(rgba(34, 225, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 225, 255, 0.035) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+
+  /* 축구장 라인 */
+  .pitch-lines {
+    background-image:
+      linear-gradient(180deg, rgba(198, 255, 61, 0.05), transparent 40%),
+      repeating-linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.028) 0px,
+        rgba(255, 255, 255, 0.028) 1px,
+        transparent 1px,
+        transparent 46px
+      );
+  }
+
+  .card-surface {
+    @apply rounded-2xl border border-white/[0.07] bg-pitch-850/80 shadow-card backdrop-blur-sm;
+  }
+
+  /* 등급 카드 상단의 빛 흐름 */
+  .sheen-mask {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent);
+  }
+
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* 접근성: 모션 최소화 설정을 존중한다 (상자 개봉 연출은 즉시 결과 표시) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
