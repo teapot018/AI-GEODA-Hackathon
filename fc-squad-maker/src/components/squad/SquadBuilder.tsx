@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react';
 
 import { Pitch } from '@/components/squad/Pitch';
 import { PlayerSearchPanel } from '@/components/squad/PlayerSearchPanel';
+import { SquadOptimizerPanel } from '@/components/SquadOptimizerPanel';
 import { SquadSummary } from '@/components/squad/SquadSummary';
 import { Button, Card, Skeleton } from '@/components/ui';
 import { FORMATIONS, findFormation } from '@/lib/squad/formations';
@@ -68,6 +69,7 @@ export function SquadBuilder() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-5">
           <Pitch formation={formation} />
+          <SquadOptimizerPanel formation={formation} />
           <SquadSummary formation={formation} />
         </div>
         <div className="h-[min(60dvh,600px)] lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)]">
