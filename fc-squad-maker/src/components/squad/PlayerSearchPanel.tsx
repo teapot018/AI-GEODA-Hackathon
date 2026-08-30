@@ -10,6 +10,7 @@ import { apiGet } from '@/lib/client/api';
 import type { MetaSeason } from '@/lib/nexon/types';
 import type { PlayerCardData, PositionCode } from '@/lib/players/types';
 import { useSquadStore } from '@/lib/squad/store';
+import { cn } from '@/lib/utils/cn';
 
 interface SearchPayload {
   cards: PlayerCardData[];
@@ -174,7 +175,7 @@ export function PlayerSearchPanel() {
             description="다른 이름이나 초성으로 검색하거나, 시즌·포지션 필터를 풀어 보세요."
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(92px,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(92px,1fr))]">
             {cards.map((card) => (
               <div
                 key={card.spid}
@@ -183,7 +184,10 @@ export function PlayerSearchPanel() {
                   event.dataTransfer.setData(DRAG_CARD, JSON.stringify(card));
                   event.dataTransfer.effectAllowed = 'copy';
                 }}
-                className="cursor-grab active:cursor-grabbing"
+                className={cn(
+                  'cursor-grab active:cursor-grabbing',
+                  'touch-manipulation select-none',
+                )}
               >
                 <PlayerCard
                   card={card}

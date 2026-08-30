@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import { PlayerCard } from '@/components/squad/PlayerCard';
@@ -27,11 +27,41 @@ function SlotView({
   onRemove: () => void;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const [touchDragging, setTouchDragging] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const draggedSlotRef = useRef<string | null>(null);
+
   const assign = useSquadStore((state) => state.assign);
   const swap = useSquadStore((state) => state.swap);
 
   const fit = entry ? positionFit(entry.card, slot.position) : undefined;
   const label = fit !== undefined ? fitLabel(fit) : null;
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!entry) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    draggedSlotRef.current = slot.id;
+    setTouchDragging(true);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!draggedSlotRef.current || !touchStartRef.current) return;
+
+    const touch = e.changedTouches[0];
+    const distance = Math.sqrt(
+      Math.pow(touch.clientX - touchStartRef.current.x, 2) +
+        Math.pow(touch.clientY - touchStartRef.current.y, 2)
+    );
+
+    if (distance < 10 && draggedSlotRef.current !== slot.id) {
+      swap(draggedSlotRef.current, slot.id);
+    }
+
+    setTouchDragging(false);
+    touchStartRef.current = null;
+    draggedSlotRef.current = null;
+  };
 
   return (
     <div
@@ -70,6 +100,7 @@ function SlotView({
         className={cn(
           'relative rounded-xl transition-transform',
           dragOver && 'scale-105 ring-2 ring-neon-cyan',
+          touchDragging && 'scale-95',
         )}
       >
         {entry ? (
@@ -79,7 +110,12 @@ function SlotView({
               event.dataTransfer.setData(DRAG_SLOT, slot.id);
               event.dataTransfer.effectAllowed = 'move';
             }}
-            className="cursor-grab active:cursor-grabbing"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className={cn(
+              'cursor-grab active:cursor-grabbing',
+              'touch-manipulation select-none',
+            )}
           >
             <PlayerCard
               card={entry.card}
@@ -96,9 +132,9 @@ function SlotView({
                 onRemove();
               }}
               aria-label={`${entry.card.name} 제외`}
-              className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full border border-white/10 bg-pitch-900 text-slate-400 opacity-0 transition-opacity hover:text-neon-rose group-hover:opacity-100 focus:opacity-100"
+              className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full border border-white/10 bg-pitch-900 text-slate-400 opacity-0 transition-opacity hover:text-neon-rose group-hover:opacity-100 focus:opacity-100 active:opacity-100 md:-right-2 md:-top-2"
             >
-              <X size={11} />
+              <X size={12} />
             </button>
             {label && label.tone !== 'good' ? (
               <span
@@ -116,7 +152,7 @@ function SlotView({
             type="button"
             onClick={onSelect}
             className={cn(
-              'grid h-[74px] w-[56px] place-items-center rounded-xl border-2 border-dashed transition-colors',
+              'grid h-[74px] w-[56px] place-items-center rounded-xl border-2 border-dashed transition-colors active:ring-2 active:ring-neon-cyan active:bg-neon-cyan/10 active:border-neon-cyan',
               selected
                 ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan'
                 : 'border-white/15 bg-white/[0.03] text-slate-500 hover:border-neon-cyan/50 hover:text-neon-cyan',

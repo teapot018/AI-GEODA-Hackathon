@@ -70,7 +70,7 @@ export function SquadBuilder() {
           <Pitch formation={formation} />
           <SquadSummary formation={formation} />
         </div>
-        <div className="lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)]">
+        <div className="h-[min(60dvh,600px)] lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)]">
           <PlayerSearchPanel />
         </div>
       </div>
