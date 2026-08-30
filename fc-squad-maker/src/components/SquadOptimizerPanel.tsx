@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { AlertTriangle, Gauge } from 'lucide-react';
 
-import { Badge, Card, CardHeader, Input } from '@/components/ui';
+import { Badge, Button, Card, CardHeader, Input } from '@/components/ui';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import type { Formation } from '@/lib/squad/formations';
 import { useSquadStore } from '@/lib/squad/store';
 import { optimizeSquad } from '@/utils/squadOptimizer';
@@ -15,8 +16,10 @@ const DEFAULT_BUDGET = 1_000_000_000; // 10억 BP
 export function SquadOptimizerPanel({ formation }: { formation: Formation }) {
   const assignments = useSquadStore((state) => state.assignments);
   const [budget, setBudget] = useState(DEFAULT_BUDGET);
+  const [upgradeSlot, setUpgradeSlot] = useState<string | null>(null);
 
   const report = optimizeSquad(formation, assignments, budget);
+  const remainingBudget = Math.max(0, budget - report.budget.totalCost);
 
   return (
     <Card className="space-y-3 p-3">
@@ -72,9 +75,14 @@ export function SquadOptimizerPanel({ formation }: { formation: Formation }) {
           {report.positionIssues.map((issue) => (
             <div key={issue.slotId} className="flex items-center justify-between text-[11px]">
               <span className="text-slate-300">{issue.playerName}</span>
-              <Badge tone={issue.severity === 'bad' ? 'rose' : 'amber'}>
-                적합도 {Math.round(issue.fit * 100)}%
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge tone={issue.severity === 'bad' ? 'rose' : 'amber'}>
+                  적합도 {Math.round(issue.fit * 100)}%
+                </Badge>
+                <Button size="sm" variant="outline" onClick={() => setUpgradeSlot(issue.slotId)}>
+                  후보 보기
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -95,6 +103,15 @@ export function SquadOptimizerPanel({ formation }: { formation: Formation }) {
 
       {report.chemistry.emptySlots > 0 ? (
         <p className="text-[10px] text-slate-500">빈 자리 {report.chemistry.emptySlots}개</p>
+      ) : null}
+
+      {upgradeSlot ? (
+        <UpgradeModal
+          formation={formation}
+          slotId={upgradeSlot}
+          remainingBudget={remainingBudget}
+          onClose={() => setUpgradeSlot(null)}
+        />
       ) : null}
     </Card>
   );
