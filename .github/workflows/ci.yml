@@ -1,0 +1,62 @@
+name: CI
+
+# 무엇을 지키는 워크플로인가:
+#   1. 타입이 맞는가          (typecheck)
+#   2. 린트 규칙을 지키는가    (lint)
+#   3. 확률·검색·가치 로직이 약속대로 동작하는가 (test)
+#   4. 실제로 배포 가능한가    (build)
+#
+# 테스트는 넥슨 서버에 나가지 않는다. tests/setup.ts 가 fetch 를 막아
+# 데모 폴백 경로를 타게 하므로, API 키 없이 어떤 러너에서도 돌아간다.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# 같은 브랜치에 새 커밋이 오면 이전 실행은 취소한다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: fc-squad-maker
+
+jobs:
+  verify:
+    name: 타입 · 린트 · 테스트 · 빌드
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: fc-squad-maker/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입체크
+        run: npm run typecheck
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 테스트
+        run: npm test
+
+      - name: 프로덕션 빌드
+        run: npm run build
+        env:
+          # 키 없이도 빌드가 되어야 한다 (데모 모드). 키가 있어야만 빌드되면
+          # 기여자가 저장소를 받아도 아무것도 못 한다.
+          NX_API_KEY: ''

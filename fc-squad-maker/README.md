@@ -130,6 +130,15 @@ src/
     ├── squad/                      formations · chemistry · rating · store(zustand)
     ├── pack/                       boxes(확률표) · simulator(추첨 엔진)
     └── utils/                      hangul(초성) · rng(시드 난수) · format · cn
+
+tests/                              Vitest 스위트 (§6)
+├── setup.ts                        네트워크 차단 + 데모 모드 강제
+├── helpers.ts                      테스트용 카드 공장
+└── stubs/server-only.ts            server-only 패키지 대체품
+
+scripts/check-api.mjs               넥슨 API 키·연결 점검 (npm run check:api)
+vitest.config.mts                   경로 별칭 · 테스트 환경
+../.github/workflows/ci.yml         타입체크 → 린트 → 테스트 → 빌드
 ```
 
 ### 호출 흐름
@@ -272,7 +281,55 @@ OUID · 닉네임 · 레벨 · 역대 최고 등급 · 매치 기록 · 매치 �
 
 ---
 
-## 6. 환경 변수
+## 6. 테스트와 CI
+
+```bash
+npm test          # 전체 테스트 1회 실행
+npm run test:watch  # 파일 저장할 때마다 다시 실행
+npm run typecheck   # 타입만 검사
+npm run lint        # 린트만 검사
+```
+
+**테스트는 넥슨 서버에 나가지 않는다.** `tests/setup.ts` 가 `fetch` 를 막아 두기
+때문에, 인터넷이 끊긴 노트북에서도 API 키 없이도 그대로 돌아간다. 이때 코드는
+데모 폴백 경로를 타므로, "키가 없어도 앱이 열린다"는 약속까지 함께 검증된다.
+
+| 파일 | 무엇을 지키는가 |
+| --- | --- |
+| `tests/hangul.test.ts` | 초성 검색. 유니코드 산술, 쌍자음 접기, 검색 순위 |
+| `tests/rng.test.ts` | 시드 재현성, 가중치 추첨 분포(20만 회) |
+| `tests/pack.test.ts` | 확률표 정합성, **모든 등급에 뽑을 카드가 있는지**, 3만 장 분포, 천장 |
+| `tests/value.test.ts` | 가치·강화 곡선의 단조성, 연속 강화 확률 |
+| `tests/seasons.test.ts` | 시즌 코드 → 티어 판정 (새 시즌이 와도 오분류되지 않게) |
+| `tests/chemistry.test.ts` | 팀컬러 발동 임계치, 포지션 적합도 |
+| `tests/rating.test.ts` | 포메이션 정의, 스쿼드 종합 평점 조립 |
+| `tests/catalog.test.ts` | 데모 폴백, 이름·초성·시즌·포지션 검색 |
+| `tests/endpoints.test.ts` | `spid = seasonId × 1,000,000 + pid` — **최신 시즌 지원의 근거** |
+| `tests/security.test.ts` | **API 키가 브라우저 번들에 닿지 않는지** |
+
+### 왜 `security.test.ts` 가 있는가
+
+이 프로젝트에서 되돌릴 수 없는 사고는 하나뿐이다 — 넥슨 API 키가 클라이언트
+번들에 박혀 배포되는 것. 한 번 나가면 회수가 안 되고 키를 폐기·재발급하는 수밖에
+없다. 그래서 리뷰에 맡기지 않고 소스 트리를 직접 훑는다.
+
+- `process.env.NEXT_PUBLIC_*` 를 읽는 파일이 있으면 실패
+- `NX_API_KEY` 를 `src/lib/env.ts` 밖에서 읽으면 실패
+- `'use client'` 파일에서 import 그래프를 따라가 `server-only` 모듈에 닿으면 실패
+  (타입 전용 import 는 컴파일 때 지워지므로 제외한다)
+- 키처럼 생긴 문자열이 소스에 박혀 있으면 실패
+
+실패 시에는 `AssetPanel.tsx → service.ts → env.ts` 처럼 **경로를 그대로 출력**한다.
+
+### CI
+
+`.github/workflows/ci.yml` 이 푸시·PR 마다 네 가지를 순서대로 돌린다:
+타입체크 → 린트 → 테스트 → 프로덕션 빌드. 빌드는 `NX_API_KEY` 를 비운 채로
+돌려서, 키가 없는 기여자도 저장소를 받아 바로 빌드할 수 있음을 보장한다.
+
+---
+
+## 7. 환경 변수
 
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
@@ -283,7 +340,7 @@ OUID · 닉네임 · 레벨 · 역대 최고 등급 · 매치 기록 · 매치 �
 
 ---
 
-## 7. 고지
+## 8. 고지
 
 넥슨 FC 온라인 Open API 를 이용한 **비공식 팬 프로젝트**입니다.
 상자 개봉은 실제 결제·아이템 획득과 무관한 **시뮬레이션**이며, 표시되는 확률은
