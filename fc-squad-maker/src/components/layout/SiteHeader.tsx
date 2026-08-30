@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Box, LayoutGrid, Search, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Box, Calculator, LayoutGrid, Search, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 import { apiGet } from '@/lib/client/api';
 import { cn } from '@/lib/utils/cn';
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/manager', label: '구단주 조회', icon: Search },
   { href: '/squad', label: '스쿼드 메이커', icon: LayoutGrid },
   { href: '/pack', label: '모의 상자 개봉', icon: Box },
+  { href: '/trade', label: '트레이드 계산기', icon: Calculator },
 ];
 
 interface Health {
