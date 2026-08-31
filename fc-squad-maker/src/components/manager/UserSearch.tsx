@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search, UserRound } from 'lucide-react';
 
+import { AnalyticsPanel } from '@/components/manager/AnalyticsPanel';
 import { AssetPanel } from '@/components/manager/AssetPanel';
 import { ManagerProfile } from '@/components/manager/ManagerProfile';
 import { MatchHistory } from '@/components/manager/MatchHistory';
 import { Button, Card, EmptyState, ErrorNote, Input, SourceBadge, Spinner } from '@/components/ui';
 import { apiGet, ApiError } from '@/lib/client/api';
+import type { ManagerAnalytics } from '@/lib/nexon/insights';
 import type { AssetSnapshot, ManagerOverview, MatchSummary } from '@/lib/nexon/service';
 
 const SUGGESTED = ['페이커', '아이유', '손흥민', '테스트구단주'];
@@ -35,6 +37,9 @@ export function UserSearch() {
   const [assets, setAssets] = useState<AssetSnapshot | null>(null);
   const [assetsLoading, setAssetsLoading] = useState(false);
 
+  const [analytics, setAnalytics] = useState<ManagerAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
   const search = useCallback(async (value: string) => {
     const target = value.trim();
     if (!target) return;
@@ -45,6 +50,7 @@ export function UserSearch() {
     setOverview(null);
     setMatches([]);
     setAssets(null);
+    setAnalytics(null);
 
     try {
       const res = await apiGet<ManagerOverview>(
@@ -83,6 +89,25 @@ export function UserSearch() {
       .then((res) => setMatches(res.data))
       .catch(() => setMatches([]))
       .finally(() => setMatchesLoading(false));
+
+    return () => controller.abort();
+  }, [overview, matchType]);
+
+  // 전적 분석 — 경기당 1콜이라 매치 목록보다 느리게 도착한다.
+  useEffect(() => {
+    if (!overview) return;
+    const controller = new AbortController();
+
+    setAnalyticsLoading(true);
+    apiGet<ManagerAnalytics>(
+      `/api/manager/analytics?ouid=${encodeURIComponent(overview.ouid)}&nickname=${encodeURIComponent(
+        overview.nickname,
+      )}&matchType=${matchType}&limit=20`,
+      controller.signal,
+    )
+      .then((res) => setAnalytics(res.data))
+      .catch(() => setAnalytics(null))
+      .finally(() => setAnalyticsLoading(false));
 
     return () => controller.abort();
   }, [overview, matchType]);
@@ -175,6 +200,8 @@ export function UserSearch() {
           </div>
 
           <ManagerProfile overview={overview} />
+
+          <AnalyticsPanel analytics={analytics} loading={analyticsLoading} />
 
           <div className="grid gap-5 lg:grid-cols-2">
             <MatchHistory

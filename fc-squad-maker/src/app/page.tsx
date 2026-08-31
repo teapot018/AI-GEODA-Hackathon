@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { ArrowRight, Box, LayoutGrid, Search, ShieldCheck, TerminalSquare } from 'lucide-react';
+import {
+  ArrowRight,
+  Box,
+  LayoutGrid,
+  LineChart,
+  Search,
+  ShieldCheck,
+  TerminalSquare,
+} from 'lucide-react';
 
 import { hasApiKey } from '@/lib/env';
 
@@ -9,8 +17,8 @@ const FEATURES = [
     icon: Search,
     title: '구단주 조회',
     description:
-      '닉네임으로 OUID 를 찾아 레벨, 역대 최고 등급, 최근 매치 기록, 이적시장 거래 내역까지 한 화면에서 봅니다.',
-    points: ['닉네임 → OUID → 계정 정보', '매치 상세 출전 명단', '거래 기반 자금 흐름'],
+      '닉네임으로 OUID 를 찾아 레벨·최고 등급은 물론, 최근 20경기를 겹쳐 승률·득실·선수별 실전 성능까지 분석합니다.',
+    points: ['닉네임 → OUID → 계정 정보', '승률·점유율·결정력 집계', '선수별 평점·공격P 리포트'],
   },
   {
     href: '/squad',
@@ -18,7 +26,15 @@ const FEATURES = [
     title: '스쿼드 메이커',
     description:
       '초성 검색으로 선수를 찾아 6가지 포메이션에 드래그 배치하고, 강화 단계별 오버롤과 가치를 시뮬레이션합니다.',
-    points: ['초성 검색 (ㅅㅎㅁ → 손흥민)', '드래그 & 클릭 배치', '+1~+10 강화 곡선'],
+    points: ['초성 검색 (ㅅㅎㅁ → 손흥민)', '실제 경기 스쿼드 가져오기', '+1~+10 강화 곡선'],
+  },
+  {
+    href: '/market',
+    icon: LineChart,
+    title: '시세 관측소',
+    description:
+      '거래 내역이 남기는 실제 체결가를 과거까지 모아 카드별 가격대·변동폭·추세를 재구성합니다. 크롤링 없이 공식 API 만 씁니다.',
+    points: ['실거래가 기반 가격 인덱스', '강화 등급별 시세 분리', '입력가 싸다/비싸다 판정'],
   },
   {
     href: '/pack',

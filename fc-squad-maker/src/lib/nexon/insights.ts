@@ -24,7 +24,7 @@ import { inferFormation, startersOf } from '@/lib/squad/import';
 import { MissingApiKeyError, NexonApiError, nexonFetch } from './client';
 import { MATCH_TYPE, NX } from './endpoints';
 import { matchTypeMap, positionMap } from './meta';
-import { mockMatchDetail, mockMatchIds, mockTrades } from './mock';
+import { mockMarketTrades, mockMatchDetail, mockMatchIds } from './mock';
 import type { MatchDetail, TradeRecord } from './types';
 import { type DataSource, type Sourced } from './service';
 
@@ -94,6 +94,8 @@ export interface MarketCardStat extends PriceStat {
 export interface MarketReport {
   summary: MarketSummary;
   cards: MarketCardStat[];
+  /** minSamples 를 넘긴 카드 총수 (cards 는 maxCards 로 잘린다) */
+  cardsTotal: number;
   /** 실제로 긁어온 페이지 수 (요청한 만큼 없을 수 있다) */
   pagesFetched: number;
 }
@@ -131,6 +133,8 @@ export interface MarketOptions {
   pages?: number;
   /** 표본이 이 수 미만인 카드는 통계로 내보내지 않는다 */
   minSamples?: number;
+  /** 응답에 담을 카드 수 상한 — 거래가 잦은 구단주는 수천 종이 나온다 */
+  maxCards?: number;
   allowMock?: boolean;
 }
 
@@ -139,6 +143,7 @@ export async function getMarketReport({
   nicknameForMock = '나',
   pages = 3,
   minSamples = 1,
+  maxCards = 60,
   allowMock = env.allowMock,
 }: MarketOptions): Promise<Sourced<MarketReport>> {
   const build = async (
@@ -146,12 +151,15 @@ export async function getMarketReport({
     pagesFetched: number,
   ): Promise<MarketReport> => {
     const index = buildPriceIndex(observations).filter((stat) => stat.samples >= minSamples);
-    const cards = await getCards(index.map((stat) => stat.spid));
+    // 표본이 많은 순으로 이미 정렬돼 있으므로 앞에서 자르면 볼 만한 것만 남는다.
+    const top = index.slice(0, maxCards);
+    const cards = await getCards(top.map((stat) => stat.spid));
 
     return {
       summary: summarizeMarket(observations),
       pagesFetched,
-      cards: index.map((stat) => {
+      cardsTotal: index.length,
+      cards: top.map((stat) => {
         const card = cards.get(stat.spid);
         return {
           ...stat,
@@ -177,8 +185,8 @@ export async function getMarketReport({
   } catch (error) {
     if (!shouldFallback(error, allowMock)) throw error;
     const observations = [
-      ...tagSide(mockTrades(nicknameForMock, 'buy', pages * PAGE_SIZE), 'buy'),
-      ...tagSide(mockTrades(nicknameForMock, 'sell', pages * PAGE_SIZE), 'sell'),
+      ...tagSide(mockMarketTrades(nicknameForMock, 'buy', pages * PAGE_SIZE), 'buy'),
+      ...tagSide(mockMarketTrades(nicknameForMock, 'sell', pages * PAGE_SIZE), 'sell'),
     ];
     return {
       data: await build(observations, 0),

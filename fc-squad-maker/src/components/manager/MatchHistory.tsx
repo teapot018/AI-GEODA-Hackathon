@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, Swords } from 'lucide-react';
 
+import { SquadImportButton } from '@/components/manager/SquadImportButton';
 import { PlayerCard } from '@/components/squad/PlayerCard';
 import { Badge, Card, CardHeader, EmptyState, ErrorNote, Select, Spinner } from '@/components/ui';
 import { apiGet } from '@/lib/client/api';
@@ -114,13 +115,19 @@ function MatchRow({ match, nickname }: { match: MatchSummary; nickname: string }
             <div className="space-y-4">
               {detail.sides.map((side) => (
                 <div key={side.nickname}>
-                  <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-300">
+                  <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-300">
                     <Swords size={11} className="text-slate-500" />
                     {side.nickname}
                     <Badge tone={resultTone(side.summary.result)}>{side.summary.result}</Badge>
                     <span className="text-slate-500">
                       평점 {side.summary.rating.toFixed(1)} · 점유 {side.summary.possession}%
                     </span>
+                    <SquadImportButton
+                      matchId={match.matchId}
+                      ouid={side.ouid}
+                      nickname={side.nickname}
+                      className="ml-auto"
+                    />
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {side.lineup.map((player) =>

@@ -311,3 +311,29 @@ describe('buildFormTimeline', () => {
     expect(point.goalsAgainst).toBe(0);
   });
 });
+
+describe('성공률 방어', () => {
+  it('성공이 시도보다 많아도 100% 를 넘지 않는다', () => {
+    const [player] = buildPlayerPerformance(
+      [
+        makeMatch({
+          me: {
+            player: [
+              makeMatchPlayer({ status: { passTry: 10, passSuccess: 30 } }),
+            ],
+          },
+        }),
+      ],
+      'me',
+    );
+    expect(player.passRate).toBe(1);
+  });
+
+  it('팀 지표도 마찬가지다', () => {
+    const form = buildManagerForm(
+      [makeMatch({ me: { pass: { passTry: 100, passSuccess: 300 } } })],
+      'me',
+    );
+    expect(form.avgPassRate).toBe(1);
+  });
+});

@@ -235,6 +235,8 @@ export interface MatchDetailView {
   matchDate: string;
   matchTypeName: string;
   sides: Array<{
+    /** 이 쪽 스쿼드를 그대로 임포트할 때 필요하다 */
+    ouid: string;
     nickname: string;
     summary: MatchSideSummary;
     lineup: MatchLineupPlayer[];
@@ -256,6 +258,7 @@ export async function getMatchDetail(
       matchDate: detail.matchDate,
       matchTypeName: matchTypes.get(detail.matchType) ?? `매치 ${detail.matchType}`,
       sides: detail.matchInfo.map((side) => ({
+        ouid: side.ouid,
         nickname: side.nickname,
         summary: summarizeSide(side),
         lineup: side.player.map((p) => ({

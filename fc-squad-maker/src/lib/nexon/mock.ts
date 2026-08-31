@@ -85,6 +85,48 @@ export function mockTrades(nickname: string, type: 'buy' | 'sell', count = 20): 
   }));
 }
 
+/**
+ * 시세 관측소용 거래 목업.
+ *
+ * mockTrades 는 카드를 매번 새로 뽑아서 spid 가 거의 안 겹친다 —
+ * 그러면 카드마다 표본이 1건이라 가격대도 추세도 나오지 않는다.
+ * 여기서는 카드 풀을 좁게 잡고 카드별 기준가 주변에서 가격을 흔들어,
+ * 데모에서도 시세 그래프가 실제처럼 보이게 한다.
+ */
+export function mockMarketTrades(
+  nickname: string,
+  type: 'buy' | 'sell',
+  count = 100,
+  poolSize = 24,
+): TradeRecord[] {
+  const poolRng = createRng(`market-pool:${nickname}`);
+  const pool = Array.from({ length: poolSize }, () => ({
+    spid: mockSpid(poolRng),
+    base: poolRng.int(5, 800) * 10_000,
+    // 카드마다 추세 방향을 따로 준다. 하나로 통일하면 데모에서
+    // 모든 카드가 나란히 상승해 버려 가짜 티가 난다.
+    slope: (poolRng.next() - 0.5) * 0.6,
+  }));
+
+  const rng = createRng(`market:${nickname}:${type}`);
+  return Array.from({ length: count }, (_, i) => {
+    const card = rng.pick(pool);
+    // i=0 이 가장 최근이다. 최근일수록 slope 만큼 기준가에서 벌어진다.
+    const age = i / Math.max(1, count - 1); // 0(최신) ~ 1(과거)
+    const drift = 1 + card.slope * (0.5 - age);
+    const noise = 0.85 + rng.next() * 0.3;
+    return {
+      tradeDate: new Date(Date.now() - (i + 1) * rng.int(1, 6) * 3_600_000)
+        .toISOString()
+        .slice(0, 19),
+      saleSn: `${rng.int(100000, 999999)}`,
+      spid: card.spid,
+      grade: rng.next() < 0.75 ? 1 : rng.int(2, 6),
+      value: Math.max(10_000, Math.round((card.base * drift * noise) / 10_000) * 10_000),
+    };
+  });
+}
+
 export function mockMatchIds(ouid: string, matchType: number, count = 10): string[] {
   const rng = createRng(`matchids:${ouid}:${matchType}`);
   return Array.from({ length: count }, () =>
@@ -108,23 +150,48 @@ function mockSide(seed: string, nickname: string, isWinner: boolean | null): Mat
   const passTry = rng.int(280, 620);
   const passSuccess = Math.round(passTry * (0.72 + rng.next() * 0.2));
 
-  const players: MatchPlayer[] = FORMATION_POSITIONS.map(([spPosition, position]) => ({
-    spId: mockSpidAt(rng, position),
-    spPosition,
-    spGrade: rng.next() < 0.6 ? 1 : rng.int(2, 8),
-    status: {
-      shoot: rng.int(0, 4), effectiveShoot: rng.int(0, 3), assist: rng.int(0, 2),
-      goal: rng.int(0, 2), dribble: rng.int(0, 20), intercept: rng.int(0, 6),
-      defending: rng.int(0, 8), passTry: rng.int(10, 70), passSuccess: rng.int(8, 65),
-      dribbleTry: rng.int(0, 12), dribbleSuccess: rng.int(0, 10),
-      ballPossesionTry: rng.int(10, 80), ballPossesionSuccess: rng.int(8, 70),
-      aerialTry: rng.int(0, 8), aerialSuccess: rng.int(0, 6),
-      blockTry: rng.int(0, 5), block: rng.int(0, 3),
-      tackleTry: rng.int(0, 8), tackle: rng.int(0, 6),
-      yellowCards: rng.next() < 0.12 ? 1 : 0, redCards: rng.next() < 0.02 ? 1 : 0,
-      spRating: Math.round((5.5 + rng.next() * 4) * 10) / 10,
-    },
-  }));
+  /**
+   * 시도와 성공을 따로 뽑으면 성공률이 100% 를 넘는 선수가 나온다.
+   * 성공은 반드시 시도에서 파생시킨다.
+   */
+  const attempt = (min: number, max: number, lowRate: number, highRate: number) => {
+    const tries = rng.int(min, max);
+    return { tries, success: Math.round(tries * (lowRate + rng.next() * (highRate - lowRate))) };
+  };
+
+  const players: MatchPlayer[] = FORMATION_POSITIONS.map(([spPosition, position]) => {
+    const pass = attempt(10, 70, 0.62, 0.95);
+    const dribble = attempt(0, 12, 0.5, 0.95);
+    const possession = attempt(10, 80, 0.55, 0.9);
+    const aerial = attempt(0, 8, 0.3, 0.85);
+    const block = attempt(0, 5, 0.3, 0.8);
+    const tackle = attempt(0, 8, 0.4, 0.85);
+    const shoot = rng.int(0, 4);
+
+    return {
+      spId: mockSpidAt(rng, position),
+      spPosition,
+      spGrade: rng.next() < 0.6 ? 1 : rng.int(2, 8),
+      status: {
+        shoot,
+        effectiveShoot: rng.int(0, shoot),
+        assist: rng.int(0, 2),
+        goal: rng.int(0, 2), dribble: rng.int(0, 20), intercept: rng.int(0, 6),
+        defending: rng.int(0, 8),
+        passTry: pass.tries, passSuccess: pass.success,
+        dribbleTry: dribble.tries, dribbleSuccess: dribble.success,
+        ballPossesionTry: possession.tries, ballPossesionSuccess: possession.success,
+        aerialTry: aerial.tries, aerialSuccess: aerial.success,
+        blockTry: block.tries, block: block.success,
+        tackleTry: tackle.tries, tackle: tackle.success,
+        yellowCards: rng.next() < 0.12 ? 1 : 0, redCards: rng.next() < 0.02 ? 1 : 0,
+        spRating: Math.round((5.5 + rng.next() * 4) * 10) / 10,
+      },
+    };
+  });
+
+  const teamBlock = attempt(0, 14, 0.3, 0.8);
+  const teamTackle = attempt(2, 25, 0.4, 0.85);
 
   return {
     ouid: mockOuid(nickname),
@@ -164,8 +231,8 @@ function mockSide(seed: string, nickname: string, isWinner: boolean | null): Mat
       lobbedThroughPassTry: rng.int(0, 10), lobbedThroughPassSuccess: rng.int(0, 7),
     },
     defence: {
-      blockTry: rng.int(0, 14), blockSuccess: rng.int(0, 10),
-      tackleTry: rng.int(2, 25), tackleSuccess: rng.int(1, 18),
+      blockTry: teamBlock.tries, blockSuccess: teamBlock.success,
+      tackleTry: teamTackle.tries, tackleSuccess: teamTackle.success,
     },
     player: players,
   };

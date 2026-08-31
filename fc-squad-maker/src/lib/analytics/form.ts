@@ -21,7 +21,12 @@ export function classifyResult(matchResult: string): ResultKind {
   return '무';
 }
 
-const ratio = (success: number, total: number): number => (total > 0 ? success / total : 0);
+/**
+ * 성공률. 성공은 시도를 넘을 수 없다는 게 정의라서 1 로 자른다 —
+ * 넥슨 응답이 어긋나 있어도 화면에 "패스 성공률 119%" 가 뜨지는 않게.
+ */
+const ratio = (success: number, total: number): number =>
+  total > 0 ? Math.min(1, success / total) : 0;
 const avg = (values: number[]): number =>
   values.length === 0 ? 0 : values.reduce((acc, v) => acc + v, 0) / values.length;
 const round1 = (value: number): number => Math.round(value * 10) / 10;
