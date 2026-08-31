@@ -35,6 +35,15 @@ interface SquadState {
   clear: () => void;
   /** 검색 결과에서 오버롤 순으로 빈 자리를 자동으로 채운다 */
   autoFill: (candidates: PlayerCardData[]) => void;
+  /** 실제 경기 라인업을 통째로 올린다 (기존 구성은 덮어쓴다) */
+  importSquad: (formationId: string, slots: ImportedSlotInput[]) => void;
+}
+
+/** /api/manager/squad 가 내려주는 슬롯 배치 */
+export interface ImportedSlotInput {
+  slotId: string;
+  card: PlayerCardData;
+  grade: number;
 }
 
 /** 포메이션을 바꿀 때 기존 선수를 가장 잘 맞는 새 슬롯으로 옮긴다. */
@@ -160,6 +169,20 @@ export const useSquadStore = create<SquadState>()(
           }
           return { assignments: next };
         }),
+
+      importSquad: (formationId, slots) => {
+        const formation = findFormation(formationId);
+        const valid = new Set(formation.slots.map((slot) => slot.id));
+        const assignments: Record<string, Assignment> = {};
+
+        for (const { slotId, card, grade } of slots) {
+          // 서버가 보낸 슬롯 ID 가 이 포메이션에 없으면 조용히 버린다.
+          if (!valid.has(slotId)) continue;
+          assignments[slotId] = { card, grade: clampGrade(grade) };
+        }
+
+        set({ formationId: formation.id, assignments, selectedSlot: null });
+      },
     }),
     {
       name: 'fc-squad-maker:squad',
