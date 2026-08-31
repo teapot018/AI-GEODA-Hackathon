@@ -365,7 +365,52 @@ npm run lint        # 린트만 검사
 
 ---
 
-## 8. 고지
+## 8. 배포 (Vercel)
+
+이 앱은 리포지토리 루트가 아니라 **`fc-squad-maker/` 하위**에 있다. Vercel 은 기본적으로
+리포지토리 루트에서 `package.json` 을 찾으므로, 아무 설정 없이 연결하면 빌드 대상을
+찾지 못하고 실패한다. 둘 중 하나로 해결한다.
+
+### A. Root Directory 설정 (권장)
+
+Vercel 이 `fc-squad-maker` 를 프로젝트 루트로 취급하게 만든다. Next.js 자동 감지와
+서버리스 함수 경로가 전부 정상으로 잡히므로 가장 안전하다.
+
+- **새로 연결**: [vercel.com/new](https://vercel.com/new) → 리포지토리 Import →
+  *Configure Project* 에서 **Root Directory → Edit → `fc-squad-maker`** → Deploy
+- **이미 연결돼 실패 중**: **Settings → General → Root Directory** 에 `fc-squad-maker`
+  입력 → Save → **Deployments → ⋯ → Redeploy**
+
+### B. 루트 `vercel.json` (대시보드를 못 건드릴 때)
+
+리포지토리 루트의 `vercel.json` 이 빌드를 하위 디렉토리로 넘긴다. Root Directory 가
+루트인 상태 그대로도 배포가 통과한다.
+
+```json
+{
+  "framework": "nextjs",
+  "installCommand": "cd fc-squad-maker && npm ci",
+  "buildCommand": "cd fc-squad-maker && npm run build",
+  "outputDirectory": "fc-squad-maker/.next"
+}
+```
+
+Root Directory 를 설정하면 Vercel 은 `fc-squad-maker/vercel.json` 을 읽고 루트의
+`vercel.json` 은 무시하므로, 두 방법을 같이 둬도 충돌하지 않는다.
+
+### 환경 변수
+
+**변수를 하나도 넣지 않아도 배포는 성공하고 화면도 뜬다** — 키가 없으면 `FC_ALLOW_MOCK`
+기본값(`true`)에 따라 데모 데이터로 동작하고 헤더에 "데모 모드" 배지가 붙는다.
+실데이터를 붙이려면 **Settings → Environment Variables** 에 7절의 변수를 넣고
+**Redeploy** 한다. `NEXT_PUBLIC_` 접두사는 절대 붙이지 않는다 (7절 참고).
+
+배포 후 `/api/health` 를 열면 키 인식 여부(`apiKeyConfigured`)와 메타 출처
+(`metaSource`)를 확인할 수 있다.
+
+---
+
+## 9. 고지
 
 넥슨 FC 온라인 Open API 를 이용한 **비공식 팬 프로젝트**입니다.
 상자 개봉은 실제 결제·아이템 획득과 무관한 **시뮬레이션**이며, 표시되는 확률은

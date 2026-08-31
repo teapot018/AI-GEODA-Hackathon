@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd fc-squad-maker && npm ci",
+  "buildCommand": "cd fc-squad-maker && npm run build",
+  "outputDirectory": "fc-squad-maker/.next"
+}

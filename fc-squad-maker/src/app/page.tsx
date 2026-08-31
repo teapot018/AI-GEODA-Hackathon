@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Box,
+  Calculator,
   LayoutGrid,
   LineChart,
   Search,
@@ -35,6 +36,14 @@ const FEATURES = [
     description:
       '거래 내역이 남기는 실제 체결가를 과거까지 모아 카드별 가격대·변동폭·추세를 재구성합니다. 크롤링 없이 공식 API 만 씁니다.',
     points: ['실거래가 기반 가격 인덱스', '강화 등급별 시세 분리', '입력가 싸다/비싸다 판정'],
+  },
+  {
+    href: '/trade',
+    icon: Calculator,
+    title: '트레이드 계산기',
+    description:
+      '이적시장 수수료를 반영한 실수령액과 손익을 계산합니다. 사고팔 때 얼마가 남는지 먼저 확인하세요.',
+    points: ['수수료 차감 실수령액', '손익·수익률(ROI) 계산', '손익분기 판매가 역산'],
   },
   {
     href: '/pack',
@@ -83,9 +92,9 @@ export default function HomePage() {
           <div className="mt-6 inline-flex max-w-xl items-start gap-2 rounded-xl border border-neon-amber/30 bg-neon-amber/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
             <TerminalSquare size={14} className="mt-0.5 shrink-0" />
             <span>
-              <b>데모 모드로 실행 중입니다.</b> <code>.env.local</code> 에{' '}
-              <code>NX_API_KEY</code> 를 넣으면 실제 넥슨 데이터로 전환됩니다. 지금은 결정적으로
-              생성된 목업 데이터가 표시됩니다.
+              <b>데모 모드로 실행 중입니다.</b> 로컬에서는 <code>.env.local</code>, 배포 환경에서는
+              호스팅 환경 변수에 <code>NX_API_KEY</code> 를 넣으면 실제 넥슨 데이터로 전환됩니다.
+              지금은 결정적으로 생성된 목업 데이터가 표시됩니다.
             </span>
           </div>
         ) : (
@@ -95,7 +104,7 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ href, icon: Icon, title, description, points }) => (
           <Link
             key={href}
