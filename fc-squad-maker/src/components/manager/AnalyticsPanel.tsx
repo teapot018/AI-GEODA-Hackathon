@@ -3,6 +3,7 @@
 import { Activity, TrendingUp } from 'lucide-react';
 
 import { Badge, Card, CardHeader, EmptyState, Skeleton, StatTile } from '@/components/ui';
+import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import type { ResultKind } from '@/lib/analytics/form';
 import type { ManagerAnalytics, PlayerPerformanceRow } from '@/lib/nexon/insights';
@@ -64,6 +65,17 @@ export function AnalyticsPanel({
             </Badge>
           ) : null
         }
+      />
+
+      {/*
+        경기 데이터에는 2시간 집계 주기가 없다 (그건 기준가 쪽 이야기다).
+        여기서는 "언제까지의 경기를 본 분석인가"만 밝힌다.
+      */}
+      <FreshnessNote
+        dates={timeline.map((point) => point.matchDate)}
+        noun="경기"
+        showNextRefresh={false}
+        className="mb-3"
       />
 
       <div className="space-y-3 p-3">

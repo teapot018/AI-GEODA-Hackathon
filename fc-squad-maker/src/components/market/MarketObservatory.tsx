@@ -15,6 +15,7 @@ import {
   Spinner,
   StatTile,
 } from '@/components/ui';
+import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
 import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observations';
@@ -168,10 +169,8 @@ function ReportView({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          {formatDateTime(summary.from)} ~ {formatDateTime(summary.to)} 구간의 체결가
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <FreshnessNote dates={[summary.from, summary.to]} noun="체결" />
         <SourceBadge source={source} note={note} />
       </div>
 
