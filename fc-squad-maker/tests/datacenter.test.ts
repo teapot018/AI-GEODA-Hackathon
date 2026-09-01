@@ -76,7 +76,8 @@ describe('parseOfficialPrice — 전략별', () => {
   });
 
   it('최후 수단으로 BP 라벨 주변을 본다', () => {
-    const result = parseOfficialPrice(`<td>기준가</td><td>1,500,000 BP</td>`, 1);
+    // 표도 class 도 없이 본문에 값만 흘러 있는 경우.
+    const result = parseOfficialPrice(`<p>이 선수는 1,500,000 BP 에 거래됩니다</p>`, 1);
     expect(result.price).toBe(1_500_000);
     expect(result.strategy).toBe('bp-label');
   });
@@ -98,6 +99,58 @@ describe('parseOfficialPrice — 전략별', () => {
 
   it('0 은 가격으로 인정하지 않는다', () => {
     expect(parseOfficialPrice(`<div data-price="0"></div>`, 1).strategy).not.toBe('data-attribute');
+  });
+});
+
+describe('직접 지정한 패턴 (탈출구)', () => {
+  it('내장 전략보다 먼저 쓰인다', () => {
+    // BP 라벨이 있어도 지정한 패턴이 이긴다.
+    const html = '<span>999,999 BP</span><em id="mine">1,111,000</em>';
+    const result = parseOfficialPrice(html, 1, 1, {
+      customPattern: 'id="mine">([\\d,]+)',
+    });
+    expect(result.price).toBe(1_111_000);
+    expect(result.strategy).toBe('custom');
+  });
+
+  it('한국식 축약도 읽는다', () => {
+    const result = parseOfficialPrice('<b>가격 12만 3,456</b>', 1, 1, {
+      customPattern: '가격\\s*([\\d,만억\\s]+)',
+    });
+    expect(result.price).toBe(123_456);
+  });
+
+  it('안 맞으면 내장 전략으로 넘어간다', () => {
+    const result = parseOfficialPrice('<span>500,000 BP</span>', 1, 1, {
+      customPattern: '없는패턴([\\d,]+)',
+    });
+    expect(result.price).toBe(500_000);
+    expect(result.strategy).toBe('bp-label');
+  });
+
+  it('잘못된 정규식이 전체를 죽이지 않는다', () => {
+    // 패턴 하나 때문에 조회가 통째로 실패하면 안 된다.
+    const result = parseOfficialPrice('<span>500,000 BP</span>', 1, 1, {
+      customPattern: '([unclosed',
+    });
+    expect(result.price).toBe(500_000);
+  });
+
+  it('패턴이 없으면 평소대로 동작한다', () => {
+    expect(parseOfficialPrice('<span>500,000 BP</span>', 1, 1, {}).strategy).toBe('bp-label');
+  });
+});
+
+describe('표 안의 기준가', () => {
+  it('셀이 나란히 있는 표를 읽는다', () => {
+    const html = '<tr><td>기준가</td><td>2,500,000</td></tr>';
+    const result = parseOfficialPrice(html, 1);
+    expect(result.price).toBe(2_500_000);
+    expect(result.strategy).toBe('table-row');
+  });
+
+  it('시세·거래가 같은 표기도 잡는다', () => {
+    expect(parseOfficialPrice('<tr><td>시세</td><td>880,000</td></tr>', 1).price).toBe(880_000);
   });
 });
 

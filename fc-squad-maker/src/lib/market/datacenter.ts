@@ -45,7 +45,14 @@ export function playerInfoUrl(spid: number, grade = 1): string {
   return url.toString();
 }
 
-export type ParseStrategy = 'embedded-json' | 'data-attribute' | 'price-class' | 'bp-label' | 'none';
+export type ParseStrategy =
+  | 'custom'
+  | 'embedded-json'
+  | 'data-attribute'
+  | 'price-class'
+  | 'table-row'
+  | 'bp-label'
+  | 'none';
 
 export interface OfficialPrice {
   spid: number;
@@ -115,7 +122,15 @@ function fromPriceClass(html: string): number | null {
   return match ? parseBP(match[1]) : null;
 }
 
-/** 4) 최후 수단 — "BP" 글자 주변의 숫자 */
+/** 4) 표 안에 "기준가 | 1,234,567" 처럼 들어 있는 경우 */
+function fromTableRow(html: string): number | null {
+  const match =
+    /(?:기준가|시세|거래가|평균가)[^<]*<\/t[dh]>\s*<t[dh][^>]*>([^<]{1,40})</i.exec(html) ??
+    /<t[dh][^>]*>\s*(?:기준가|시세|거래가|평균가)\s*<\/t[dh]>[\s\S]{0,80}?>([\d,]{4,})</i.exec(html);
+  return match ? parseBP(match[1]) : null;
+}
+
+/** 5) 최후 수단 — "BP" 글자 주변의 숫자 */
 function fromBpLabel(html: string): number | null {
   const text = html.replace(/<[^>]+>/g, ' ');
   const match = /(\d[\d,]{2,})\s*BP/i.exec(text) ?? /BP\s*(\d[\d,]{2,})/i.exec(text);
@@ -126,15 +141,47 @@ const STRATEGIES: Array<[ParseStrategy, (html: string) => number | null]> = [
   ['embedded-json', fromEmbeddedJson],
   ['data-attribute', fromDataAttribute],
   ['price-class', fromPriceClass],
+  ['table-row', fromTableRow],
   ['bp-label', fromBpLabel],
 ];
+
+/**
+ * 직접 지정한 패턴. 내장 전략보다 **먼저** 시도한다.
+ *
+ * 이 탈출구가 있는 이유: 이 파서는 실제 페이지를 보지 못한 채 작성됐고,
+ * 넥슨이 구조를 바꾸면 또 어긋난다. 그때마다 코드를 고치고 배포하길
+ * 기다리는 대신, probe 로 구조를 확인한 사람이 환경 변수 한 줄로 바로
+ * 맞출 수 있어야 한다.
+ *
+ * 첫 번째 캡처 그룹이 가격이어야 한다. 잘못된 정규식은 조용히 무시된다 —
+ * 패턴 하나 때문에 전체 조회가 죽으면 안 되기 때문이다.
+ */
+function fromCustomPattern(html: string, pattern: string | undefined): number | null {
+  if (!pattern) return null;
+  try {
+    const match = new RegExp(pattern, 'i').exec(html);
+    if (!match?.[1]) return null;
+    const value = parseBP(match[1]);
+    return value !== null && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 페이지 HTML 에서 기준가를 뽑는다.
  * 실패해도 throw 하지 않는다 — 한 카드를 못 읽었다고 전체 조회가
  * 무너지면 안 되고, strategy: 'none' 이 곧 진단 정보가 된다.
  */
-export function parseOfficialPrice(html: string, spid: number, grade = 1): OfficialPrice {
+export function parseOfficialPrice(
+  html: string,
+  spid: number,
+  grade = 1,
+  options: { customPattern?: string } = {},
+): OfficialPrice {
+  const custom = fromCustomPattern(html, options.customPattern);
+  if (custom !== null) return { spid, grade, price: custom, strategy: 'custom' };
+
   for (const [strategy, extract] of STRATEGIES) {
     const price = extract(html);
     if (price !== null && price > 0) return { spid, grade, price, strategy };
@@ -146,6 +193,8 @@ export interface FetchOptions {
   timeoutMs?: number;
   /** 테스트·오프라인용 주입구. 없으면 전역 fetch. */
   fetchImpl?: typeof fetch;
+  /** 내장 전략보다 먼저 시도할 정규식 (첫 캡처 그룹이 가격) */
+  customPattern?: string;
 }
 
 /**
@@ -158,7 +207,7 @@ export interface FetchOptions {
 export async function fetchOfficialPrice(
   spid: number,
   grade = 1,
-  { timeoutMs = 8000, fetchImpl = fetch }: FetchOptions = {},
+  { timeoutMs = 8000, fetchImpl = fetch, customPattern }: FetchOptions = {},
 ): Promise<OfficialPrice> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -169,7 +218,7 @@ export async function fetchOfficialPrice(
       headers: { accept: 'text/html,application/xhtml+xml' },
     });
     if (!res.ok) return { spid, grade, price: null, strategy: 'none' };
-    return parseOfficialPrice(await res.text(), spid, grade);
+    return parseOfficialPrice(await res.text(), spid, grade, { customPattern });
   } catch {
     return { spid, grade, price: null, strategy: 'none' };
   } finally {

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { fail, handleError, intParam, ok } from '@/lib/api/respond';
+import { env } from '@/lib/env';
 import { comparePrice, fetchOfficialPrice } from '@/lib/market/datacenter';
 
 /**
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest) {
   const observed = intParam(params.get('observed'), 0, { min: 0, max: 99_999_999_999 });
 
   try {
-    const official = await fetchOfficialPrice(spid, grade);
+    const official = await fetchOfficialPrice(spid, grade, {
+      customPattern: env.datacenterPricePattern,
+    });
 
     return ok(
       {

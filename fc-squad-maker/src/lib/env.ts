@@ -22,6 +22,12 @@ export const env = {
   allowMock: readBool(process.env.FC_ALLOW_MOCK, true),
   /** 상자 시뮬레이터 고정 시드(재현용). 비우면 매 요청 랜덤. */
   packSeed: process.env.FC_PACK_SEED?.trim() || undefined,
+  /**
+   * 데이터센터 기준가 파서에 직접 넘길 정규식 (첫 캡처 그룹이 가격).
+   * 내장 전략이 못 맞출 때 코드 수정·배포 없이 바로 고치기 위한 탈출구다.
+   * `npm run probe:datacenter` 로 구조를 확인한 뒤 채운다.
+   */
+  datacenterPricePattern: process.env.FC_DATACENTER_PRICE_PATTERN?.trim() || undefined,
 } as const;
 
 export const hasApiKey = env.apiKey.length > 0;
