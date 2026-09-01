@@ -486,34 +486,44 @@ npm run lint        # 린트만 검사
 
 이 앱은 리포지토리 루트가 아니라 **`fc-squad-maker/` 하위**에 있다. Vercel 은 기본적으로
 리포지토리 루트에서 `package.json` 을 찾으므로, 아무 설정 없이 연결하면 빌드 대상을
-찾지 못하고 실패한다. 둘 중 하나로 해결한다.
+찾지 못하고 실패한다.
 
-### A. Root Directory 설정 (권장)
+### Root Directory 설정 — 이것 하나면 된다
 
 Vercel 이 `fc-squad-maker` 를 프로젝트 루트로 취급하게 만든다. Next.js 자동 감지와
-서버리스 함수 경로가 전부 정상으로 잡히므로 가장 안전하다.
+서버리스 함수 경로가 전부 정상으로 잡힌다.
 
 - **새로 연결**: [vercel.com/new](https://vercel.com/new) → 리포지토리 Import →
   *Configure Project* 에서 **Root Directory → Edit → `fc-squad-maker`** → Deploy
 - **이미 연결돼 실패 중**: **Settings → General → Root Directory** 에 `fc-squad-maker`
   입력 → Save → **Deployments → ⋯ → Redeploy**
 
-### B. 루트 `vercel.json` (대시보드를 못 건드릴 때)
+이후는 Vercel 이 알아서 설치·빌드한다. **`vercel.json` 은 필요 없다.**
 
-리포지토리 루트의 `vercel.json` 이 빌드를 하위 디렉토리로 넘긴다. Root Directory 가
-루트인 상태 그대로도 배포가 통과한다.
+### 루트에 `vercel.json` 을 두지 말 것
+
+한때 대시보드를 못 건드리는 경우를 대비해 리포지토리 루트에 이런 파일을 뒀었다:
 
 ```json
 {
-  "framework": "nextjs",
   "installCommand": "cd fc-squad-maker && npm ci",
   "buildCommand": "cd fc-squad-maker && npm run build",
   "outputDirectory": "fc-squad-maker/.next"
 }
 ```
 
-Root Directory 를 설정하면 Vercel 은 `fc-squad-maker/vercel.json` 을 읽고 루트의
-`vercel.json` 은 무시하므로, 두 방법을 같이 둬도 충돌하지 않는다.
+Root Directory 가 루트일 때는 이게 맞지만, **Root Directory 까지 설정하면 두 개가
+겹쳐서 깨진다.** Vercel 이 이미 `fc-squad-maker` 안에서 명령을 실행하는데 거기서
+또 `cd fc-squad-maker` 를 하니 `fc-squad-maker/fc-squad-maker` 를 찾다 실패한다.
+
+증상이 특이해서 적어 둔다 — **2초 만에 실패하고 빌드 로그에 npm 출력이 한 줄도 없다.**
+`npm ci` 가 실패한 게 아니라 그 앞의 `cd` 에서 죽기 때문이다.
+
+```
+Command "cd fc-squad-maker && npm ci" exited with 1
+```
+
+실제로 이 리포지토리에서 겪었고, 그래서 그 파일을 지웠다.
 
 ### 환경 변수
 

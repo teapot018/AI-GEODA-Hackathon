@@ -39,22 +39,17 @@ Next.js 자동 감지 · 서버리스 함수 · 이미지 최적화가 전부 �
 2. **Root Directory** 를 `fc-squad-maker` 로 입력 → **Save**
 3. **Deployments** 탭 → 최신 배포 우측 **⋯ → Redeploy**
 
-> Root Directory 를 설정하면 Vercel 은 `fc-squad-maker/vercel.json` 을 읽고
-> 리포지토리 루트의 `vercel.json` 은 무시합니다. 두 방법이 서로 충돌하지 않습니다.
+Root Directory 만 설정하면 끝입니다. Vercel 이 Next.js 를 자동으로 알아보고
+설치·빌드를 알아서 하므로 **`vercel.json` 은 필요 없습니다.**
 
-### B. 루트 `vercel.json` (대시보드를 못 건드릴 때)
-
-리포지토리 루트의 [`vercel.json`](./vercel.json) 이 빌드를 하위 디렉토리로 넘깁니다.
-Root Directory 가 루트인 상태 그대로도 배포가 통과합니다.
-
-```json
-{
-  "framework": "nextjs",
-  "installCommand": "cd fc-squad-maker && npm ci",
-  "buildCommand": "cd fc-squad-maker && npm run build",
-  "outputDirectory": "fc-squad-maker/.next"
-}
-```
+> **루트에 `vercel.json` 을 두지 마세요.**
+> 한때 대시보드를 못 건드리는 경우를 대비해 루트에
+> `installCommand: "cd fc-squad-maker && npm ci"` 같은 설정을 뒀었는데,
+> Root Directory 까지 설정하면 Vercel 이 이미 그 폴더 안에서 명령을 실행하기
+> 때문에 `fc-squad-maker/fc-squad-maker` 로 한 번 더 들어가려다
+> **2초 만에 실패**합니다. 빌드 로그에 npm 출력이 한 줄도 없이
+> `Command "cd fc-squad-maker && npm ci" exited with 1` 만 뜨면 이 증상입니다.
+> 실제로 이 리포지토리에서 겪었고, 그래서 그 파일을 지웠습니다.
 
 ### 환경 변수
 
