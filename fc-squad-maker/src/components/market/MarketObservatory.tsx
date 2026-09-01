@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ChevronDown, Database, LineChart, Minus, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronDown, Database, LineChart, Minus, Scale, Search, TrendingDown, TrendingUp } from 'lucide-react';
 
 import {
   Badge,
@@ -18,7 +18,13 @@ import {
 import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
+import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
 import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observations';
+
+/** /api/market/official 응답 모양 */
+interface OfficialLookup extends OfficialPrice {
+  comparison: PriceComparison | null;
+}
 import type { MarketCardStat, MarketReport } from '@/lib/nexon/insights';
 import type { ManagerOverview } from '@/lib/nexon/service';
 import { cn } from '@/lib/utils/cn';
@@ -330,6 +336,8 @@ function PriceRow({ card }: { card: MarketCardStat }) {
             <StatTile label="최고" value={formatBP(card.max)} />
           </div>
 
+          <OfficialPriceCheck card={card} />
+
           <p className="text-[10px] text-slate-500">
             평균 <b className="num text-slate-300">{formatBP(card.avg)}</b> · 변동폭{' '}
             <b className="num text-slate-300">{formatPercent(card.spread, 0)}</b> · 최근 체결{' '}
@@ -366,6 +374,100 @@ const VERDICT: Record<PriceVerdict, { text: string; className: string }> = {
 };
 
 /** 입력한 가격이 관측된 사분위 범위 어디에 놓이는지 알려준다. */
+/**
+ * 넥슨 공시 기준가와 대조.
+ *
+ * 우리가 가진 건 실제 체결가고, 저쪽은 2시간 주기 집계값이다. 어느 쪽이
+ * 옳다기보다 **어긋나는 폭 자체가 정보**라서 한 칸에 섞지 않고 나란히 둔다.
+ * 체결가가 기준가보다 계속 높으면 그 카드는 지금 기준가로는 못 산다는 뜻이다.
+ *
+ * 카드마다 넥슨 페이지를 한 번씩 부르는 구조라 자동으로 훑지 않는다.
+ * 사용자가 눌렀을 때만 1회 — 남의 서버에 예의를 지키는 선이 이 정도다.
+ */
+function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState<OfficialLookup | null>(null);
+  const [note, setNote] = useState<string | undefined>();
+
+  const check = async () => {
+    setState('loading');
+    try {
+      const res = await apiGet<OfficialLookup>(
+        `/api/market/official?spid=${card.spid}&grade=1&observed=${Math.round(card.median)}`,
+      );
+      setResult(res.data);
+      setNote(res.note);
+      setState('done');
+    } catch (error) {
+      setNote(error instanceof ApiError ? error.message : '기준가를 불러오지 못했습니다.');
+      setState('error');
+    }
+  };
+
+  if (state === 'idle') {
+    return (
+      <button
+        type="button"
+        onClick={check}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-neon-cyan/40 hover:text-neon-cyan"
+      >
+        <Scale size={12} /> 넥슨 공시 기준가와 비교
+      </button>
+    );
+  }
+
+  if (state === 'loading') {
+    return <p className="text-[11px] text-slate-500">기준가를 확인하는 중…</p>;
+  }
+
+  const comparison = result?.comparison;
+  const verdict = comparison?.verdict ?? 'unknown';
+
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px]">
+      {result?.price ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-slate-400">
+            넥슨 기준가 <b className="num text-slate-200">{formatBP(result.price)}</b>
+          </span>
+          <span className="text-slate-400">
+            우리 체결 중앙값 <b className="num text-slate-200">{formatBP(card.median)}</b>
+          </span>
+          {comparison?.gapPercent !== null && comparison?.gapPercent !== undefined ? (
+            <Badge tone={VERDICT_TONE[verdict]}>
+              {comparison.gapPercent >= 0 ? '+' : ''}
+              {comparison.gapPercent.toFixed(1)}% {VERDICT_LABEL[verdict]}
+            </Badge>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-neon-amber">
+          {note ?? '기준가를 읽지 못했습니다.'}
+        </p>
+      )}
+
+      <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+        기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 체결가는 실제 거래 기록입니다.
+        둘은 서로를 대체하지 않으며 어긋나는 폭이 곧 정보입니다.
+      </p>
+    </div>
+  );
+}
+
+const VERDICT_TONE = {
+  above: 'rose',
+  below: 'lime',
+  near: 'neutral',
+  unknown: 'neutral',
+} as const;
+
+const VERDICT_LABEL = {
+  above: '기준가보다 비쌈',
+  below: '기준가보다 쌈',
+  near: '기준가 수준',
+  unknown: '비교 불가',
+} as const;
+
 function PriceJudge({ card }: { card: MarketCardStat }) {
   const [price, setPrice] = useState(card.median);
   const verdict = VERDICT[judgePrice(card, price)];

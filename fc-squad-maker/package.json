@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:api": "node scripts/check-api.mjs"
+    "check:api": "node scripts/check-api.mjs",
+    "probe:datacenter": "node scripts/probe-datacenter.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",
