@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ChevronDown, LineChart, Minus, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronDown, Database, LineChart, Minus, Search, TrendingDown, TrendingUp } from 'lucide-react';
 
 import {
   Badge,
@@ -186,6 +186,8 @@ function ReportView({
         />
       </div>
 
+      <PoolPanel report={report} />
+
       <Card>
         <CardHeader
           title="카드별 실거래 가격"
@@ -215,6 +217,68 @@ const TREND_STYLE: Record<Trend, { icon: typeof TrendingUp; tone: 'lime' | 'rose
   down: { icon: TrendingDown, tone: 'lime', label: '하락' },
   flat: { icon: Minus, tone: 'neutral', label: '보합' },
 };
+
+/**
+ * 누적 관측 풀.
+ *
+ * 한 계정의 거래 내역만 보면 표본이 얕다. 조회할 때마다 체결 기록을
+ * 풀에 합쳐 두면 카드별 가격 분포가 점점 촘촘해진다 — 다른 시세
+ * 사이트와의 차이는 값이 진짜냐가 아니라 표본이 얼마나 넓으냐였다.
+ */
+function PoolPanel({ report }: { report: MarketReport }) {
+  const { pool, movers, poolAdded } = report;
+  if (pool.observations === 0) return null;
+
+  return (
+    <Card className="space-y-2.5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-200">
+          <Database size={13} className="text-neon-violet" />
+          누적 관측 풀
+        </span>
+        <span className="text-[11px] text-slate-400">
+          체결 <span className="num font-semibold text-slate-200">{pool.observations.toLocaleString('ko-KR')}</span>건
+          {' · '}카드 <span className="num font-semibold text-slate-200">{pool.cards.toLocaleString('ko-KR')}</span>종
+          {poolAdded > 0 ? (
+            <span className="ml-1.5 text-neon-lime">+{poolAdded.toLocaleString('ko-KR')} 신규</span>
+          ) : null}
+        </span>
+      </div>
+
+      {movers.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-[10px] text-slate-500">직전 조회 대비 움직인 카드</p>
+          <div className="flex flex-wrap gap-1.5">
+            {movers.map((mover) => (
+              <span
+                key={mover.spid}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
+                  mover.direction === 'up'
+                    ? 'border-neon-lime/30 bg-neon-lime/10 text-neon-lime'
+                    : 'border-neon-rose/30 bg-neon-rose/10 text-neon-rose',
+                )}
+                title={`${formatBP(mover.before ?? 0)} → ${formatBP(mover.after)}`}
+              >
+                {mover.direction === 'up' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                {mover.name}
+                <span className="num font-semibold">
+                  {mover.percent >= 0 ? '+' : ''}
+                  {mover.percent.toFixed(1)}%
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <p className="text-[10px] leading-relaxed text-slate-500">
+        조회할수록 표본이 쌓여 시세가 촘촘해집니다. 보관 기한 30일이 지난 관측은 자동으로
+        빠지며, 서버 인스턴스가 재활용되면 풀은 비워집니다.
+      </p>
+    </Card>
+  );
+}
 
 function PriceRow({ card }: { card: MarketCardStat }) {
   const [open, setOpen] = useState(false);

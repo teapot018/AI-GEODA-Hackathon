@@ -17,6 +17,8 @@ import {
   type PriceStat,
   type TradeSide,
 } from '@/lib/market/observations';
+import type { PoolStats, PriceDelta } from '@/lib/market/livefeed';
+import { absorb } from '@/lib/market/pool';
 import { env } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
@@ -91,11 +93,23 @@ export interface MarketCardStat extends PriceStat {
   ovr: number;
 }
 
+/** 움직인 카드 — 이름을 붙여 화면에 바로 쓸 수 있게 한다. */
+export interface MarketMover extends PriceDelta {
+  name: string;
+  seasonName: string;
+}
+
 export interface MarketReport {
   summary: MarketSummary;
   cards: MarketCardStat[];
   /** minSamples 를 넘긴 카드 총수 (cards 는 maxCards 로 잘린다) */
   cardsTotal: number;
+  /** 누적 관측 풀 현황 — 조회를 거듭할수록 표본이 쌓인다 */
+  pool: PoolStats;
+  /** 직전 조회 대비 중앙가가 움직인 카드 (풀 기준) */
+  movers: MarketMover[];
+  /** 이번 조회로 풀에 새로 들어온 관측 수 */
+  poolAdded: number;
   /** 실제로 긁어온 페이지 수 (요청한 만큼 없을 수 있다) */
   pagesFetched: number;
 }
@@ -150,15 +164,30 @@ export async function getMarketReport({
     observations: Observation[],
     pagesFetched: number,
   ): Promise<MarketReport> => {
+    // 이번 관측을 누적 풀에 합친다. 풀은 조회를 거듭할수록 커지므로
+    // 무엇이 움직였는지는 이번 조회분이 아니라 풀 기준으로 봐야 한다.
+    const pooled = absorb(observations);
+
     const index = buildPriceIndex(observations).filter((stat) => stat.samples >= minSamples);
     // 표본이 많은 순으로 이미 정렬돼 있으므로 앞에서 자르면 볼 만한 것만 남는다.
     const top = index.slice(0, maxCards);
-    const cards = await getCards(top.map((stat) => stat.spid));
+    // 움직인 카드 이름도 함께 받아 온다 — 한 번의 조회로 끝내기 위해.
+    const cards = await getCards([
+      ...top.map((stat) => stat.spid),
+      ...pooled.movers.map((delta) => delta.spid),
+    ]);
 
     return {
       summary: summarizeMarket(observations),
       pagesFetched,
       cardsTotal: index.length,
+      pool: pooled.stats,
+      poolAdded: pooled.added,
+      movers: pooled.movers.map((delta) => ({
+        ...delta,
+        name: cards.get(delta.spid)?.name ?? `#${delta.spid}`,
+        seasonName: cards.get(delta.spid)?.seasonName ?? '-',
+      })),
       cards: top.map((stat) => {
         const card = cards.get(stat.spid);
         return {
