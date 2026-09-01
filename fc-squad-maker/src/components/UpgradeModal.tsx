@@ -9,7 +9,7 @@ import { formatBP } from '@/lib/utils/format';
 import type { PlayerCardData } from '@/lib/players/types';
 import type { Formation } from '@/lib/squad/formations';
 import { useSquadStore } from '@/lib/squad/store';
-import { suggestUpgrades, type UpgradeCandidate } from '@/utils/squadOptimizer';
+import { suggestUpgrades, type UpgradeCandidate } from '@/lib/squad/optimizer';
 
 interface SearchPayload {
   cards: PlayerCardData[];

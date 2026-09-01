@@ -7,7 +7,7 @@ import { Badge, Button, Card, CardHeader, Input } from '@/components/ui';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import type { Formation } from '@/lib/squad/formations';
 import { useSquadStore } from '@/lib/squad/store';
-import { optimizeSquad } from '@/utils/squadOptimizer';
+import { optimizeSquad } from '@/lib/squad/optimizer';
 import { formatBP } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 

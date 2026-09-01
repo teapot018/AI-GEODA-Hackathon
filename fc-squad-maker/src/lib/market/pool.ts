@@ -4,6 +4,7 @@ import {
   diffIndex,
   mergeObservations,
   movers as pickMovers,
+  observationKey,
   poolStats,
   pruneObservations,
   type PoolStats,
@@ -67,7 +68,14 @@ export interface AbsorbResult {
  */
 export function absorb(incoming: readonly Observation[], now = new Date()): AbsorbResult {
   const current = state();
-  const before = current.observations.length;
+
+  /**
+   * 신규 건수는 크기 차이(kept - before)로 재면 안 된다. 같은 조회에서
+   * 보관 기한이 지난 관측이 빠지면 그만큼 상쇄되어, 새 체결 20건이
+   * 들어와도 만료 20건과 맞물리면 "+0 신규" 로 보인다.
+   * 들어오기 전에 없던 키가 몇 개나 살아남았는지로 센다.
+   */
+  const knownKeys = new Set(current.observations.map(observationKey));
 
   const merged = mergeObservations(current.observations, incoming);
   const kept = pruneObservations(merged, now);
@@ -83,8 +91,7 @@ export function absorb(incoming: readonly Observation[], now = new Date()): Abso
     stats: poolStats(kept),
     pooledIndex,
     movers: pickMovers(deltas),
-    // 병합 뒤 늘어난 수. 같은 거래가 다시 온 건 새 관측이 아니다.
-    added: Math.max(0, kept.length - before),
+    added: kept.filter((row) => !knownKeys.has(observationKey(row))).length,
     lastAbsorbedAt: now,
   };
 }

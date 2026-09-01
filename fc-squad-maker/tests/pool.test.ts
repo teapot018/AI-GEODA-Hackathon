@@ -72,6 +72,27 @@ describe('absorb', () => {
     expect(read()[0].saleSn).toBe('new');
   });
 
+  it('만료가 신규 건수를 상쇄하지 않는다', () => {
+    // 크기 차이로 재면 여기서 +0 이 나온다 — 새 체결 2건이 들어왔는데도.
+    const stale = new Date(NOW.getTime() - (RETENTION_DAYS + 5) * DAY).toISOString().slice(0, 19);
+    absorb(
+      [obs({ saleSn: 'old-1', tradeDate: stale }), obs({ saleSn: 'old-2', tradeDate: stale })],
+      new Date(NOW.getTime() - 40 * DAY), // 아직 기한 안이라 살아남는 시점에 넣는다
+    );
+    expect(read()).toHaveLength(2);
+
+    const result = absorb(series(9, [100, 200]), NOW);
+    expect(result.added).toBe(2); // 만료된 2건과 무관하게 신규는 2건
+    expect(result.stats.observations).toBe(2); // 옛 2건은 빠졌다
+  });
+
+  it('이미 있던 관측은 신규로 세지 않는다', () => {
+    const batch = series(1, [100, 120]);
+    absorb(batch, NOW);
+    const again = absorb([...batch, ...series(2, [500, 520])], NOW);
+    expect(again.added).toBe(2); // 새 카드 2건만
+  });
+
   it('흡수 시각을 기록한다', () => {
     expect(lastAbsorbedAt()).toBeNull();
     absorb(series(1, [100, 120]), NOW);

@@ -8,7 +8,7 @@ import {
   evaluatePositionFit,
   optimizeSquad,
   suggestUpgrades,
-} from '@/utils/squadOptimizer';
+} from '@/lib/squad/optimizer';
 import { makeCard } from './helpers';
 
 const formation = findFormation('4-3-3');
