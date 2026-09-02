@@ -29,8 +29,11 @@ interface Props {
   dates: Array<string | null | undefined>;
   /** 무엇의 신선도인지 — "체결", "경기" 처럼 */
   noun?: string;
-  /** 다음 갱신 예상까지 같이 보여 줄지 */
-  showNextRefresh?: boolean;
+  /**
+   * 기준가 집계 주기를 같이 밝힐지.
+   * 경기 기록처럼 집계 주기가 없는 데이터에서는 꺼 둔다.
+   */
+  showInterval?: boolean;
   className?: string;
 }
 
@@ -46,7 +49,7 @@ interface Props {
  * 나고, 무엇보다 그 값이 그 시점에 얼어붙는다. 마운트 전에는 절대
  * 시각만 보여 주고, 붙은 뒤부터 상대 시각을 얹는다.
  */
-export function FreshnessNote({ dates, noun = '체결', showNextRefresh = true, className }: Props) {
+export function FreshnessNote({ dates, noun = '체결', showInterval = true, className }: Props) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -89,13 +92,17 @@ export function FreshnessNote({ dates, noun = '체결', showNextRefresh = true, 
         </span>
       ) : null}
 
-      {showNextRefresh && mounted ? (
+      {showInterval ? (
         <span
           className="inline-flex items-center gap-1 text-slate-500"
-          title={`넥슨 데이터센터 기준가는 ${REFRESH_INTERVAL_HOURS}시간 주기로 집계됩니다. 이 값은 그 주기에 맞춘 예상 시각입니다.`}
+          title={
+            `넥슨 데이터센터 기준가는 약 ${REFRESH_INTERVAL_HOURS}시간 주기로 집계됩니다. ` +
+            '다만 집계가 몇 시에 도는지는 공개돼 있지 않고 카드마다 갱신 시각도 달라, ' +
+            '다음 갱신 시각은 표시하지 않습니다.'
+          }
         >
           <RefreshCw size={11} className="shrink-0" />
-          다음 집계 예상 {formatDateTime(freshness.nextRefresh.toISOString())}
+          기준가 집계 약 {REFRESH_INTERVAL_HOURS}시간 주기
         </span>
       ) : null}
     </div>

@@ -17,7 +17,13 @@
  * Date.now() 를 안에서 부르면 테스트에서 시간을 고정할 수 없다.
  */
 
-/** 넥슨 데이터센터 기준가 집계 주기(시간). 신선도 눈금의 기준. */
+/**
+ * 넥슨 데이터센터 기준가 집계 주기(시간). 신선도 눈금의 기준.
+ *
+ * 이 값은 "얼마나 묵었나"를 재는 눈금으로만 쓴다. 다음 집계가 **몇 시에**
+ * 도는지를 여기서 계산하지는 않는다 — 그건 우리가 모르는 값이다.
+ * 자세한 이유는 파일 아래쪽 주석 참고.
+ */
 export const REFRESH_INTERVAL_HOURS = 2;
 
 const MINUTE = 60_000;
@@ -81,17 +87,23 @@ export function formatAge(ageMs: number): string {
 }
 
 /**
- * 다음 집계 시점. 2시간 주기가 정각(0,2,4…시)에 떨어진다고 보고 올림한다.
- * 넥슨이 정확히 몇 분에 도는지는 공개돼 있지 않아 어림값이며,
- * 화면에서도 "예상"이라고 적어 둔다.
+ * ── 다음 집계 시각은 계산하지 않는다 ──
+ *
+ * 한때 이 자리에 nextRefreshAt() 이 있었다. 2시간 주기가 UTC 정각
+ * (0,2,4…시)에 떨어진다고 보고 올림해서 "다음 집계 예상 14:00" 을 찍었다.
+ * 화면에서 제일 자신 있어 보이는 값이었는데, 근거가 제일 없었다.
+ *
+ *  - 넥슨은 집계가 몇 시에 도는지 공개한 적이 없다. 정각 기준이라는 건
+ *    우리가 지어낸 가정이고, 맞는지 확인할 방법도 없다.
+ *  - 카드마다 갱신 시각이 다르다는 것이 이 바닥의 상식이다. 하나의
+ *    시계로 전부를 예고하는 것 자체가 틀린 모델이다.
+ *  - "예상"이라는 꼬리표를 달아도 사람은 적힌 시각을 보고 그때 다시
+ *    들어온다. 빗나가면 그건 빗나간 예상이 아니라 헛걸음이다.
+ *
+ * 주기가 대략 2시간이라는 것까지는 말할 수 있다. 그래서 주기는 주기로만
+ * 밝히고(신선도 눈금 REFRESH_INTERVAL_HOURS), 시각은 찍지 않는다.
+ * 이 프로젝트가 능력치·상자 확률에 "추정"이라고 적어 둔 것과 같은 선이다.
  */
-export function nextRefreshAt(now: Date): Date {
-  const next = new Date(now);
-  next.setUTCMinutes(0, 0, 0);
-  const step = REFRESH_INTERVAL_HOURS;
-  next.setUTCHours(Math.floor(now.getUTCHours() / step) * step + step);
-  return next;
-}
 
 export interface Freshness {
   /** 표본에서 가장 최근 시각 */
@@ -105,10 +117,6 @@ export interface Freshness {
   ageLabel: string;
   /** 표본이 걸쳐 있는 기간(ms) */
   spanMs: number | null;
-  /** 다음 집계 예상 시각 */
-  nextRefresh: Date;
-  /** 다음 집계까지 남은 ms */
-  untilRefreshMs: number;
 }
 
 /**
@@ -122,13 +130,10 @@ export function measureFreshness(dates: Array<string | null | undefined>, now: D
     .map((d) => d.getTime())
     .sort((a, b) => a - b);
 
-  const nextRefresh = nextRefreshAt(now);
-  const untilRefreshMs = nextRefresh.getTime() - now.getTime();
-
   if (times.length === 0) {
     return {
       latest: null, oldest: null, ageMs: null, staleness: null,
-      ageLabel: '-', spanMs: null, nextRefresh, untilRefreshMs,
+      ageLabel: '-', spanMs: null,
     };
   }
 
@@ -144,8 +149,6 @@ export function measureFreshness(dates: Array<string | null | undefined>, now: D
     staleness: stalenessOf(ageMs),
     ageLabel: formatAge(ageMs),
     spanMs: latest - oldest,
-    nextRefresh,
-    untilRefreshMs,
   };
 }
 

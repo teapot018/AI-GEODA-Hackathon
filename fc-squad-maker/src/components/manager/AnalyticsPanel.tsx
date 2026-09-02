@@ -74,7 +74,7 @@ export function AnalyticsPanel({
       <FreshnessNote
         dates={timeline.map((point) => point.matchDate)}
         noun="경기"
-        showNextRefresh={false}
+        showInterval={false}
         className="mb-3"
       />
 

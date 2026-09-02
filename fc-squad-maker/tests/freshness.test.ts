@@ -4,7 +4,6 @@ import {
   formatAge,
   formatDuration,
   measureFreshness,
-  nextRefreshAt,
   parseApiDate,
   REFRESH_INTERVAL_HOURS,
   stalenessOf,
@@ -84,30 +83,22 @@ describe('formatAge', () => {
   });
 });
 
-describe('nextRefreshAt', () => {
-  it('다음 짝수 정각으로 올린다', () => {
-    expect(nextRefreshAt(new Date('2026-08-31T12:00:00Z')).toISOString()).toBe(
-      '2026-08-31T14:00:00.000Z',
-    );
-    expect(nextRefreshAt(new Date('2026-08-31T12:34:56Z')).toISOString()).toBe(
-      '2026-08-31T14:00:00.000Z',
-    );
-    expect(nextRefreshAt(new Date('2026-08-31T13:59:59Z')).toISOString()).toBe(
-      '2026-08-31T14:00:00.000Z',
-    );
+describe('다음 집계 시각은 예고하지 않는다', () => {
+  it('신선도 결과에 예상 갱신 시각이 들어 있지 않다', () => {
+    // 한때 nextRefresh / untilRefreshMs 가 여기 있었다. 2시간 주기가 UTC
+    // 정각에 떨어진다는 가정으로 만든 값인데, 넥슨은 그런 걸 공개한 적이
+    // 없고 카드마다 갱신 시각도 다르다. 근거 없는 시각을 화면에 찍느니
+    // 주기만 밝히기로 했고, 그 결정이 되돌아가지 않게 여기서 못박는다.
+    const f = measureFreshness(['2026-08-31T11:00:00'], NOW) as unknown as Record<string, unknown>;
+    expect(f.nextRefresh).toBeUndefined();
+    expect(f.untilRefreshMs).toBeUndefined();
   });
 
-  it('항상 미래다', () => {
-    for (const hour of [0, 1, 7, 15, 22, 23]) {
-      const now = new Date(Date.UTC(2026, 7, 31, hour, 30));
-      expect(nextRefreshAt(now).getTime()).toBeGreaterThan(now.getTime());
-    }
-  });
-
-  it('자정을 넘길 때 날짜가 넘어간다', () => {
-    expect(nextRefreshAt(new Date('2026-08-31T23:10:00Z')).toISOString()).toBe(
-      '2026-09-01T00:00:00.000Z',
-    );
+  it('주기 상수는 신선도 눈금으로 계속 쓴다', () => {
+    // 주기 자체는 말할 수 있는 값이라 남는다 — '언제 갱신되나'가 아니라
+    // '얼마나 묵었나'를 재는 데만 쓴다.
+    expect(REFRESH_INTERVAL_HOURS).toBe(2);
+    expect(stalenessOf(REFRESH_INTERVAL_HOURS * HOUR - 1)).toBe('fresh');
   });
 });
 
@@ -135,8 +126,7 @@ describe('measureFreshness', () => {
     expect(f.ageMs).toBeNull();
     expect(f.staleness).toBeNull();
     expect(f.ageLabel).toBe('-');
-    // 표본이 없어도 다음 갱신 예상은 계산된다.
-    expect(f.nextRefresh.toISOString()).toBe('2026-08-31T14:00:00.000Z');
+    expect(f.spanMs).toBeNull();
   });
 
   it('파싱 안 되는 값은 버리고 나머지로 잰다', () => {
@@ -153,12 +143,6 @@ describe('measureFreshness', () => {
     const f = measureFreshness(['2026-08-31T13:00:00'], NOW);
     expect(f.ageMs).toBe(0);
     expect(f.ageLabel).toBe('방금');
-  });
-
-  it('다음 갱신까지 남은 시간은 양수다', () => {
-    const f = measureFreshness(['2026-08-31T11:00:00'], NOW);
-    expect(f.untilRefreshMs).toBeGreaterThan(0);
-    expect(f.untilRefreshMs).toBe(2 * HOUR);
   });
 });
 
