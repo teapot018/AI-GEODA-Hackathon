@@ -1,13 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   comparePrice,
+  createGate,
   fetchOfficialPrice,
   GAP_EPSILON_PERCENT,
+  OFFICIAL_TTL_MS,
   parseBP,
   parseOfficialPrice,
   playerInfoUrl,
+  POLITE_GAP_MS,
+  resetDatacenterState,
 } from '@/lib/market/datacenter';
+
+/**
+ * 게이트와 기준가 기억은 모듈 전역이라, 테스트끼리 새어 나가지 않게 비운다.
+ * 간격은 0 으로 둔다 — 간격 자체는 아래 createGate 블록에서 따로 본다.
+ */
+beforeEach(() => resetDatacenterState(0));
 
 describe('playerInfoUrl', () => {
   it('spid 와 강화등급을 쿼리로 붙인다', () => {
@@ -193,6 +203,127 @@ describe('fetchOfficialPrice', () => {
       },
     });
     expect(result.price).toBeNull();
+  });
+
+  it('집계 주기 안에서는 같은 카드를 다시 부르지 않는다', async () => {
+    let calls = 0;
+    const options = {
+      now: () => 0,
+      fetchImpl: async () => {
+        calls += 1;
+        return html('<span class="price">1,000,000 BP</span>');
+      },
+    };
+
+    await fetchOfficialPrice(7, 1, options);
+    await fetchOfficialPrice(7, 1, options);
+    expect(calls).toBe(1);
+  });
+
+  it('기본 간격이 실제로 걸린다 — 두 번째 요청은 바로 나가지 않는다', async () => {
+    resetDatacenterState(); // 기본값(POLITE_GAP_MS)으로 다시 세운다
+    const started = Date.now();
+    const fetchImpl = async () => html('<span class="price">1,000,000 BP</span>');
+
+    await fetchOfficialPrice(21, 1, { fetchImpl, now: () => 0 });
+    await fetchOfficialPrice(22, 1, { fetchImpl, now: () => 0 });
+
+    expect(Date.now() - started).toBeGreaterThanOrEqual(POLITE_GAP_MS - 50);
+  });
+
+  it('강등급이 다르면 다른 값이라 따로 부른다', async () => {
+    let calls = 0;
+    const options = {
+      now: () => 0,
+      fetchImpl: async () => {
+        calls += 1;
+        return html('<span class="price">1,000,000 BP</span>');
+      },
+    };
+
+    await fetchOfficialPrice(7, 1, options);
+    await fetchOfficialPrice(7, 5, options);
+    expect(calls).toBe(2);
+  });
+
+  it('수명이 지나면 다시 부른다', async () => {
+    let clock = 0;
+    let calls = 0;
+    const options = {
+      now: () => clock,
+      fetchImpl: async () => {
+        calls += 1;
+        return html('<span class="price">1,000,000 BP</span>');
+      },
+    };
+
+    await fetchOfficialPrice(9, 1, options);
+    clock = OFFICIAL_TTL_MS + 1;
+    await fetchOfficialPrice(9, 1, options);
+    expect(calls).toBe(2);
+  });
+
+  it('실패는 기억하지 않는다 — 잠깐 흔들렸다고 30분을 굳히면 안 된다', async () => {
+    let calls = 0;
+    const options = {
+      now: () => 0,
+      fetchImpl: async () => {
+        calls += 1;
+        return calls === 1
+          ? ({ ok: false, status: 503, text: async () => '' } as Response)
+          : html('<span class="price">1,000,000 BP</span>');
+      },
+    };
+
+    expect((await fetchOfficialPrice(11, 1, options)).price).toBeNull();
+    expect((await fetchOfficialPrice(11, 1, options)).price).toBe(1_000_000);
+  });
+});
+
+describe('createGate — 나가는 요청 사이의 간격', () => {
+  /** 시계와 대기를 가짜로 물려 실제로 기다리지 않고 간격만 관찰한다. */
+  function fakeGate(gapMs = 1_000) {
+    let clock = 0;
+    const slept: number[] = [];
+    const gate = createGate(
+      gapMs,
+      () => clock,
+      async (ms) => {
+        slept.push(ms);
+        clock += ms;
+      },
+    );
+    return { gate, slept };
+  }
+
+  it('첫 요청은 기다리지 않는다', async () => {
+    const { gate, slept } = fakeGate();
+    await gate(async () => 'ok');
+    expect(slept).toEqual([]);
+  });
+
+  it('이어지는 요청은 간격만큼 벌어진다', async () => {
+    const { gate, slept } = fakeGate();
+    await Promise.all([gate(async () => 1), gate(async () => 2), gate(async () => 3)]);
+    expect(slept).toEqual([1_000, 1_000]);
+  });
+
+  it('들어온 순서를 지킨다', async () => {
+    const { gate } = fakeGate();
+    const order: number[] = [];
+    await Promise.all([1, 2, 3].map((n) => gate(async () => void order.push(n))));
+    expect(order).toEqual([1, 2, 3]);
+  });
+
+  it('한 건이 실패해도 뒤의 요청이 막히지 않는다', async () => {
+    const { gate } = fakeGate();
+    const failing = gate(async () => {
+      throw new Error('boom');
+    });
+    const following = gate(async () => 'ok');
+
+    await expect(failing).rejects.toThrow('boom');
+    await expect(following).resolves.toBe('ok');
   });
 });
 

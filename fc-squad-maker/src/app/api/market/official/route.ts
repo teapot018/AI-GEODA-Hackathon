@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 import { fail, handleError, intParam, ok } from '@/lib/api/respond';
 import { env } from '@/lib/env';
-import { comparePrice, fetchOfficialPrice } from '@/lib/market/datacenter';
+import { comparePrice, fetchOfficialPrice, OFFICIAL_TTL_MS } from '@/lib/market/datacenter';
 
 /**
  * GET /api/market/official?spid=300235494&grade=1&observed=1200000
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
       },
       {
         // 넥슨 집계 주기가 2시간이라 그보다 촘촘히 다시 부를 이유가 없다.
-        cacheSeconds: 1800,
+        // 서버 쪽 기억 수명과 같은 상수를 써서 둘이 어긋나지 않게 한다.
+        cacheSeconds: OFFICIAL_TTL_MS / 1000,
         note:
           official.strategy === 'none'
             ? '기준가를 읽지 못했습니다. 페이지 구조가 바뀌었을 수 있습니다 (npm run probe:datacenter 로 확인).'

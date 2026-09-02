@@ -34,9 +34,62 @@ export const DATACENTER_DAILY_TRADE_URL = 'https://fconline.nexon.com/datacenter
 
 /**
  * 공개 페이지를 읽는 것이라 API 키는 없지만, 그렇다고 마음껏 두드려도
- * 된다는 뜻은 아니다. 남의 서버다.
+ * 된다는 뜻은 아니다. 남의 서버다. 아래 게이트가 이 간격을 강제한다.
  */
 export const POLITE_GAP_MS = 1_000;
+
+/**
+ * 기준가를 기억해 두는 시간. 넥슨 집계 주기가 2시간이라 그 안에서는
+ * 같은 답이 온다 — 라우트의 응답 캐시와 같은 값을 쓰도록 여기서 정한다.
+ */
+export const OFFICIAL_TTL_MS = 30 * 60_000;
+
+/**
+ * ── 나가는 요청 사이의 간격을 강제하는 게이트 ──
+ *
+ * 상수만 선언해 두고 아무도 기다리지 않으면 그건 예의가 아니라 주석이다.
+ * 카드 행을 빠르게 펼치면 그만큼의 요청이 그대로 넥슨 서버로 나간다.
+ *
+ * 요청을 한 줄로 세우고, 앞 요청이 **시작한 시각**으로부터 gapMs 가
+ * 지나야 다음이 출발한다. 앞 요청의 성패는 줄에 영향을 주지 않는다.
+ */
+export function createGate(
+  gapMs: number,
+  now: () => number = Date.now,
+  sleep: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
+) {
+  let chain = Promise.resolve();
+  let lastStartedAt = Number.NEGATIVE_INFINITY;
+
+  return function pass<T>(task: () => Promise<T>): Promise<T> {
+    const turn = chain.then(async () => {
+      const wait = lastStartedAt + gapMs - now();
+      if (wait > 0) await sleep(wait);
+      lastStartedAt = now();
+    });
+    // 대기 줄만 이어 붙인다. task 의 실패가 뒤 요청을 막아서는 안 된다.
+    chain = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+    return turn.then(task);
+  };
+}
+
+interface DatacenterState {
+  pass: <T>(task: () => Promise<T>) => Promise<T>;
+  cache: Map<string, { at: number; value: OfficialPrice }>;
+}
+
+/** 개발 서버의 HMR 이 모듈을 다시 평가해도 게이트가 초기화되지 않도록. */
+const GLOBAL_KEY = '__fcDatacenter__';
+
+function shared(): DatacenterState {
+  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: DatacenterState };
+  store[GLOBAL_KEY] ??= { pass: createGate(POLITE_GAP_MS), cache: new Map() };
+  return store[GLOBAL_KEY];
+}
 
 export function playerInfoUrl(spid: number, grade = 1): string {
   const url = new URL(DATACENTER_PLAYER_URL);
@@ -195,6 +248,8 @@ export interface FetchOptions {
   fetchImpl?: typeof fetch;
   /** 내장 전략보다 먼저 시도할 정규식 (첫 캡처 그룹이 가격) */
   customPattern?: string;
+  /** 캐시 수명을 테스트에서 고정하기 위한 시계 */
+  now?: () => number;
 }
 
 /**
@@ -203,27 +258,56 @@ export interface FetchOptions {
  * 네트워크 실패는 throw 하지 않고 price: null 로 돌려준다. 이 값은
  * 어디까지나 체결가를 보조하는 참고치라, 못 가져왔다고 화면이
  * 비어서는 안 된다.
+ *
+ * 나가는 요청은 게이트를 통과해야 하고(POLITE_GAP_MS 간격), 한 번 읽은
+ * 값은 집계 주기 안에서 재사용한다. 실패는 캐시하지 않는다 — 넥슨이
+ * 잠깐 흔들렸다고 30분 동안 못 읽는 상태로 굳으면 안 된다.
  */
 export async function fetchOfficialPrice(
   spid: number,
   grade = 1,
-  { timeoutMs = 8000, fetchImpl = fetch, customPattern }: FetchOptions = {},
+  { timeoutMs = 8000, fetchImpl = fetch, customPattern, now = Date.now }: FetchOptions = {},
 ): Promise<OfficialPrice> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const { pass, cache } = shared();
+  const key = `${spid}:${grade}:${customPattern ?? ''}`;
 
-  try {
-    const res = await fetchImpl(playerInfoUrl(spid, grade), {
-      signal: controller.signal,
-      headers: { accept: 'text/html,application/xhtml+xml' },
-    });
-    if (!res.ok) return { spid, grade, price: null, strategy: 'none' };
-    return parseOfficialPrice(await res.text(), spid, grade, { customPattern });
-  } catch {
-    return { spid, grade, price: null, strategy: 'none' };
-  } finally {
-    clearTimeout(timer);
-  }
+  const hit = cache.get(key);
+  if (hit && now() - hit.at < OFFICIAL_TTL_MS) return hit.value;
+
+  return pass(async () => {
+    // 줄을 서 있는 동안 다른 요청이 같은 카드를 채워 넣었을 수 있다.
+    const fresh = cache.get(key);
+    if (fresh && now() - fresh.at < OFFICIAL_TTL_MS) return fresh.value;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetchImpl(playerInfoUrl(spid, grade), {
+        signal: controller.signal,
+        headers: { accept: 'text/html,application/xhtml+xml' },
+      });
+      if (!res.ok) return { spid, grade, price: null, strategy: 'none' as const };
+
+      const parsed = parseOfficialPrice(await res.text(), spid, grade, { customPattern });
+      if (parsed.price !== null) cache.set(key, { at: now(), value: parsed });
+      return parsed;
+    } catch {
+      return { spid, grade, price: null, strategy: 'none' as const };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+}
+
+/**
+ * 테스트·수동 초기화용. 게이트와 기억해 둔 기준가를 모두 비운다.
+ * gapMs 를 주면 그 간격의 게이트로 다시 세운다 — 캐시를 검증하는
+ * 테스트까지 매번 1초씩 실제로 기다릴 이유는 없다.
+ */
+export function resetDatacenterState(gapMs = POLITE_GAP_MS): void {
+  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: DatacenterState };
+  store[GLOBAL_KEY] = { pass: createGate(gapMs), cache: new Map() };
 }
 
 /* ── 체결가와의 비교 ──────────────────────────────────────── */
