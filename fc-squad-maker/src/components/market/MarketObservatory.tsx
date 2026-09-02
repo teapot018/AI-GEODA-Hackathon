@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { ChevronDown, Database, LineChart, Minus, Scale, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, Database, LineChart, Minus, RefreshCw, Scale, Search, TrendingDown, TrendingUp } from 'lucide-react';
 
 import {
   Badge,
@@ -19,6 +19,7 @@ import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
+import { canRefresh, msUntilRefresh, DEFAULT_POLL_MS, MIN_POLL_MS } from '@/lib/market/livefeed';
 import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observations';
 
 /** /api/market/official 응답 모양 */
@@ -48,15 +49,37 @@ export function MarketObservatory() {
   const [note, setNote] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
+  const [auto, setAuto] = useState(false);
+  /**
+   * 실제로 조회한 조건. 갱신은 입력창의 현재 값이 아니라 이걸 다시 쓴다 —
+   * 자동 갱신을 켜 둔 채로 다음 닉네임을 타이핑하면, 절반쯤 친 이름으로
+   * 조회가 나가 버린다.
+   */
+  const [lastQuery, setLastQuery] = useState<{
+    nickname: string;
+    pages: number;
+    scope: MarketScope;
+  } | null>(null);
 
+  /**
+   * keepPrevious: 갱신일 때는 표를 지우지 않는다. 매번 비우면 1초쯤
+   * 빈 화면이 번쩍이고, 보고 있던 카드 행이 접혀 버린다.
+   */
   const search = useCallback(
-    async (value: string, pageCount: number, sampleScope: MarketScope) => {
+    async (
+      value: string,
+      pageCount: number,
+      sampleScope: MarketScope,
+      keepPrevious = false,
+    ) => {
       const target = value.trim();
       if (!target) return;
 
       setLoading(true);
       setError(null);
-      setReport(null);
+      setLastQuery({ nickname: target, pages: pageCount, scope: sampleScope });
+      if (!keepPrevious) setReport(null);
 
       try {
         // 닉네임 -> ouid 는 기존 구단주 조회를 그대로 재사용한다.
@@ -83,10 +106,19 @@ export function MarketObservatory() {
         }
       } finally {
         setLoading(false);
+        // 성공했을 때만 찍으면 안 된다. 자동 갱신이 켜져 있는데 호출이
+        // 실패하면 쿨다운이 시작되지 않아 1초마다 재시도하게 된다.
+        // 간격 제한은 '성공한 조회'가 아니라 '넥슨을 부른 것'을 센다.
+        setFetchedAt(new Date());
       }
     },
     [],
   );
+
+  const refresh = useCallback(() => {
+    if (!lastQuery) return;
+    void search(lastQuery.nickname, lastQuery.pages, lastQuery.scope, true);
+  }, [search, lastQuery]);
 
   return (
     <div className="space-y-5">
@@ -170,6 +202,16 @@ export function MarketObservatory() {
           위 매입·매도 총액은 표본 범위와 무관하게 <b>조회한 계정의 거래</b>만 셉니다 — 그 계정의
           현금 흐름이라 섞으면 뜻이 달라집니다.
         </p>
+
+        {report ? (
+          <RefreshControl
+            fetchedAt={fetchedAt}
+            loading={loading}
+            auto={auto}
+            onToggleAuto={() => setAuto((on) => !on)}
+            onRefresh={refresh}
+          />
+        ) : null}
       </Card>
 
       {error ? <ErrorNote message={error} /> : null}
@@ -258,6 +300,85 @@ function ReportView({
         구단주가 실제로 사고판 카드만 나오며, 표본이 적을수록 오차가 큽니다.
       </p>
     </>
+  );
+}
+
+/**
+ * 갱신 컨트롤.
+ *
+ * 풀은 조회를 거듭해야 넓어지는데, 정작 다시 조회할 방법이 검색 버튼을
+ * 또 누르는 것뿐이었다. 여기서 갱신을 하나로 모으고, 넥슨을 부르는 간격에
+ * 하한(MIN_POLL_MS)을 둔다 — 호출량은 약관과 별개로 지켜야 할 예의고,
+ * 남은 시간을 보여 줘야 사용자도 버튼이 왜 안 눌리는지 안다.
+ *
+ * 1초 타이머를 이 컴포넌트 안에 가둔 이유: 위쪽에 두면 카드 60행이
+ * 매초 다시 그려진다.
+ */
+function RefreshControl({
+  fetchedAt,
+  loading,
+  auto,
+  onToggleAuto,
+  onRefresh,
+}: {
+  fetchedAt: Date | null;
+  loading: boolean;
+  auto: boolean;
+  onToggleAuto: () => void;
+  onRefresh: () => void;
+}) {
+  const [now, setNow] = useState<Date | null>(null);
+
+  // 서버 렌더 결과와 어긋나지 않도록 시계는 마운트 후에만 돈다.
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const cooling = now ? msUntilRefresh(fetchedAt, now) : 0;
+  const ready = !loading && cooling === 0;
+
+  // 자동 갱신은 기본 간격(5분)을 따로 쓴다. 최소 간격(1분)으로 돌리면
+  // 하루 종일 켜 둔 탭 하나가 넥슨 호출을 계속 먹는다.
+  useEffect(() => {
+    if (!auto || loading || !now) return;
+    if (canRefresh(fetchedAt, now, DEFAULT_POLL_MS)) onRefresh();
+  }, [auto, loading, now, fetchedAt, onRefresh]);
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onRefresh}
+        disabled={!ready}
+        className="gap-1.5 text-[11px]"
+      >
+        <RefreshCw size={12} className={loading ? 'animate-spin' : undefined} />
+        {loading ? '갱신 중' : cooling > 0 ? `${Math.ceil(cooling / 1000)}초 후 갱신` : '지금 갱신'}
+      </Button>
+
+      <button
+        type="button"
+        onClick={onToggleAuto}
+        title={`${DEFAULT_POLL_MS / 60_000}분마다 자동으로 다시 조회합니다`}
+        className={cn(
+          'rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors',
+          auto
+            ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan'
+            : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200',
+        )}
+      >
+        자동 갱신 {DEFAULT_POLL_MS / 60_000}분 {auto ? 'ON' : 'OFF'}
+      </button>
+
+      <span className="text-[10px] text-slate-500">
+        {fetchedAt ? `마지막 조회 ${fetchedAt.toLocaleTimeString('ko-KR')}` : null}
+        {` · 최소 ${MIN_POLL_MS / 1000}초 간격`}
+      </span>
+    </div>
   );
 }
 
