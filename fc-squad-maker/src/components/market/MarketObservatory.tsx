@@ -18,6 +18,7 @@ import {
 import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
+import { parseApiDate } from '@/lib/data/freshness';
 import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
 import { canRefresh, msUntilRefresh, DEFAULT_POLL_MS, MIN_POLL_MS } from '@/lib/market/livefeed';
 import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observations';
@@ -242,6 +243,15 @@ function ReportView({
 }) {
   const { summary, cards } = report;
 
+  /**
+   * 관측 구간의 길이. "600건" 만 보면 그게 하루치인지 두 달치인지 알 수
+   * 없는데, 중앙값을 읽을 때는 그 차이가 크다.
+   */
+  const from = parseApiDate(summary.from);
+  const to = parseApiDate(summary.to);
+  const spanDays =
+    from && to ? Math.max(1, Math.round((to.getTime() - from.getTime()) / 86_400_000)) : null;
+
   if (summary.samples === 0) {
     return (
       <Card>
@@ -261,7 +271,11 @@ function ReportView({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatTile label="관측 거래" value={summary.samples.toLocaleString('ko-KR')} sub={`${summary.cards}종 카드`} />
+        <StatTile
+          label="관측 거래"
+          value={summary.samples.toLocaleString('ko-KR')}
+          sub={spanDays ? `${summary.cards}종 · ${spanDays}일 구간` : `${summary.cards}종 카드`}
+        />
         <StatTile label="매입 총액" value={formatBP(summary.buyTotal)} sub={`${summary.buyCount}건`} />
         <StatTile label="매도 총액" value={formatBP(summary.sellTotal)} sub={`${summary.sellCount}건`} />
         <StatTile
@@ -396,7 +410,7 @@ const TREND_STYLE: Record<Trend, { icon: typeof TrendingUp; tone: 'lime' | 'rose
  * 사이트와의 차이는 값이 진짜냐가 아니라 표본이 얼마나 넓으냐였다.
  */
 function PoolPanel({ report }: { report: MarketReport }) {
-  const { pool, movers, poolAdded } = report;
+  const { pool, movers, poolAdded, excluded, retentionDays, summary } = report;
   if (pool.observations === 0) return null;
 
   return (
@@ -443,8 +457,20 @@ function PoolPanel({ report }: { report: MarketReport }) {
       ) : null}
 
       <p className="text-[10px] leading-relaxed text-slate-500">
-        조회할수록 표본이 쌓여 시세가 촘촘해집니다. 보관 기한 30일이 지난 관측은 자동으로
-        빠지며, 서버 인스턴스가 재활용되면 풀은 비워집니다.
+        조회할수록 표본이 쌓여 시세가 촘촘해집니다. 보관 기한 {retentionDays}일이 지난 관측은
+        자동으로 빠지며, 서버 인스턴스가 재활용되면 풀은 비워집니다.
+        {/*
+          위 요약 타일은 받아온 전체 건수, 여기 풀은 기한 안에 남은 건수라
+          두 숫자가 다르다. 왜 다른지 화면에서 설명하지 않으면 사용자는
+          어느 쪽이 틀렸는지 알 수 없다.
+        */}
+        {excluded > 0 ? (
+          <>
+            {' '}이번 조회 {summary.samples.toLocaleString('ko-KR')}건 중{' '}
+            <span className="num text-slate-400">{excluded.toLocaleString('ko-KR')}</span>건은
+            기한이 지나 시세 계산에서 빠졌습니다.
+          </>
+        ) : null}
       </p>
     </Card>
   );

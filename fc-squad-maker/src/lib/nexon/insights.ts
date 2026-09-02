@@ -17,7 +17,7 @@ import {
   type PriceStat,
   type TradeSide,
 } from '@/lib/market/observations';
-import type { PoolStats, PriceDelta } from '@/lib/market/livefeed';
+import { pruneObservations, RETENTION_DAYS, type PoolStats, type PriceDelta } from '@/lib/market/livefeed';
 import { absorb } from '@/lib/market/pool';
 import { env } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
@@ -121,6 +121,13 @@ export interface MarketReport {
   movers: MarketMover[];
   /** 이번 조회로 풀에 새로 들어온 관측 수 */
   poolAdded: number;
+  /**
+   * 이번에 받아온 것 중 보관 기한이 지나 풀에 들어가지 못한 건수.
+   * 요약 타일(전체 건수)과 풀 건수가 왜 다른지는 이 값으로만 설명된다.
+   */
+  excluded: number;
+  /** 보관 기한 (일) — 화면에서 위 숫자를 설명할 때 쓴다 */
+  retentionDays: number;
   /** 가격표가 어느 표본을 썼는지 */
   scope: MarketScope;
   /** 실제로 긁어온 페이지 수 (요청한 만큼 없을 수 있다) */
@@ -185,7 +192,11 @@ export async function getMarketReport({
     // 무엇이 움직였는지는 이번 조회분이 아니라 풀 기준으로 봐야 한다.
     // 풀은 출처별로 나뉘어 있다 — 데모로 대체된 조회에서 지어낸 체결이
     // 다음 성공 조회의 '실거래' 표에 섞여 들어가면 안 된다.
-    const pooled = absorb(observations, new Date(), source);
+    const now = new Date();
+    const pooled = absorb(observations, now, source);
+    // 넥슨의 거래 내역은 30일보다 훨씬 과거까지 나온다. 깊이를 올려 받으면
+    // 그중 상당수가 보관 기한 밖이라 풀에 남지 않는다 — 그 차이를 숫자로 넘긴다.
+    const excluded = observations.length - pruneObservations(observations, now).length;
 
     // 가격표의 표본. pool 이면 풀이 이미 접어 둔 지수를 그대로 쓴다 —
     // 같은 관측으로 buildPriceIndex 를 두 번 돌릴 이유가 없다.
@@ -206,6 +217,8 @@ export async function getMarketReport({
       cardsTotal: index.length,
       pool: pooled.stats,
       poolAdded: pooled.added,
+      excluded,
+      retentionDays: RETENTION_DAYS,
       movers: pooled.movers.map((delta) => ({
         ...delta,
         name: cards.get(delta.spid)?.name ?? `#${delta.spid}`,
