@@ -24,6 +24,7 @@ import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
 import { inferFormation, startersOf } from '@/lib/squad/import';
 import { MissingApiKeyError, NexonApiError, nexonFetch } from './client';
+import { coverageNote, type SideCoverage } from './coverage';
 import { MATCH_TYPE, NX } from './endpoints';
 import { matchTypeMap, positionMap } from './meta';
 import { mockMarketTrades, mockMatchDetail, mockMatchIds } from './mock';
@@ -137,27 +138,38 @@ export interface MarketReport {
 /**
  * offset 을 밀어 가며 한쪽(매입/매도) 거래를 모은다.
  * 페이지가 PAGE_SIZE 보다 적게 오면 더 볼 게 없다는 뜻이라 멈춘다.
+ *
+ * 첫 페이지가 실패하면 이 방향은 읽지 못한 것이라 그대로 올린다(호출한
+ * 쪽이 키 없음·404 를 구분해야 한다). 뒤쪽 페이지 실패는 다르다 —
+ * 이미 받은 100건, 200건은 진짜 체결가다. 그걸 버리고 데모로 떨어뜨리면
+ * 진짜 값을 지어낸 값으로 바꿔치기하는 셈이라, 받은 만큼 들고 나온다.
  */
 async function fetchTradePages(
   ouid: string,
   side: TradeSide,
   pages: number,
-): Promise<{ records: TradeRecord[]; pagesFetched: number }> {
+): Promise<{ records: TradeRecord[]; pagesFetched: number; truncated: boolean }> {
   const records: TradeRecord[] = [];
   let pagesFetched = 0;
 
   for (let page = 0; page < pages; page += 1) {
-    const batch = await nexonFetch<TradeRecord[]>(
-      NX.userTrade,
-      { ouid, tradetype: side, offset: page * PAGE_SIZE, limit: PAGE_SIZE },
-      { revalidate: 600 },
-    );
+    let batch: TradeRecord[];
+    try {
+      batch = await nexonFetch<TradeRecord[]>(
+        NX.userTrade,
+        { ouid, tradetype: side, offset: page * PAGE_SIZE, limit: PAGE_SIZE },
+        { revalidate: 600 },
+      );
+    } catch (error) {
+      if (page === 0) throw error;
+      return { records, pagesFetched, truncated: true };
+    }
     pagesFetched += 1;
     records.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }
 
-  return { records, pagesFetched };
+  return { records, pagesFetched, truncated: false };
 }
 
 export interface MarketOptions {
@@ -237,15 +249,33 @@ export async function getMarketReport({
     };
   };
 
+  // allSettled 인 이유: 한쪽이 막혀도 다른 쪽은 진짜 데이터다.
+  const [buyResult, sellResult] = await Promise.allSettled([
+    fetchTradePages(ouid, 'buy', pages),
+    fetchTradePages(ouid, 'sell', pages),
+  ]);
+
   try {
-    const [buy, sell] = await Promise.all([
-      fetchTradePages(ouid, 'buy', pages),
-      fetchTradePages(ouid, 'sell', pages),
-    ]);
-    const observations = [...tagSide(buy.records, 'buy'), ...tagSide(sell.records, 'sell')];
+    const buy = buyResult.status === 'fulfilled' ? buyResult.value : null;
+    const sell = sellResult.status === 'fulfilled' ? sellResult.value : null;
+
+    // 양쪽 다 실패했을 때만 폴백을 따진다. 이유(키 없음·404·429)는
+    // 실패한 쪽의 에러가 쥐고 있으므로 그대로 던져 아래에서 판정한다.
+    if (!buy && !sell) {
+      throw buyResult.status === 'rejected' ? buyResult.reason : (sellResult as PromiseRejectedResult).reason;
+    }
+
+    const coverage = (side: typeof buy): SideCoverage =>
+      side ? { ok: true, truncated: side.truncated } : { ok: false, truncated: false };
+
+    const observations = [
+      ...tagSide(buy?.records ?? [], 'buy'),
+      ...tagSide(sell?.records ?? [], 'sell'),
+    ];
     return {
-      data: await build(observations, buy.pagesFetched + sell.pagesFetched, 'nexon'),
+      data: await build(observations, (buy?.pagesFetched ?? 0) + (sell?.pagesFetched ?? 0), 'nexon'),
       source: 'nexon',
+      note: coverageNote(coverage(buy), coverage(sell)),
     };
   } catch (error) {
     if (!shouldFallback(error, allowMock)) throw error;
