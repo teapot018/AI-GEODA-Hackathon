@@ -153,3 +153,34 @@ export async function nexonFetch<T>(
     ? lastError
     : new NexonApiError(500, 'UNKNOWN', '알 수 없는 오류');
 }
+
+/**
+ * 데모로 대체됐을 때 화면에 붙일 한 줄.
+ *
+ * 예전에는 "HTTP_403 — 데모 데이터로 대체" 였다. 코드를 아는 사람에게는
+ * 충분하지만, 이 앱을 쓰는 사람은 방금 Vercel 에 키를 붙여 넣고 왜 여전히
+ * 데모인지 알고 싶을 뿐이다. 무엇이 잘못됐고 무엇을 하면 되는지 적는다.
+ */
+export function describeFallback(error: unknown): string {
+  if (error instanceof MissingApiKeyError) {
+    return 'API 키(NX_API_KEY)가 없어 데모 데이터를 보여 줍니다.';
+  }
+
+  if (error instanceof NexonApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return '넥슨이 API 키를 거부했습니다. 키가 맞는지, 사용 승인이 났는지 확인하세요. 지금은 데모 데이터입니다.';
+    }
+    if (error.status === 429) {
+      return '넥슨 호출량 한도를 넘었습니다. 잠시 뒤 다시 조회하세요. 지금은 데모 데이터입니다.';
+    }
+    if (error.code === 'NETWORK' || error.status === 504) {
+      return '넥슨 서버에 연결하지 못했습니다 (응답 없음). 지금은 데모 데이터입니다.';
+    }
+    if (error.status >= 500) {
+      return '넥슨 서버에 문제가 있습니다. 잠시 뒤 다시 조회하세요. 지금은 데모 데이터입니다.';
+    }
+    return `넥슨 API 오류(${error.code})로 데모 데이터를 보여 줍니다.`;
+  }
+
+  return '넥슨 API 호출에 실패해 데모 데이터를 보여 줍니다.';
+}

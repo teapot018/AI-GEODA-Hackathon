@@ -3,7 +3,7 @@ import 'server-only';
 import { env, hasApiKey } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
-import { MissingApiKeyError, NexonApiError, nexonFetch } from './client';
+import { describeFallback, MissingApiKeyError, NexonApiError, nexonFetch } from './client';
 import { MATCH_TYPE, NX } from './endpoints';
 import { divisionMap, matchTypeMap, positionMap } from './meta';
 import {
@@ -48,12 +48,6 @@ function shouldFallback(error: unknown): boolean {
     return !error.isNotFound;
   }
   return true;
-}
-
-function fallbackNote(error: unknown): string {
-  if (error instanceof MissingApiKeyError) return 'NX_API_KEY 미설정 — 데모 데이터';
-  if (error instanceof NexonApiError) return `${error.code} — 데모 데이터로 대체`;
-  return '넥슨 API 호출 실패 — 데모 데이터로 대체';
 }
 
 /* ── 구단주 ───────────────────────────────────────────────── */
@@ -114,7 +108,7 @@ export async function getManagerOverview(nickname: string): Promise<Sourced<Mana
         divisions: decorate(mockMaxDivision(trimmed)),
       },
       source: 'mock',
-      note: fallbackNote(error),
+      note: describeFallback(error),
     };
   }
 }
@@ -214,7 +208,7 @@ export async function getRecentMatches(
       const detail = mockMatchDetail(id, nickname, matchType);
       return summarize(detail, detail.matchInfo[0].ouid);
     });
-    return { data, source: 'mock', note: fallbackNote(error) };
+    return { data, source: 'mock', note: describeFallback(error) };
   }
 }
 
@@ -286,7 +280,7 @@ export async function getMatchDetail(
     return {
       data: await build(mockMatchDetail(matchId, nicknameForMock)),
       source: 'mock',
-      note: fallbackNote(error),
+      note: describeFallback(error),
     };
   }
 }
@@ -359,7 +353,7 @@ export async function getAssetSnapshot(
     return {
       data: await build(mockTrades(nicknameForMock, 'buy', limit), mockTrades(nicknameForMock, 'sell', limit)),
       source: 'mock',
-      note: fallbackNote(error),
+      note: describeFallback(error),
     };
   }
 }

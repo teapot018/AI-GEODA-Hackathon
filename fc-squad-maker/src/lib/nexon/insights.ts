@@ -23,7 +23,7 @@ import { env } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
 import { inferFormation, startersOf } from '@/lib/squad/import';
-import { MissingApiKeyError, NexonApiError, nexonFetch } from './client';
+import { describeFallback, MissingApiKeyError, NexonApiError, nexonFetch } from './client';
 import { coverageNote, type SideCoverage } from './coverage';
 import { MATCH_TYPE, NX } from './endpoints';
 import { matchTypeMap, positionMap } from './meta';
@@ -55,12 +55,6 @@ function shouldFallback(error: unknown, allowMock: boolean): boolean {
   if (error instanceof MissingApiKeyError) return true;
   if (error instanceof NexonApiError) return !error.isNotFound;
   return true;
-}
-
-function fallbackNote(error: unknown): string {
-  if (error instanceof MissingApiKeyError) return 'NX_API_KEY 미설정 — 데모 데이터';
-  if (error instanceof NexonApiError) return `${error.code} — 데모 데이터로 대체`;
-  return '넥슨 API 호출 실패 — 데모 데이터로 대체';
 }
 
 /** Promise.all 은 N개를 한꺼번에 던진다. 그러면 429 가 나므로 창을 좁힌다. */
@@ -286,7 +280,7 @@ export async function getMarketReport({
     return {
       data: await build(observations, 0, 'mock'),
       source: 'mock',
-      note: fallbackNote(error),
+      note: describeFallback(error),
     };
   }
 }
@@ -379,7 +373,7 @@ export async function getManagerAnalytics({
     const details = ids.map((id) => mockMatchDetail(id, nicknameForMock, matchType));
     // 목업의 내 ouid 는 닉네임에서 파생되므로 첫 사이드의 ouid 를 쓴다.
     const myOuid = details[0]?.matchInfo[0]?.ouid ?? ouid;
-    return { data: await build(details, myOuid), source: 'mock', note: fallbackNote(error) };
+    return { data: await build(details, myOuid), source: 'mock', note: describeFallback(error) };
   }
 }
 
@@ -482,7 +476,7 @@ export async function getSquadFromMatch({
     return {
       data: await build(mockMatchDetail(matchId, nicknameForMock)),
       source: 'mock',
-      note: fallbackNote(error),
+      note: describeFallback(error),
     };
   }
 }
