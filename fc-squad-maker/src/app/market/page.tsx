@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { CardPriceSearch } from '@/components/market/CardPriceSearch';
 import { MarketObservatory } from '@/components/market/MarketObservatory';
 
 export const metadata: Metadata = {
@@ -19,6 +20,11 @@ export default function MarketPage() {
           크롤링 없이 공식 API 만 사용합니다.
         </p>
       </header>
+      {/*
+        선수 이름 검색을 위에 둔다. 사람이 먼저 떠올리는 질문이 "이 선수 얼마야"
+        쪽이고, 아래 구단주 조회는 그 답을 채우는 표본 공급원이다.
+      */}
+      <CardPriceSearch />
       <MarketObservatory />
     </div>
   );
