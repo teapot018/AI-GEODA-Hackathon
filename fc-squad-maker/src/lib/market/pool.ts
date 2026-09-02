@@ -11,6 +11,7 @@ import {
   type PriceDelta,
 } from './livefeed';
 import { buildPriceIndex, type Observation, type PriceStat } from './observations';
+import type { DataSource } from '@/lib/nexon/service';
 
 /**
  * ── 관측 풀 ────────────────────────────────────────────────
@@ -19,6 +20,13 @@ import { buildPriceIndex, type Observation, type PriceStat } from './observation
  * 한 계정의 거래 내역은 표본이 얕지만, 조회가 누적되면 카드별 체결가
  * 분포가 잡힌다 — FC INFO 같은 사이트와의 차이는 값이 진짜냐 아니냐가
  * 아니라 표본 범위였고, 이게 그 범위를 넓히는 유일하게 정당한 방법이다.
+ *
+ * ── 출처가 다른 관측은 절대 섞지 않는다 ──
+ * 넥슨이 429 하나만 뱉어도 그 조회는 데모 데이터로 대체된다. 풀이 하나뿐이면
+ * 그때 만들어진 가짜 체결이 그대로 남아, 다음 성공 조회가 source: 'nexon'
+ * 배지를 달고도 가짜 가격이 섞인 표를 보여 주게 된다. 실데이터라고 말한 표에
+ * 지어낸 값이 한 줄이라도 들어가면 그 표 전체를 믿을 수 없다. 그래서 풀을
+ * 출처별로 나눠 두고, 조회는 자기 출처의 풀만 본다.
  *
  * ── 이 저장소의 한계를 분명히 ──
  * 프로세스 메모리다. 서버리스(Vercel)에서는 인스턴스가 재활용되면 풀이
@@ -39,16 +47,20 @@ interface PoolState {
   lastAbsorbedAt: Date | null;
 }
 
+type Pools = Record<DataSource, PoolState>;
+
 /**
  * 모듈 스코프 상태. Next.js 개발 서버는 HMR 때 모듈을 다시 평가하므로
  * globalThis 에 매달아 두지 않으면 편집할 때마다 풀이 날아간다.
  */
 const GLOBAL_KEY = '__fcMarketPool__';
 
-function state(): PoolState {
-  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: PoolState };
-  store[GLOBAL_KEY] ??= { observations: [], previousIndex: [], lastAbsorbedAt: null };
-  return store[GLOBAL_KEY];
+const emptyPool = (): PoolState => ({ observations: [], previousIndex: [], lastAbsorbedAt: null });
+
+function state(source: DataSource): PoolState {
+  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: Pools };
+  store[GLOBAL_KEY] ??= { nexon: emptyPool(), mock: emptyPool() };
+  return store[GLOBAL_KEY][source];
 }
 
 export interface AbsorbResult {
@@ -65,9 +77,15 @@ export interface AbsorbResult {
 /**
  * 새 관측을 풀에 합치고, 직전 스냅샷과 비교해 무엇이 움직였는지 낸다.
  * now 를 받는 이유는 보관 기한 계산을 테스트에서 고정하기 위한 것.
+ * source 는 이 관측이 어느 풀에 속하는지 — 넥슨에서 온 것과 데모로 지어낸
+ * 것은 서로 다른 풀에 쌓인다.
  */
-export function absorb(incoming: readonly Observation[], now = new Date()): AbsorbResult {
-  const current = state();
+export function absorb(
+  incoming: readonly Observation[],
+  now = new Date(),
+  source: DataSource = 'nexon',
+): AbsorbResult {
+  const current = state(source);
 
   /**
    * 신규 건수는 크기 차이(kept - before)로 재면 안 된다. 같은 조회에서
@@ -97,16 +115,20 @@ export function absorb(incoming: readonly Observation[], now = new Date()): Abso
 }
 
 /** 지금 풀에 쌓여 있는 관측 (읽기 전용). */
-export function read(): readonly Observation[] {
-  return state().observations;
+export function read(source: DataSource = 'nexon'): readonly Observation[] {
+  return state(source).observations;
 }
 
-export function lastAbsorbedAt(): Date | null {
-  return state().lastAbsorbedAt;
+export function lastAbsorbedAt(source: DataSource = 'nexon'): Date | null {
+  return state(source).lastAbsorbedAt;
 }
 
-/** 테스트·수동 초기화용. */
-export function reset(): void {
-  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: PoolState };
-  delete store[GLOBAL_KEY];
+/** 테스트·수동 초기화용. 출처를 지정하지 않으면 전부 비운다. */
+export function reset(source?: DataSource): void {
+  const store = globalThis as typeof globalThis & { [GLOBAL_KEY]?: Pools };
+  if (!source) {
+    delete store[GLOBAL_KEY];
+    return;
+  }
+  if (store[GLOBAL_KEY]) store[GLOBAL_KEY][source] = emptyPool();
 }

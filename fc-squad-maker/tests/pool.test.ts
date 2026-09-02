@@ -130,3 +130,32 @@ describe('reset', () => {
     expect(lastAbsorbedAt()).toBeNull();
   });
 });
+
+describe('출처 분리', () => {
+  it('데모 관측이 실데이터 풀에 섞이지 않는다', () => {
+    // 넥슨이 429 를 한 번 뱉으면 그 조회는 데모로 대체된다. 그때 만들어진
+    // 가짜 체결이 풀에 남으면, 다음 성공 조회는 source: 'nexon' 배지를 달고도
+    // 가짜 가격이 섞인 표를 보여 주게 된다.
+    absorb(series(999, [1, 1]), NOW, 'mock');
+    const real = absorb(series(1, [100, 120]), NOW, 'nexon');
+
+    expect(real.pooledIndex.map((s) => s.spid)).toEqual([1]);
+    expect(real.stats.observations).toBe(2);
+  });
+
+  it('풀마다 직전 스냅샷을 따로 들고 있다', () => {
+    // 출처가 달라진 것을 '가격이 움직였다'로 읽으면 안 된다.
+    absorb(series(1, [100, 100]), NOW, 'mock');
+    const real = absorb(series(1, [900, 900]), NOW, 'nexon');
+    expect(real.movers).toHaveLength(0); // 실데이터 풀에는 비교 대상이 없다
+    expect(real.pooledIndex[0].median).toBe(900);
+  });
+
+  it('한쪽 풀을 비워도 다른 쪽은 남는다', () => {
+    absorb(series(1, [100, 120]), NOW, 'nexon');
+    absorb(series(2, [500, 520]), NOW, 'mock');
+    reset('mock');
+    expect(read('mock')).toHaveLength(0);
+    expect(read('nexon')).toHaveLength(2);
+  });
+});

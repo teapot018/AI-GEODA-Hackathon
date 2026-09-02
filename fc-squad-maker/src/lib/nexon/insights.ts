@@ -179,15 +179,18 @@ export async function getMarketReport({
   const build = async (
     observations: Observation[],
     pagesFetched: number,
+    source: DataSource,
   ): Promise<MarketReport> => {
     // 이번 관측을 누적 풀에 합친다. 풀은 조회를 거듭할수록 커지므로
     // 무엇이 움직였는지는 이번 조회분이 아니라 풀 기준으로 봐야 한다.
-    const pooled = absorb(observations);
+    // 풀은 출처별로 나뉘어 있다 — 데모로 대체된 조회에서 지어낸 체결이
+    // 다음 성공 조회의 '실거래' 표에 섞여 들어가면 안 된다.
+    const pooled = absorb(observations, new Date(), source);
 
     // 가격표의 표본. pool 이면 풀이 이미 접어 둔 지수를 그대로 쓴다 —
     // 같은 관측으로 buildPriceIndex 를 두 번 돌릴 이유가 없다.
-    const source = scope === 'pool' ? pooled.pooledIndex : buildPriceIndex(observations);
-    const index = source.filter((stat) => stat.samples >= minSamples);
+    const basis = scope === 'pool' ? pooled.pooledIndex : buildPriceIndex(observations);
+    const index = basis.filter((stat) => stat.samples >= minSamples);
     // 표본이 많은 순으로 이미 정렬돼 있으므로 앞에서 자르면 볼 만한 것만 남는다.
     const top = index.slice(0, maxCards);
     // 움직인 카드 이름도 함께 받아 온다 — 한 번의 조회로 끝내기 위해.
@@ -228,7 +231,7 @@ export async function getMarketReport({
     ]);
     const observations = [...tagSide(buy.records, 'buy'), ...tagSide(sell.records, 'sell')];
     return {
-      data: await build(observations, buy.pagesFetched + sell.pagesFetched),
+      data: await build(observations, buy.pagesFetched + sell.pagesFetched, 'nexon'),
       source: 'nexon',
     };
   } catch (error) {
@@ -238,7 +241,7 @@ export async function getMarketReport({
       ...tagSide(mockMarketTrades(nicknameForMock, 'sell', pages * PAGE_SIZE), 'sell'),
     ];
     return {
-      data: await build(observations, 0),
+      data: await build(observations, 0, 'mock'),
       source: 'mock',
       note: fallbackNote(error),
     };
