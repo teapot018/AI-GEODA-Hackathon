@@ -99,14 +99,32 @@ export function mockMarketTrades(
   count = 100,
   poolSize = 24,
 ): TradeRecord[] {
+  /**
+   * 카드 풀은 spid 가 겹치지 않아야 한다.
+   *
+   * 겹치면 한 카드에 기준가가 둘 생기고, 화면에서는 spid 로 묶이므로
+   * 그 카드의 체결 기록이 9만원대와 300만원대로 갈라진다 — 중앙값도
+   * 사분위도 추세도 의미를 잃는다. (실제로 앙리 카드가 그렇게 나왔다.)
+   * 시즌×선수 조합이 유한하니 뽑기 횟수에 상한을 둔다.
+   */
   const poolRng = createRng(`market-pool:${nickname}`);
-  const pool = Array.from({ length: poolSize }, () => ({
-    spid: mockSpid(poolRng),
-    base: poolRng.int(5, 800) * 10_000,
-    // 카드마다 추세 방향을 따로 준다. 하나로 통일하면 데모에서
-    // 모든 카드가 나란히 상승해 버려 가짜 티가 난다.
-    slope: (poolRng.next() - 0.5) * 0.6,
-  }));
+  const pool: Array<{ spid: number; base: number; slope: number }> = [];
+  const taken = new Set<number>();
+
+  for (let attempt = 0; pool.length < poolSize && attempt < poolSize * 20; attempt += 1) {
+    const spid = mockSpid(poolRng);
+    if (taken.has(spid)) continue;
+    taken.add(spid);
+    pool.push({
+      spid,
+      base: poolRng.int(5, 800) * 10_000,
+      // 카드마다 추세 방향을 따로 준다. 하나로 통일하면 데모에서
+      // 모든 카드가 나란히 상승해 버려 가짜 티가 난다.
+      slope: (poolRng.next() - 0.5) * 0.6,
+    });
+  }
+
+  if (pool.length === 0) return [];
 
   const rng = createRng(`market:${nickname}:${type}`);
   return Array.from({ length: count }, (_, i) => {

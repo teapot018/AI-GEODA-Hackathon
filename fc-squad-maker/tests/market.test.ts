@@ -240,3 +240,38 @@ describe('tagSide', () => {
     expect(tagged.every((row) => row.side === 'sell')).toBe(true);
   });
 });
+
+describe('매입/매도 중앙가 분리', () => {
+  it('한쪽 표본이 없으면 그쪽은 null 이다', () => {
+    const [stat] = buildPriceIndex([
+      obs({ saleSn: 'a', value: 100, side: 'buy' }),
+      obs({ saleSn: 'b', value: 200, side: 'buy' }),
+    ]);
+    expect(stat.buyMedian).toBe(150);
+    expect(stat.sellMedian).toBeNull();
+  });
+
+  it('방향별로 따로 접는다', () => {
+    // 합친 중앙값은 300 이라 양쪽 어느 쪽도 대표하지 못한다.
+    const [stat] = buildPriceIndex([
+      obs({ saleSn: 'a', value: 100, side: 'buy' }),
+      obs({ saleSn: 'b', value: 200, side: 'buy' }),
+      obs({ saleSn: 'c', value: 400, side: 'sell' }),
+      obs({ saleSn: 'd', value: 500, side: 'sell' }),
+    ]);
+    expect(stat.median).toBe(300);
+    expect(stat.buyMedian).toBe(150);
+    expect(stat.sellMedian).toBe(450);
+  });
+
+  it('반올림해서 준다 — 화면에 소수점 BP 를 띄우지 않는다', () => {
+    const [stat] = buildPriceIndex([
+      obs({ saleSn: 'a', value: 100, side: 'sell' }),
+      obs({ saleSn: 'b', value: 101, side: 'sell' }),
+      obs({ saleSn: 'c', value: 103, side: 'sell' }),
+      obs({ saleSn: 'd', value: 104, side: 'sell' }),
+    ]);
+    expect(Number.isInteger(stat.sellMedian)).toBe(true);
+    expect(stat.sellMedian).toBe(102); // (101 + 103) / 2
+  });
+});

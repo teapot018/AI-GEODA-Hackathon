@@ -21,7 +21,7 @@ import { apiGet, ApiError } from '@/lib/client/api';
 import { parseApiDate } from '@/lib/data/freshness';
 import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
 import { canRefresh, msUntilRefresh, DEFAULT_POLL_MS, MIN_POLL_MS } from '@/lib/market/livefeed';
-import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observations';
+import { judgePrice, MIN_SAMPLES, type PriceVerdict, type Trend } from '@/lib/market/observations';
 
 /** /api/market/official 응답 모양 */
 interface OfficialLookup extends OfficialPrice {
@@ -526,6 +526,8 @@ function PriceRow({ card }: { card: MarketCardStat }) {
             <StatTile label="최고" value={formatBP(card.max)} />
           </div>
 
+          <SideSpread card={card} />
+
           <OfficialPriceCheck card={card} />
 
           <p className="text-[10px] text-slate-500">
@@ -574,6 +576,52 @@ const VERDICT: Record<PriceVerdict, { text: string; className: string }> = {
  * 카드마다 넥슨 페이지를 한 번씩 부르는 구조라 자동으로 훑지 않는다.
  * 사용자가 눌렀을 때만 1회 — 남의 서버에 예의를 지키는 선이 이 정도다.
  */
+/**
+ * 매입 중앙가와 매도 중앙가를 나란히.
+ *
+ * 합친 중앙값 하나만 보면 두 가지를 구분할 수 없다 — 이 구단주가 싸게
+ * 사서 비싸게 파는 것인지, 아니면 매도 쪽 숫자가 애초에 다른 기준으로
+ * 오는 것인지. 어느 쪽인지 단정하지 않고 두 값을 그대로 보여 준다.
+ */
+function SideSpread({ card }: { card: MarketCardStat }) {
+  const { buyMedian, sellMedian } = card;
+  if (buyMedian === null || sellMedian === null) return null;
+
+  const gapPercent = buyMedian > 0 ? ((sellMedian - buyMedian) / buyMedian) * 100 : 0;
+  /**
+   * 한쪽이 한 건뿐이면 그 % 는 시세 차이가 아니라 그냥 그 한 건이다.
+   * 값은 그대로 보여 주되(사실이니까), 차이율은 표본이 설 때만 붙인다.
+   */
+  const gapMeansSomething = card.buyCount >= MIN_SAMPLES && card.sellCount >= MIN_SAMPLES;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.06] px-2.5 py-2 text-[10px]">
+      <span className="text-slate-500">
+        매입 중앙 <b className="num text-slate-300">{formatBP(buyMedian)}</b>
+      </span>
+      <span className="text-slate-500">
+        매도 중앙 <b className="num text-slate-300">{formatBP(sellMedian)}</b>
+      </span>
+      {gapMeansSomething ? (
+        <span
+          className={cn(
+            'num font-semibold',
+            gapPercent > 0 ? 'text-neon-lime' : gapPercent < 0 ? 'text-neon-rose' : 'text-slate-500',
+          )}
+        >
+          {gapPercent >= 0 ? '+' : ''}
+          {gapPercent.toFixed(0)}%
+        </span>
+      ) : (
+        <span className="text-slate-600">표본이 얕아 차이율은 생략</span>
+      )}
+      <span className="text-slate-600">
+        매도가 낮게 나오면 이 구단주가 싸게 넘겼거나, 넥슨이 주는 매도 금액 기준이 다른 것입니다.
+      </span>
+    </div>
+  );
+}
+
 function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<OfficialLookup | null>(null);

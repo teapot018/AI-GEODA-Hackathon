@@ -36,6 +36,7 @@ function stat(spid: number, median: number): PriceStat {
     spid, samples: 1, buyCount: 1, sellCount: 0,
     min: median, max: median, avg: median, median,
     p25: median, p75: median, spread: 0,
+    buyMedian: median, sellMedian: null,
     latest: point, oldest: point,
     trend: 'flat', trendPercent: 0, byGrade: [], series: [point],
   };

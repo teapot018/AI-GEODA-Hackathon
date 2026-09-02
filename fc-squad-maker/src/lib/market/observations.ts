@@ -52,6 +52,15 @@ export interface PriceStat {
   p75: number;
   /** (p75 - p25) / median. 클수록 가격이 들쭉날쭉하다. */
   spread: number;
+  /**
+   * 매입만 / 매도만 따로 낸 중앙가 (그 쪽 표본이 없으면 null).
+   *
+   * 합친 중앙값 하나로는 두 가지를 구분할 수 없다 — 이 구단주가 싸게 사서
+   * 비싸게 파는 것인지, 아니면 애초에 매도 쪽 숫자가 다른 기준(예: 수수료를
+   * 뗀 뒤 금액)으로 오는 것인지. 나눠 두면 화면에서 눈으로 확인된다.
+   */
+  buyMedian: number | null;
+  sellMedian: number | null;
   latest: PricePoint;
   oldest: PricePoint;
   /** 최근 절반 평균 vs 이전 절반 평균 */
@@ -170,6 +179,13 @@ export function buildPriceIndex(observations: Observation[]): PriceStat[] {
     }));
     const sortedValues = chronological.map((row) => row.value).sort((a, b) => a - b);
     const med = median(sortedValues);
+    const medianOfSide = (side: TradeSide): number | null => {
+      const values = rows
+        .filter((row) => row.side === side)
+        .map((row) => row.value)
+        .sort((a, b) => a - b);
+      return values.length > 0 ? Math.round(median(values)) : null;
+    };
     const p25 = percentile(sortedValues, 0.25);
     const p75 = percentile(sortedValues, 0.75);
 
@@ -185,6 +201,8 @@ export function buildPriceIndex(observations: Observation[]): PriceStat[] {
       p25: Math.round(p25),
       p75: Math.round(p75),
       spread: med > 0 ? (p75 - p25) / med : 0,
+      buyMedian: medianOfSide('buy'),
+      sellMedian: medianOfSide('sell'),
       latest: series[series.length - 1],
       oldest: series[0],
       ...trendOf(series),
