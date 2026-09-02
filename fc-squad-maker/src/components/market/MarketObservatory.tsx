@@ -25,7 +25,7 @@ import { judgePrice, type PriceVerdict, type Trend } from '@/lib/market/observat
 interface OfficialLookup extends OfficialPrice {
   comparison: PriceComparison | null;
 }
-import type { MarketCardStat, MarketReport } from '@/lib/nexon/insights';
+import type { MarketCardStat, MarketReport, MarketScope } from '@/lib/nexon/insights';
 import type { ManagerOverview } from '@/lib/nexon/service';
 import { cn } from '@/lib/utils/cn';
 import { formatBP, formatDateTime, formatPercent } from '@/lib/utils/format';
@@ -41,6 +41,7 @@ import { formatBP, formatDateTime, formatPercent } from '@/lib/utils/format';
 export function MarketObservatory() {
   const [nickname, setNickname] = useState('');
   const [pages, setPages] = useState(3);
+  const [scope, setScope] = useState<MarketScope>('pool');
 
   const [report, setReport] = useState<MarketReport | null>(null);
   const [source, setSource] = useState<string | undefined>();
@@ -49,7 +50,7 @@ export function MarketObservatory() {
   const [error, setError] = useState<string | null>(null);
 
   const search = useCallback(
-    async (value: string, pageCount: number) => {
+    async (value: string, pageCount: number, sampleScope: MarketScope) => {
       const target = value.trim();
       if (!target) return;
 
@@ -65,7 +66,7 @@ export function MarketObservatory() {
         const res = await apiGet<MarketReport>(
           `/api/market/observations?ouid=${encodeURIComponent(
             manager.data.ouid,
-          )}&nickname=${encodeURIComponent(target)}&pages=${pageCount}`,
+          )}&nickname=${encodeURIComponent(target)}&pages=${pageCount}&scope=${sampleScope}`,
         );
         setReport(res.data);
         setSource(res.source);
@@ -93,7 +94,7 @@ export function MarketObservatory() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void search(nickname, pages);
+            void search(nickname, pages, scope);
           }}
           className="flex flex-col gap-3 sm:flex-row"
         >
@@ -131,6 +132,43 @@ export function MarketObservatory() {
         </form>
         <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
           조회 깊이 1 = 매입·매도 각 100건. 깊이를 올리면 표본이 늘지만 넥슨 API 호출 수도 그만큼 늘어납니다.
+        </p>
+
+        {/*
+          가격은 계정이 아니라 시장의 속성이라 기본값을 누적 풀로 둔다.
+          다만 "내가 산 값만 보고 싶다" 도 정당한 요구라 고를 수 있게 한다.
+        */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] text-slate-500">가격표 표본</span>
+          {(
+            [
+              ['pool', '누적 풀', '조회할수록 넓어짐 · 통계가 안정적'],
+              ['account', '이 계정만', '출처가 분명함 · 표본은 얕음'],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setScope(value);
+                if (report) void search(nickname, pages, value);
+              }}
+              title={hint}
+              className={cn(
+                'rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                scope === value
+                  ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan'
+                  : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+          위 매입·매도 총액은 표본 범위와 무관하게 <b>조회한 계정의 거래</b>만 셉니다 — 그 계정의
+          현금 흐름이라 섞으면 뜻이 달라집니다.
         </p>
       </Card>
 
@@ -201,6 +239,11 @@ function ReportView({
             report.cardsTotal > cards.length
               ? `표본이 많은 상위 ${cards.length}종 (전체 ${report.cardsTotal}종). 행을 펼치면 등급별 가격과 판정기가 나옵니다.`
               : '표본이 많은 카드부터. 행을 펼치면 강화 등급별 가격과 가격 판정기가 나옵니다.'
+          }
+          action={
+            <Badge tone={report.scope === 'pool' ? 'violet' : 'neutral'}>
+              {report.scope === 'pool' ? '누적 풀' : '이 계정만'}
+            </Badge>
           }
         />
         <ul className="space-y-1.5 p-3">

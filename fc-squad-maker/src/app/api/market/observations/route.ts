@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
       pages: intParam(params.get('pages'), 3, { min: 1, max: 10 }),
       minSamples: intParam(params.get('minSamples'), 1, { min: 1, max: 50 }),
       maxCards: intParam(params.get('maxCards'), 60, { min: 1, max: 300 }),
+      // 모르는 값이 오면 기본(누적 풀)으로 떨어뜨린다.
+      scope: params.get('scope') === 'account' ? 'account' : 'pool',
     });
     return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 300 });
   } catch (error) {

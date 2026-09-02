@@ -99,6 +99,17 @@ export interface MarketMover extends PriceDelta {
   seasonName: string;
 }
 
+/**
+ * 가격표를 어느 표본으로 낼지.
+ *
+ *   account — 이번에 조회한 계정의 거래만. 표본은 얕지만 출처가 분명하다.
+ *   pool    — 그동안 쌓인 관측 전체. 표본이 넓어 중앙값·사분위가 더 안정적이다.
+ *
+ * 가격은 계정이 아니라 시장의 속성이라 기본값은 pool 이다. 다만 위쪽
+ * 매입/매도 총액 타일은 성격이 달라(그 계정의 현금 흐름) 언제나 account 다.
+ */
+export type MarketScope = 'account' | 'pool';
+
 export interface MarketReport {
   summary: MarketSummary;
   cards: MarketCardStat[];
@@ -110,6 +121,8 @@ export interface MarketReport {
   movers: MarketMover[];
   /** 이번 조회로 풀에 새로 들어온 관측 수 */
   poolAdded: number;
+  /** 가격표가 어느 표본을 썼는지 */
+  scope: MarketScope;
   /** 실제로 긁어온 페이지 수 (요청한 만큼 없을 수 있다) */
   pagesFetched: number;
 }
@@ -149,6 +162,8 @@ export interface MarketOptions {
   minSamples?: number;
   /** 응답에 담을 카드 수 상한 — 거래가 잦은 구단주는 수천 종이 나온다 */
   maxCards?: number;
+  /** 가격표 표본 범위. 기본은 누적 풀 */
+  scope?: MarketScope;
   allowMock?: boolean;
 }
 
@@ -158,6 +173,7 @@ export async function getMarketReport({
   pages = 3,
   minSamples = 1,
   maxCards = 60,
+  scope = 'pool',
   allowMock = env.allowMock,
 }: MarketOptions): Promise<Sourced<MarketReport>> {
   const build = async (
@@ -168,7 +184,10 @@ export async function getMarketReport({
     // 무엇이 움직였는지는 이번 조회분이 아니라 풀 기준으로 봐야 한다.
     const pooled = absorb(observations);
 
-    const index = buildPriceIndex(observations).filter((stat) => stat.samples >= minSamples);
+    // 가격표의 표본. pool 이면 풀이 이미 접어 둔 지수를 그대로 쓴다 —
+    // 같은 관측으로 buildPriceIndex 를 두 번 돌릴 이유가 없다.
+    const source = scope === 'pool' ? pooled.pooledIndex : buildPriceIndex(observations);
+    const index = source.filter((stat) => stat.samples >= minSamples);
     // 표본이 많은 순으로 이미 정렬돼 있으므로 앞에서 자르면 볼 만한 것만 남는다.
     const top = index.slice(0, maxCards);
     // 움직인 카드 이름도 함께 받아 온다 — 한 번의 조회로 끝내기 위해.
@@ -180,6 +199,7 @@ export async function getMarketReport({
     return {
       summary: summarizeMarket(observations),
       pagesFetched,
+      scope,
       cardsTotal: index.length,
       pool: pooled.stats,
       poolAdded: pooled.added,
