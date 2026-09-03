@@ -22,38 +22,57 @@ import { cn } from '@/lib/utils/cn';
 /** 등급을 가리지 않는 모드 */
 export const ALL_GRADES = null;
 
+/** 게임에 존재하는 강화 단계 전부 (ALL_GRADES 는 '등급 무관' 센티넬이라 이름을 나눈다) */
+const GRADE_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
 interface Props {
   /** 지금 고른 등급. null 이면 전체 */
   value: number | null;
   onChange: (grade: number | null) => void;
   /**
-   * 표본에 실제로 있는 등급들. 비어 있으면 +1 만 보여 준다 —
-   * 표본도 없는 +9 를 눌러 놓고 빈 표를 보게 만들 이유가 없다.
+   * 표본이 실제로 있는 등급들. 버튼을 숨기는 데 쓰지 않고 **표시**에만 쓴다 —
+   * 아래 주석 참고.
    */
   available: number[];
   className?: string;
 }
 
 export function GradeSelect({ value, onChange, available, className }: Props) {
-  const grades = available.length > 0 ? available : [1];
+  const hasSamples = new Set(available);
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       <span className="text-[10px] text-slate-500">강화 등급</span>
 
-      {grades.map((grade) => (
+      {/*
+        +1 ~ +10 을 전부 띄운다. 표본이 있는 등급만 보여 주려다 보니, 풀에
+        +1 과 +4 밖에 없으면 "+7 은 얼마지?" 를 물어볼 방법 자체가 사라졌다.
+        게임에는 +10 까지 있고 사람은 그 기준으로 생각하므로 선택지는 그대로
+        두고, 표본이 없는 등급은 눌렀을 때 '관측 없음' 으로 답한다 —
+        고를 수 없게 막는 것과 골랐더니 없다고 말해 주는 것은 다르다.
+
+        표본이 있는 등급에는 점을 찍어, 누르기 전에도 어디에 데이터가 있는지
+        보이게 한다.
+      */}
+      {GRADE_STEPS.map((grade) => (
         <button
           key={grade}
           type="button"
+          title={hasSamples.has(grade) ? `+${grade} 체결 표본 있음` : `+${grade} 관측 표본 없음`}
           onClick={() => onChange(grade)}
           className={cn(
-            'rounded-lg border px-2 py-1 text-[11px] font-medium tabular-nums transition-colors',
+            'relative rounded-lg border px-2 py-1 text-[11px] font-medium tabular-nums transition-colors',
             value === grade
               ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan'
-              : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200',
+              : hasSamples.has(grade)
+                ? 'border-white/10 text-slate-300 hover:border-white/20 hover:text-slate-100'
+                : 'border-white/[0.06] text-slate-600 hover:border-white/15 hover:text-slate-400',
           )}
         >
           +{grade}
+          {hasSamples.has(grade) ? (
+            <span className="absolute right-1 top-1 h-1 w-1 rounded-full bg-neon-lime" />
+          ) : null}
         </button>
       ))}
 
