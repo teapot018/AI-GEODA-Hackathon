@@ -83,7 +83,7 @@ export function GradeSelect({ value, onChange, available, className }: Props) {
       <button
         type="button"
         onClick={() => onChange(ALL_GRADES)}
-        title="등급을 가리지 않고 합칩니다. +1 과 고강화가 한 숫자에 섞이므로 시세로 읽으면 안 됩니다."
+        title="등급을 가리지 않고 합칩니다. +1 과 고강화가 한 숫자에 섞이므로 특정 등급의 가격으로 읽으면 안 됩니다."
         className={cn(
           'rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors',
           value === ALL_GRADES
@@ -97,13 +97,20 @@ export function GradeSelect({ value, onChange, available, className }: Props) {
   );
 }
 
-/** 등급이 섞인 표를 보고 있을 때 띄우는 경고. 문구를 한 곳에 둔다. */
+/**
+ * 등급이 섞인 표를 보고 있을 때 띄우는 경고. 문구를 한 곳에 둔다.
+ *
+ * 한때 이 경고는 "넓어 보이는 폭은 전부 등급 때문" 이라고 단정했다.
+ * 그건 우리가 아는 것보다 많이 말한 것이다 — 섞인 표만 봐서는 폭의
+ * 얼마가 등급 차이고 얼마가 실제 가격 변동인지 가를 수 없다. 아는 것은
+ * "이 숫자로는 가를 수 없다" 까지고, 딱 거기까지 적는다.
+ */
 export function MixedGradeWarning({ className }: { className?: string }) {
   return (
     <p className={cn('text-[10px] leading-relaxed text-amber-300/80', className)}>
-      지금은 <b>등급을 가리지 않은</b> 값입니다. +1 과 고강화 체결이 한 중앙값에 섞여 있어
-      어느 등급의 시세도 아닙니다 — 흥정 범위도 등급 차이만큼 넓어 보입니다. 값을 쓰려면 등급을
-      하나 고르세요.
+      지금은 <b>등급을 가리지 않은</b> 값입니다. +1 과 고강화 관측이 한 중앙값에 섞여 있어 어느
+      등급의 가격도 아닙니다. 넓어 보이는 흥정 범위 중 얼마가 등급 차이고 얼마가 실제 가격
+      변동인지는 <b>이 숫자만으로 가를 수 없습니다</b> — 값을 쓰려면 등급을 하나 고르세요.
     </p>
   );
 }

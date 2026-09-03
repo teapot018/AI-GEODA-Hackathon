@@ -8,7 +8,7 @@ import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { TradeSampleNote } from './TradeSampleNote';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { CardLookupResult, CardPrice } from '@/lib/market/lookup';
-import { MIN_SAMPLES } from '@/lib/market/observations';
+import { THIN_SAMPLES } from '@/lib/market/observations';
 import { formatAge, formatDuration } from '@/lib/data/freshness';
 import { formatBP } from '@/lib/utils/format';
 
@@ -203,7 +203,7 @@ function CardPriceRow({ card }: { card: CardPrice }) {
               </p>
               <p className="text-[10px] text-slate-500">흥정 범위</p>
             </div>
-            <Badge tone={stat.samples >= MIN_SAMPLES ? 'violet' : 'amber'}>
+            <Badge tone={stat.samples >= THIN_SAMPLES ? 'violet' : 'amber'}>
               <Database size={10} className="mr-1 inline shrink-0" />
               표본 {stat.samples}
             </Badge>
@@ -223,10 +223,29 @@ function CardPriceRow({ card }: { card: CardPrice }) {
           {stat.byGrade.map((row) => (
             <span key={row.grade} className="text-[10px] text-slate-500">
               <b className="text-slate-300">+{row.grade}</b> {formatBP(row.median)}
-              <span className="text-slate-600"> ({row.samples}건)</span>
+              {/*
+                건수를 괄호로만 적으면 3건짜리와 300건짜리가 같은 무게로
+                읽힌다. 얇은 쪽은 색으로 갈라 둔다 — 3~4건 중앙값은 한
+                사람의 급매 하나에 통째로 끌려간다.
+              */}
+              <span className={row.samples < THIN_SAMPLES ? 'text-amber-300/70' : 'text-slate-600'}>
+                {' '}
+                ({row.samples}건{row.samples < THIN_SAMPLES ? ' · 표본 얇음' : ''})
+              </span>
             </span>
           ))}
         </div>
+      ) : null}
+
+      {/*
+        표본이 얇으면 중앙값 옆이 아니라 아래에 한 줄로 적는다. 배지
+        색만으로는 "그래서 이 값을 믿어도 되나" 에 답이 되지 않는다.
+      */}
+      {stat && stat.samples < THIN_SAMPLES ? (
+        <p className="mt-1.5 text-[10px] leading-relaxed text-amber-300/70">
+          관측 {stat.samples}건으로 낸 값입니다. 한두 건의 급매·바가지가 중앙값을 통째로 끌고 갈 수
+          있어, 거래 전에 다른 경로로 한 번 더 확인하세요.
+        </p>
       ) : null}
 
       <CadenceNote cadence={card.cadence} />

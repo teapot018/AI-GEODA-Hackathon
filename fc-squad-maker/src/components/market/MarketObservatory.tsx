@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardHeader,
+  DataLayerTag,
   EmptyState,
   ErrorNote,
   Input,
@@ -320,7 +321,7 @@ function ReportView({
 
       <Card>
         <CardHeader
-          title="카드별 거래 관측 가격"
+          title="거래 관측 가격 지수"
           description={
             report.cardsTotal > cards.length
               ? `표본이 많은 상위 ${cards.length}종 (전체 ${report.cardsTotal}종). 행을 펼치면 등급별 가격과 판정기가 나옵니다.`
@@ -337,6 +338,16 @@ function ReportView({
             </div>
           }
         />
+        {/*
+          "가격 지수" 라는 말은 공식 지수를 연상시킨다. 넥슨도 데이터센터에
+          가격지수를 공시하는데 이건 그게 아니다 — 우리가 조회할 수 있었던
+          거래만 접은 값이고, 다른 구단주를 조회했다면 다른 숫자가 나온다.
+        */}
+        <p className="px-3 pt-1 text-[10px] leading-relaxed text-slate-500">
+          <DataLayerTag layer="observed" className="mr-1 align-middle" />
+          넥슨이 공시하는 가격지수가 아닙니다. 이 표는 조회로 모은 거래 기록을 카드별로 접은
+          값이며, 표본에 없는 거래는 반영되지 않습니다.
+        </p>
         {report.grade === null ? <MixedGradeWarning className="px-3 pt-1" /> : null}
         <ul className="space-y-1.5 p-3">
           {cards.map((card) => (
@@ -741,8 +752,9 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
       */}
       {card.grade === null ? (
         <p className="mt-1 text-[10px] leading-relaxed text-amber-300/80">
-          지금 체결 중앙값은 등급이 섞인 값이고 기준가는 +1 입니다 — 서로 다른 물건이라 위
-          차이율은 시세 차이로 읽으면 안 됩니다. 등급을 골라 다시 보세요.
+          지금 관측 중앙값은 등급이 섞인 값이고 기준가는 +1 입니다 — 서로 다른 물건이라, 위
+          차이율에는 등급 차이가 섞여 있습니다. 그중 얼마가 가격 차이인지는 이 숫자만으로 가를 수
+          없습니다. 등급을 골라 다시 보세요.
         </p>
       ) : null}
 

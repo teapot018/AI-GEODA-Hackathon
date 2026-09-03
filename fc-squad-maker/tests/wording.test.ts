@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { TRADE_SAMPLE_DISCLAIMER } from '@/lib/market/observations';
+import { MIN_SAMPLES, THIN_SAMPLES, TRADE_SAMPLE_DISCLAIMER } from '@/lib/market/observations';
 import { ENHANCEMENT_STEPS, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { MOCK_GRADE_CDF } from '@/lib/nexon/mock';
 
@@ -100,6 +100,48 @@ describe('거래 데이터의 주체를 과장하지 않는다', () => {
       expect(file, path).toBeDefined();
       expect(file!.text, path).toContain('<TradeSampleNote');
     }
+  });
+});
+
+describe('표본이 얇다는 것을 숨기지 않는다', () => {
+  it('경고 기준이 최소 표본보다 넉넉하다', () => {
+    /*
+     * MIN_SAMPLES 는 "여기 아래는 통계가 아니다" 의 선이지 "여기부터는
+     * 믿어도 된다" 가 아니다. 3~4건짜리 중앙값은 한 사람의 급매 하나에
+     * 통째로 끌려가므로, 계산은 하되 경고를 붙이는 구간이 그 위에 따로
+     * 있어야 한다. 둘이 같아지면 그 구간이 사라진다.
+     */
+    expect(THIN_SAMPLES).toBeGreaterThan(MIN_SAMPLES);
+  });
+
+  it('가격 화면이 얇은 표본을 경고한다', () => {
+    const file = FILES.find((f) => f.path === 'components/market/CardPriceSearch.tsx');
+    expect(file).toBeDefined();
+    expect(file!.text).toContain('THIN_SAMPLES');
+  });
+
+  it('등급 혼합 경고가 폭의 원인을 단정하지 않는다', () => {
+    /*
+     * 섞인 표만 봐서는 넓어 보이는 폭의 얼마가 등급 차이고 얼마가 실제
+     * 가격 변동인지 가를 수 없다. "전부 등급 때문" 이라고 적으면 우리가
+     * 아는 것보다 많이 말하는 것이다.
+     */
+    const file = FILES.find((f) => f.path === 'components/market/GradeSelect.tsx');
+    expect(file).toBeDefined();
+
+    // 화면에 나가는 부분만 본다. 위쪽 주석에는 "한때 이렇게 단정했다" 는
+    // 설명이 있어야 하고, 그 문장까지 금지하면 왜 바꿨는지를 적을 수 없다.
+    const rendered = file!.text.slice(file!.text.indexOf('export function MixedGradeWarning'));
+    expect(rendered).toContain('가를 수 없습니다');
+    expect(rendered).not.toMatch(/폭은 전부|전부 등급 (차이|때문)/);
+  });
+});
+
+describe('우리 가격 지수를 공식 지수라고 부르지 않는다', () => {
+  it('거래 관측소가 넥슨 공시 지수가 아님을 적는다', () => {
+    const file = FILES.find((f) => f.path === 'components/market/MarketObservatory.tsx');
+    expect(file).toBeDefined();
+    expect(file!.text).toContain('넥슨이 공시하는 가격지수가 아닙니다');
   });
 });
 
