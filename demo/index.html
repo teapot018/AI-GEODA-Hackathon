@@ -444,7 +444,7 @@ tbody tr:last-child td{border-bottom:0}
 </div>
 
 <footer class="foot">
-  <p>넥슨 FC 온라인을 소재로 한 <b>비공식 팬 프로젝트</b>입니다. 이 페이지는 서버 없이 브라우저에서만 도는 판이라 넥슨 Open API 를 직접 호출하지 않고, 저장소와 동일한 결정적 샘플 데이터 위에서 같은 로직을 돌립니다. 능력치·오버롤·BP 가치·강화 상승폭·팀컬러는 공개 API 에 없는 항목이라 자체 추정 모델이고, 상자 확률과 가격도 샘플 값입니다. 실제 게임 수치와 다를 수 있습니다.</p>
+  <p>넥슨 FC 온라인을 소재로 한 <b>비공식 팬 프로젝트</b>입니다. 이 페이지는 서버 없이 브라우저에서만 도는 판이라 넥슨 Open API 를 직접 호출하지 않고, 저장소와 동일한 결정적 샘플 데이터 위에서 같은 로직을 돌립니다. 능력치·오버롤·BP 가치·팀컬러는 공개 API 에 없는 항목이라 자체 추정 모델이고(게임에 뜨는 값이 아닙니다), 상자 이름·가격·확률도 이 프로젝트가 만든 모의 값입니다. 강화 단계별 오버롤 상승(+1~+13)만 넥슨 공식 값입니다.</p>
 </footer>
 
 <script>
@@ -453,12 +453,17 @@ tbody tr:last-child td{border-bottom:0}
 const P=[["알리송","브라질","리버풀","프리미어리그","GK",89,56,40,65,62,32,78,1,3,"오른발",1],["노이어","독일","바이에른 뮌헨","분데스리가","GK",88,60,45,70,68,35,80,1,4,"오른발",1],["쿠르투아","벨기에","레알 마드리드","라리가","GK",90,52,38,62,58,30,82,1,3,"왼발",1],["조현우","대한민국","울산","K리그","GK",82,55,35,55,52,28,74,1,3,"오른발",1],["판 다이크","네덜란드","리버풀","프리미어리그","CB,LCB",90,79,60,71,72,90,86,2,3,"오른발",0],["마르퀴뇨스","브라질","PSG","리그앙","CB,RCB,CDM",88,82,55,74,76,87,80,2,3,"오른발",0],["루벤 디아스","포르투갈","맨체스터 시티","프리미어리그","CB",88,71,48,70,68,89,87,2,3,"오른발",0],["김민재","대한민국","바이에른 뮌헨","분데스리가","CB,RCB",86,82,46,66,68,86,88,2,3,"오른발",0],["알라바","오스트리아","레알 마드리드","라리가","LCB,CB,LB",86,78,70,82,79,84,78,3,3,"왼발",0],["알렉산더 아놀드","잉글랜드","리버풀","프리미어리그","RB,RWB,RM",87,80,71,90,80,80,74,3,4,"오른발",0],["칸셀루","포르투갈","바르셀로나","라리가","RB,LB,RWB",86,86,72,85,87,78,72,4,3,"오른발",0],["테오 에르난데스","프랑스","AC 밀란","세리에A","LB,LWB,LM",86,92,74,79,84,77,82,4,3,"왼발",0],["마르셀루","브라질","레알 마드리드","라리가","LB,LWB",87,84,74,85,90,76,70,5,4,"왼발",0],["카푸","브라질","AC 밀란","세리에A","RB,RWB",88,91,70,81,86,84,79,4,3,"오른발",0],["말디니","이탈리아","AC 밀란","세리에A","LCB,CB,LB",91,83,60,79,80,92,85,3,4,"오른발",0],["카세미루","브라질","맨체스터 유나이티드","프리미어리그","CDM,CM",87,68,76,79,76,88,90,3,3,"오른발",0],["로드리","스페인","맨체스터 시티","프리미어리그","CDM,CM",89,66,78,86,82,87,86,2,3,"오른발",0],["크로스","독일","레알 마드리드","라리가","CM,LCM,CDM",89,62,82,92,84,74,76,3,4,"오른발",0],["모드리치","크로아티아","레알 마드리드","라리가","CM,RCM,CAM",89,74,79,89,89,72,66,4,4,"오른발",0],["데 브라이너","벨기에","맨체스터 시티","프리미어리그","CAM,RCM,CM",92,76,88,94,88,65,78,4,5,"오른발",0],["지단","프랑스","레알 마드리드","라리가","CAM,CM",93,78,86,92,94,66,80,5,4,"오른발",0],["이강인","대한민국","PSG","리그앙","CAM,RM,RW",84,76,79,85,87,55,62,4,3,"왼발",0],["베르캄프","네덜란드","아스날","프리미어리그","CF,CAM",91,78,89,89,91,46,76,4,4,"오른발",0],["제라드","잉글랜드","리버풀","프리미어리그","CM,CAM,RCM",90,79,89,90,85,79,86,4,4,"오른발",0],["비에이라","프랑스","아스날","프리미어리그","CDM,CM",89,76,76,82,82,88,92,3,3,"오른발",0],["베컴","잉글랜드","맨체스터 유나이티드","프리미어리그","RM,RCM,RW",89,76,84,93,84,66,76,4,4,"오른발",0],["손흥민","대한민국","토트넘","프리미어리그","LW,ST,LM",89,89,89,82,87,44,76,4,5,"오른발",0],["음바페","프랑스","레알 마드리드","라리가","ST,LW,LS",92,97,90,80,92,36,78,5,4,"오른발",0],["홀란드","노르웨이","맨체스터 시티","프리미어리그","ST",91,89,94,65,80,45,90,3,4,"왼발",0],["메시","아르헨티나","인터 마이애미","MLS","RW,CF,CAM",93,80,89,91,94,34,64,4,4,"왼발",0],["호날두","포르투갈","알 나스르","기타","ST,LW",91,85,93,78,85,34,77,5,4,"오른발",0],["호나우두","브라질","레알 마드리드","라리가","ST,CF",93,95,93,76,93,32,82,5,4,"오른발",0],["앙리","프랑스","아스날","프리미어리그","ST,LW",91,94,90,80,90,40,79,5,4,"오른발",0],["비니시우스","브라질","레알 마드리드","라리가","LW,LM,ST",89,95,83,78,92,30,70,5,4,"오른발",0],["살라","이집트","리버풀","프리미어리그","RW,ST,RM",89,90,88,81,88,45,76,4,3,"왼발",0],["레반도프스키","폴란드","바르셀로나","라리가","ST",90,78,92,79,85,44,83,4,4,"오른발",0],["벤제마","프랑스","알 이티하드","기타","ST,CF",90,79,89,84,88,40,78,4,4,"오른발",0],["네이마르","브라질","산투스","기타","LW,CAM,CF",89,87,83,86,93,36,62,5,5,"오른발",0],["카카","브라질","AC 밀란","세리에A","CAM,CF,CM",90,88,87,86,90,45,78,4,4,"오른발",0],["드로그바","코트디부아르","첼시","프리미어리그","ST",89,84,90,74,82,44,92,3,4,"오른발",0],["박지성","대한민국","맨체스터 유나이티드","프리미어리그","RM,LM,CM",85,88,76,80,84,72,80,3,4,"오른발",0],["황희찬","대한민국","울버햄튼","프리미어리그","LW,ST",82,90,79,71,80,42,78,3,3,"오른발",0],["김승규","대한민국","알 샤밥","기타","GK",78,52,32,52,48,26,70,1,3,"오른발",1],["구성윤","대한민국","김천","K리그","GK",70,48,28,46,42,22,64,1,2,"오른발",1],["김영권","대한민국","울산","K리그","CB,LCB",76,68,42,62,60,77,78,2,3,"왼발",0],["정승현","대한민국","울산","K리그","CB,RCB",71,66,38,56,54,72,75,2,2,"오른발",0],["김진수","대한민국","전북","K리그","LB,LWB",76,80,60,74,74,73,70,3,3,"왼발",0],["설영우","대한민국","츠르베나 즈베즈다","기타","RB,LB,RWB",74,82,55,71,74,70,66,3,3,"오른발",0],["홍철","대한민국","대구","K리그","LB,LWB,LM",72,78,58,70,71,66,64,3,2,"왼발",0],["박용우","대한민국","알 아인","기타","CDM,CM",73,62,58,71,68,74,76,2,3,"오른발",0],["백승호","대한민국","버밍엄","기타","CM,CDM",76,66,72,78,76,70,72,3,3,"오른발",0],["정우영","대한민국","우니온 베를린","분데스리가","LM,CAM,LW",78,82,74,76,82,48,62,4,3,"오른발",0],["이승우","대한민국","수원FC","K리그","CAM,RW,ST",75,84,74,72,83,36,58,4,3,"왼발",0],["문선민","대한민국","전북","K리그","RW,LW",71,88,66,64,74,38,60,3,3,"오른발",0],["고영준","대한민국","포항","K리그","CAM,RM",69,76,64,68,74,42,56,3,2,"오른발",0],["엄지성","대한민국","스완지","기타","LW,RW",70,85,62,62,76,34,58,3,3,"오른발",0],["조규성","대한민국","미트윌란","기타","ST",77,78,78,62,70,40,82,3,3,"오른발",0],["오현규","대한민국","헹크","기타","ST",72,84,71,55,68,32,74,3,3,"오른발",0],["나상호","대한민국","FC서울","K리그","RW,ST,LW",74,86,71,64,76,36,62,3,3,"왼발",0],["송민규","대한민국","전북","K리그","LW,CAM",73,80,70,68,76,38,62,3,3,"오른발",0],["이순민","대한민국","광주","K리그","CDM,CM",68,64,52,64,62,70,70,2,2,"오른발",0],["양현준","대한민국","셀틱","기타","RW,LW",71,89,62,60,78,32,56,4,2,"오른발",0],["황인범","대한민국","페예노르트","기타","CM,CDM,CAM",79,70,72,81,79,68,68,3,4,"오른발",0],["주민규","대한민국","대전","K리그","ST",75,68,78,60,68,34,78,2,3,"오른발",0]];
 /* ── 시즌 ──────────────────────────────────────────────────
    티어는 오버롤 보정과 가치 배수를 함께 정한다.               */
+/* 시즌 티어 보정 — 계층 C (이 프로젝트의 추정).
+   보정폭이 한때 -2 ~ +5 였는데, 그러면 시드 기본값(80 대)이 거의
+   그대로 카드 오버롤이 되어 화면에 두 자리 수가 떴다. 실제 FC 온라인의
+   카드는 120 대가 흔하다 — 저장소 src/lib/players/seasons.ts 와 같은
+   폭으로 맞춘다. 여전히 추정값이지 공식 오버롤이 아니다.          */
 const TIER = {
-  icon:   {bonus: 5, mul: 6.0, css:'var(--t-icon)'},
-  legend: {bonus: 4, mul: 3.6, css:'var(--t-legend)'},
-  high:   {bonus: 2, mul: 2.2, css:'var(--t-high)'},
-  mid:    {bonus: 0, mul: 1.3, css:'var(--t-mid)'},
-  base:   {bonus:-2, mul: 1.0, css:'var(--t-normal)'},
+  icon:   {bonus: 32, mul: 6.0, css:'var(--t-icon)'},
+  legend: {bonus: 30, mul: 3.6, css:'var(--t-legend)'},
+  high:   {bonus: 27, mul: 2.2, css:'var(--t-high)'},
+  mid:    {bonus: 24, mul: 1.3, css:'var(--t-mid)'},
+  base:   {bonus: 22, mul: 1.0, css:'var(--t-normal)'},
 };
 const SEASONS = [
   {id:300, short:'23UP',  full:'23UP (23 Ultimate Player)',        tier:'high'},
@@ -541,21 +546,36 @@ function when(iso){
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const el = (sel, root=document) => root.querySelector(sel);
 
-/* ── 가치·강화 모델 ────────────────────────────────────────
-   공개 API 에 시세와 강화 상승폭이 없어 자체 추정한다.
-   실제 시세 소스가 생기면 이 두 상수만 갈아끼우면 된다.        */
-const GRADE_MUL  = [1,1.5,2.4,4.0,6.8,12,23,48,110,280];
-const OVR_GAIN   = [0,1,2,3,4,6,8,11,14,18];
-const STAT_GAIN  = [1,1.012,1.025,1.038,1.052,1.078,1.105,1.14,1.185,1.24];
-const UP_RATE    = [.95,.90,.80,.65,.50,.34,.20,.11,.05];
-const clampG = g => Math.max(1, Math.min(10, Math.round(g)));
-const baseValue = ovr => Math.round(900 * Math.pow(1.315, Math.max(0, ovr-60)) / 100) * 100;
+/* ── 강화: 공식 규칙 ───────────────────────────────────────
+   아래 오버롤 상승표는 FC 온라인의 **공식 값**이다(저장소의
+   src/lib/fconline/rules.ts 와 같은 표). 한때 이 파일에는 +10 에서
+   끊긴 근사표가 있었는데, 게임은 2024 겨울 업데이트로 +13 까지
+   열렸다 — 그건 그때의 게임이지 지금의 게임이 아니다.
+   숫자는 +1 대비 **누적** 상승량이다.                             */
+const MAX_GRADE  = 13;
+const OVR_GAIN   = [0,1,2,4,6,8,11,15,17,19,21,24,27];
+
+/* ── 가치 모델: 이 프로젝트의 추정 ─────────────────────────
+   공개 API 에 가치도 능력치도 없어 자체 추정한다. 게임에 뜨는
+   숫자가 아니며, 실제 거래 가격과도 다르다.
+   +11~+13 배수는 특히 근거가 얇다 — 그 구간 거래 자체가 드물다. */
+const GRADE_MUL  = [1,1.5,2.4,4.0,6.8,12,23,48,110,280,700,1800,5000];
+const STAT_GAIN  = OVR_GAIN.map(g => 1 + g*0.013);
+/* 단계 전이 12개(+1→+2 … +12→+13). 성공률은 추정이고, 12→13 의
+   1% 만 공개 확률표와 대체로 맞는 칸이다.                        */
+const UP_RATE    = [.95,.90,.80,.65,.50,.34,.20,.11,.05,.03,.02,.01];
+const clampG = g => Math.max(1, Math.min(MAX_GRADE, Math.round(g)));
+/* pivot 은 카드 오버롤 표기와 함께 움직여야 한다. 표기를 FC 온라인
+   범위(90~125)로 올리면서 pivot 60 을 그대로 두면 지수가 60 가까이
+   커져 +1 카드 하나가 수백억 BP 로 튄다. 표기를 올린 만큼 pivot 도
+   올려 **보이는 숫자만 바뀌고 가격대는 그대로**가 되게 한다.       */
+const baseValue = ovr => Math.round(900 * Math.pow(1.315, Math.max(0, ovr-87)) / 100) * 100;
 const valueOf = (ovr, tier, grade=1) =>
   Math.round(baseValue(ovr) * TIER[tier].mul * GRADE_MUL[clampG(grade)-1] / 1000) * 1000;
 
 function enhance(card, grade){
   const g = clampG(grade), f = STAT_GAIN[g-1];
-  const cs = n => Math.max(1, Math.min(130, Math.round(n*f)));
+  const cs = n => Math.max(1, Math.min(155, Math.round(n*f)));
   return {
     grade: g,
     ovr: card.ovr + OVR_GAIN[g-1],
@@ -571,6 +591,11 @@ function upOdds(from, to){
 
 /* ── 카탈로그: 선수 × 시즌 = 카드 ─────────────────────────── */
 const STAT_LABELS = ['속도','슛','패스','드리블','수비','피지컬'];
+const MIN_OVR = 60, MAX_OVR = 155;
+const clampStat = n => Math.max(1, Math.min(MAX_OVR, Math.round(n)));
+const cardOvr = (base, tier) =>
+  Math.max(MIN_OVR, Math.min(MAX_OVR, base + TIER[tier].bonus));
+const statFactor = (base, tier) => (base > 0 ? cardOvr(base, tier) / base : 1);
 function pidOf(name){
   let h = 2166136261;
   for(let i=0;i<name.length;i++){ h ^= name.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -585,8 +610,11 @@ for(const s of SEASONS){
       name, nation, club, league, foot, sm, wf, gk: !!gk,
       positions: pos.split(','),
       season: s, tier: s.tier,
-      ovr: Math.max(40, Math.min(120, ovr + TIER[s.tier].bonus)),
-      stats: [pac,sho,pas,dri,def,phy],
+      ovr: cardOvr(ovr, s.tier),
+      /* 오버롤만 올리고 스탯을 시드 그대로 두면 OVR 112 카드에 페이스
+         56 이 붙어, 같은 카드를 설명하는 두 숫자가 서로 다른 게임을
+         말하게 된다. 오버롤이 오른 비율만큼 스탯도 같이 민다.        */
+      stats: [pac,sho,pas,dri,def,phy].map(n => clampStat(n * statFactor(ovr, s.tier))),
       key: norm(name), cho: choKey(name),
     });
   }
@@ -810,8 +838,10 @@ function renderRating(){
   }
 
   const bar = (label, v) => {
-    const col = v>=90 ? 'var(--t-high)' : v>=80 ? 'var(--good)' : v>=70 ? 'var(--accent)' : 'var(--ink-3)';
-    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/110*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
+    // 눈금은 카드 오버롤 범위(MAX_OVR)에 맞춘다. 110 을 박아 두면
+    // 120 대 카드에서 막대가 전부 꽉 찬 채로 붙어 비교가 안 된다.
+    const col = v>=125 ? 'var(--t-high)' : v>=110 ? 'var(--good)' : v>=95 ? 'var(--accent)' : 'var(--ink-3)';
+    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/MAX_OVR*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
   };
 
   box.innerHTML = `<div class="panel">
@@ -860,14 +890,16 @@ function renderEnhance(){
 
   const e = enhance(en.card, en.grade);
   const odds = upOdds(1, en.grade);
-  const curve = Array.from({length:10}, (_,i) => enhance(en.card, i+1));
-  // +1 → +10 가치가 280배까지 벌어져 선형 축으로 그리면 앞의 여덟 칸이 바닥에 붙는다.
+  const curve = Array.from({length:MAX_GRADE}, (_,i) => enhance(en.card, i+1));
+  // +1 → +13 가치가 수천 배까지 벌어져 선형 축으로 그리면 앞쪽 칸이 전부 바닥에 붙는다.
   // 로그 축으로 그려 단계별 증가를 읽을 수 있게 하고, 축 종류를 명시한다.
-  const lo = Math.log(curve[0].value), hi = Math.log(curve[9].value);
+  const lo = Math.log(curve[0].value), hi = Math.log(curve[curve.length-1].value);
   const barH = v => 8 + (hi > lo ? (Math.log(v) - lo) / (hi - lo) * 92 : 92);
   const bar = (label, v) => {
-    const col = v>=90 ? 'var(--t-high)' : v>=80 ? 'var(--good)' : v>=70 ? 'var(--accent)' : 'var(--ink-3)';
-    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/110*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
+    // 눈금은 카드 오버롤 범위(MAX_OVR)에 맞춘다. 110 을 박아 두면
+    // 120 대 카드에서 막대가 전부 꽉 찬 채로 붙어 비교가 안 된다.
+    const col = v>=125 ? 'var(--t-high)' : v>=110 ? 'var(--good)' : v>=95 ? 'var(--accent)' : 'var(--ink-3)';
+    return `<div class="sb"><b>${label}</b><i><u style="width:${Math.min(100,v/MAX_OVR*100)}%;background:${col}"></u></i><em>${v}</em></div>`;
   };
 
   box.innerHTML = `<div class="panel">
@@ -875,19 +907,19 @@ function renderEnhance(){
     <div class="pbody" style="display:grid; gap:13px">
       <div style="display:flex; align-items:center; gap:12px">
         <b class="num" style="width:38px; text-align:center; font-size:22px; color:var(--accent-text)">+${en.grade}</b>
-        <input type="range" min="1" max="10" step="1" value="${en.grade}" id="grade" aria-label="강화 단계"
+        <input type="range" min="1" max="${MAX_GRADE}" step="1" value="${en.grade}" id="grade" aria-label="강화 단계"
                style="flex:1; accent-color:var(--accent); cursor:pointer">
       </div>
       <dl class="tiles" style="margin:0">
-        <div class="tile"><dt>오버롤</dt><dd>${e.ovr}<small>기본 ${en.card.ovr}</small></dd></div>
-        <div class="tile good"><dt>추정 가치</dt><dd style="font-size:14px">${bp(e.value)}<small>BP</small></dd></div>
-        <div class="tile ${odds.rate<.05?'bad':''}"><dt>+1→현재</dt><dd style="font-size:14px">${pct(odds.rate,1)}<small>기대 ${odds.tries.toFixed(1)}회 시도</small></dd></div>
+        <div class="tile"><dt>추정 오버롤 ⚪</dt><dd>${e.ovr}<small>추정 기본 ${en.card.ovr} + 공식 강화 ${e.ovr - en.card.ovr}</small></dd></div>
+        <div class="tile good"><dt>추정 가치 ⚪</dt><dd style="font-size:14px">${bp(e.value)}<small>BP</small></dd></div>
+        <div class="tile ${odds.rate<.05?'bad':''}"><dt>+1→현재 ⚪</dt><dd style="font-size:14px">${pct(odds.rate,1)}<small>기대 ${odds.tries.toFixed(1)}회 시도</small></dd></div>
       </dl>
       <div style="display:grid; gap:6px">${STAT_LABELS.map((l,i) => bar(l, e.stats[i])).join('')}</div>
       <div>
         <p class="eyebrow" style="margin:0 0 7px">강화 단계별 추정 가치 <span style="text-transform:none; letter-spacing:0; color:var(--ink-3)">· 로그 축</span></p>
         <div style="display:flex; align-items:flex-end; gap:4px; height:62px">
-          ${curve.map(c => `<button data-grade="${c.grade}" title="+${c.grade} · OVR ${c.ovr} · ${bp(c.value)} BP"
+          ${curve.map(c => `<button data-grade="${c.grade}" title="+${c.grade} · 추정 OVR ${c.ovr} · 추정 ${bp(c.value)} BP"
             style="flex:1; border-radius:4px 4px 0 0; height:${barH(c.value)}%;
             background:${c.grade===en.grade?'var(--accent)':'var(--surface-3)'}"></button>`).join('')}
         </div>
@@ -896,7 +928,7 @@ function renderEnhance(){
         </div>
       </div>
     </div>
-    <div class="note">가치와 상승폭은 공개 API 에 없는 항목이라 자체 추정 모델입니다. 실제 거래소 시세와 다릅니다.</div>
+    <div class="note">⚪ 가치와 기본 오버롤은 공개 API 에 없는 항목이라 자체 추정 모델입니다 — 게임에 뜨는 값이 아닙니다. 🔵 강화 단계별 오버롤 상승은 넥슨 공식 값입니다.</div>
   </div>`;
 }
 
@@ -1076,36 +1108,41 @@ function renderManager(nick){
   </div>`;
 }
 
-/* ── 상자 정의 ─────────────────────────────────────────────
-   확률과 가격 모두 이 프로젝트가 정한 샘플 값이다. 넥슨은 확률을
-   게임 내 '확률 공개' 페이지에 공시하고 API 로는 주지 않는다.
-   실제 값으로 바꾸려면 이 배열만 교체하면 나머지는 그대로 돈다.   */
+/* ── 모의 상자 정의 — 계층 C (이 프로젝트가 지어낸 값) ──────
+   여기 상자는 **실제 FC 온라인 상품이 아니다.** 이름도, 가격도,
+   확률도 이 프로젝트가 만들었다. 넥슨은 확률을 게임 내 '확률 공개'
+   페이지에 공시하고 API 로는 주지 않으므로, 공시표를 가져올 경로가
+   애초에 없다.
+
+   오버롤 구간은 카드 표기 범위(90~125)에 맞춰 잡았다. 한때 76~92 로
+   잡혀 있었는데, 표기를 올린 뒤로는 그 구간에 카드가 한 장도 없어
+   '일반'·'레어'·'에픽' 풀이 통째로 비어 있었다.                    */
 const BOXES = [
   {id:'premium-bp', name:'BP 프리미엄 팩', sub:'BP 로 사는 기본 팩. 스쿼드 뼈대를 무난하게 채운다.',
-   cur:'BP', price:5_000_000, draws:3, tiers:[
-    {id:'common', label:'일반 · OVR ~79',   p:.62,  css:'var(--t-normal)', rare:1, f:{max:79}},
-    {id:'rare',   label:'레어 · OVR 80–84', p:.27,  css:'var(--t-mid)',    rare:2, f:{min:80,max:84}},
-    {id:'epic',   label:'에픽 · OVR 85–88', p:.093, css:'var(--t-high)',   rare:3, f:{min:85,max:88}},
-    {id:'legend', label:'레전드 · OVR 89+', p:.016, css:'var(--t-legend)', rare:4, f:{min:89}},
-    {id:'icon',   label:'아이콘',            p:.001, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+   cur:'BP', price:6_300_000, draws:3, tiers:[
+    {id:'common', label:'일반 · OVR ~104',    p:.62,  css:'var(--t-normal)', rare:1, f:{max:104}},
+    {id:'rare',   label:'레어 · OVR 105–113', p:.27,  css:'var(--t-mid)',    rare:2, f:{min:105,max:113}},
+    {id:'epic',   label:'에픽 · OVR 114–118', p:.093, css:'var(--t-high)',   rare:3, f:{min:114,max:118}},
+    {id:'legend', label:'레전드 · OVR 119+',  p:.016, css:'var(--t-legend)', rare:4, f:{min:119}},
+    {id:'icon',   label:'아이콘',              p:.001, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
   {id:'ultimate', name:'얼티밋 셀렉트 팩', sub:'캐시 전용. 고오버롤 확률이 크게 올라간 프리미엄 상자.',
    cur:'캐시', price:12_900, draws:1, pity:{tier:'legend', after:20}, tiers:[
-    {id:'common', label:'일반 · OVR ~82',   p:.34,  css:'var(--t-normal)', rare:1, f:{max:82}},
-    {id:'rare',   label:'레어 · OVR 83–86', p:.42,  css:'var(--t-mid)',    rare:2, f:{min:83,max:86}},
-    {id:'epic',   label:'에픽 · OVR 87–89', p:.19,  css:'var(--t-high)',   rare:3, f:{min:87,max:89}},
-    {id:'legend', label:'레전드 · OVR 90+', p:.042, css:'var(--t-legend)', rare:4, f:{min:90}},
-    {id:'icon',   label:'아이콘',            p:.008, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+    {id:'common', label:'일반 · OVR ~109',    p:.34,  css:'var(--t-normal)', rare:1, f:{max:109}},
+    {id:'rare',   label:'레어 · OVR 110–116', p:.42,  css:'var(--t-mid)',    rare:2, f:{min:110,max:116}},
+    {id:'epic',   label:'에픽 · OVR 117–119', p:.19,  css:'var(--t-high)',   rare:3, f:{min:117,max:119}},
+    {id:'legend', label:'레전드 · OVR 120+',  p:.042, css:'var(--t-legend)', rare:4, f:{min:120}},
+    {id:'icon',   label:'아이콘',              p:.008, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
   {id:'lucky', name:'이벤트 럭키 박스', sub:'싸고 많이. 다섯 장을 한 번에 열지만 대부분 저오버롤이다.',
    cur:'BP', price:2_400_000, draws:5, tiers:[
-    {id:'common', label:'일반 · OVR ~76',   p:.78,   css:'var(--t-normal)', rare:1, f:{max:76}},
-    {id:'rare',   label:'레어 · OVR 77–82', p:.185,  css:'var(--t-mid)',    rare:2, f:{min:77,max:82}},
-    {id:'epic',   label:'에픽 · OVR 83–87', p:.032,  css:'var(--t-high)',   rare:3, f:{min:83,max:87}},
-    {id:'legend', label:'레전드 · OVR 88+', p:.0028, css:'var(--t-legend)', rare:4, f:{min:88}},
-    {id:'icon',   label:'아이콘',            p:.0002, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
+    {id:'common', label:'일반 · OVR ~101',    p:.78,   css:'var(--t-normal)', rare:1, f:{max:101}},
+    {id:'rare',   label:'레어 · OVR 102–110', p:.185,  css:'var(--t-mid)',    rare:2, f:{min:102,max:110}},
+    {id:'epic',   label:'에픽 · OVR 111–117', p:.032,  css:'var(--t-high)',   rare:3, f:{min:111,max:117}},
+    {id:'legend', label:'레전드 · OVR 118+',  p:.0028, css:'var(--t-legend)', rare:4, f:{min:118}},
+    {id:'icon',   label:'아이콘',              p:.0002, css:'var(--t-icon)',   rare:5, f:{tiers:['icon']}}]},
   {id:'icon-fix', name:'아이콘 확정 팩', sub:'아이콘이 100% 나온다. 대신 어떤 아이콘일지는 운.',
    cur:'캐시', price:99_000, draws:1, tiers:[
-    {id:'icon-lo', label:'아이콘 · OVR ~91', p:.72, css:'var(--t-legend)', rare:4, f:{tiers:['icon'], max:91}},
-    {id:'icon-hi', label:'아이콘 · OVR 92+', p:.28, css:'var(--t-icon)',   rare:5, f:{tiers:['icon'], min:92}}]},
+    {id:'icon-lo', label:'아이콘 · OVR ~118', p:.72, css:'var(--t-legend)', rare:4, f:{tiers:['icon'], max:118}},
+    {id:'icon-hi', label:'아이콘 · OVR 119+', p:.28, css:'var(--t-icon)',   rare:5, f:{tiers:['icon'], min:119}}]},
 ];
 
 const poolCache = new Map();
@@ -1245,7 +1282,7 @@ function renderOdds(){
           <td class="r num" style="color:var(--good)">${bp(t.avg)}</td></tr>`).join('')}</tbody>
       </table>
     </div>
-    <div class="note"><b>이 확률은 샘플 값입니다.</b> 실제 FC 온라인 확률은 게임 내 ‘확률 공개’ 페이지에 공시되며 Open API 로는 제공되지 않습니다. 저장소에서는 <code>src/lib/pack/boxes.ts</code> 만 바꾸면 됩니다.</div>
+    <div class="note">⚪ <b>이 상자는 FC 온라인 확률표를 참고해 만든 모의 상자이지 실제 상품이 아닙니다</b> — 이름·가격·확률 모두 이 프로젝트가 정했습니다. 실제 확률은 게임 내 ‘확률 공개’ 페이지에 공시되며 Open API 로는 제공되지 않아 가져올 방법이 없습니다. 기대값이 가격보다 낮게 잡혀 있는 것도 상자를 설계하며 건 가정이지, 실제 상품이 그렇다는 뜻이 아닙니다.</div>
   </div>`;
 }
 

@@ -184,7 +184,7 @@ describe('enhanceCard — 카드 한 장의 강화 결과', () => {
 
   it('가치는 카드의 원래 오버롤 기준으로 계산한다 (강화 보너스를 두 번 세지 않는다)', () => {
     const c = makeCard({ ovr: 90 });
-    expect(enhanceCard(c, 5).value).toBe(
+    expect(enhanceCard(c, 5).estimatedValue).toBe(
       estimateValue({ ovr: 90, seasonClassName: c.seasonName, grade: 5 }),
     );
   });

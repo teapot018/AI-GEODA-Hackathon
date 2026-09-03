@@ -204,6 +204,24 @@ describe('lookupCardPrices', () => {
     expect(result.cards.find((card) => card.spid === spid)?.stat ?? null).toBeNull();
   });
 
+  it('추정 가치가 관측가 자리로 새어 들어오지 않는다', async () => {
+    /*
+     * 이 프로젝트에는 카드마다 추정 가치(estimateValue)가 있고, 관측이
+     * 없는 칸을 그걸로 채우고 싶은 유혹이 늘 있다 — 화면이 비어 보이니까.
+     * 그러면 지어낸 숫자가 '관측가' 라는 이름을 달고 나가고, 사람은 그
+     * 값으로 실제 거래를 한다. 관측 결과에는 추정값이 들어올 자리 자체가
+     * 없어야 한다.
+     */
+    const result = await lookupCardPrices({ query: '손흥민' });
+    const card = result.cards[0] as unknown as Record<string, unknown>;
+
+    expect(card.stat).toBeNull();
+    // 추정 가치를 실어 나를 만한 이름이 붙어 있지 않은지 본다.
+    expect(card.value).toBeUndefined();
+    expect(card.estimatedValue).toBeUndefined();
+    expect(card.price).toBeUndefined();
+  });
+
   it('빈 검색어는 카드를 내지 않는다', async () => {
     const result = await lookupCardPrices({ query: '   ' });
     expect(result.cards).toHaveLength(0);

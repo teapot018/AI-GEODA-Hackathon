@@ -128,7 +128,7 @@ export function PlayerCard({
         <p className="truncate text-[0.85em] text-slate-500">{card.seasonName.split(' ')[0]}</p>
         {showValue ? (
           <p className="num mt-0.5 truncate text-[0.85em] font-semibold text-neon-lime">
-            {formatBP(enhanced.value)} BP
+            {formatBP(enhanced.estimatedValue)} BP
           </p>
         ) : null}
       </div>

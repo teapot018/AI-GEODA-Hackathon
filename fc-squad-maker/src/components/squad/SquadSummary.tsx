@@ -23,7 +23,7 @@ function EnhancePanel({ slotId }: { slotId: string }) {
 
   const current = enhanceCard(entry.card, entry.grade);
   const odds = upgradeOdds(1, entry.grade);
-  const maxValue = curve[curve.length - 1]?.value ?? 1;
+  const maxValue = curve[curve.length - 1]?.estimatedValue ?? 1;
 
   return (
     <Card>
@@ -69,7 +69,7 @@ function EnhancePanel({ slotId }: { slotId: string }) {
           />
           <StatTile
             label="추정 가치"
-            value={`${formatBP(current.value)}`}
+            value={`${formatBP(current.estimatedValue)}`}
             sub="BP"
             tone="good"
             layer="estimated"
@@ -108,14 +108,14 @@ function EnhancePanel({ slotId }: { slotId: string }) {
                 key={step.grade}
                 type="button"
                 onClick={() => setGrade(slotId, step.grade)}
-                title={`+${step.grade} · OVR ${step.ovr} · ${formatBP(step.value)} BP`}
+                title={`+${step.grade} · 추정 OVR ${step.ovr} · 추정 ${formatBP(step.estimatedValue)} BP`}
                 className={cn(
                   'group relative flex-1 rounded-t transition-colors',
                   step.grade === entry.grade
                     ? 'bg-neon-amber'
                     : 'bg-white/10 hover:bg-neon-amber/50',
                 )}
-                style={{ height: `${Math.max(6, (step.value / maxValue) * 100)}%` }}
+                style={{ height: `${Math.max(6, (step.estimatedValue / maxValue) * 100)}%` }}
               >
                 <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-slate-500">
                   {step.grade}

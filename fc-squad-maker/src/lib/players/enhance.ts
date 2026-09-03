@@ -45,12 +45,26 @@ const clampStat = (n: number) => Math.max(1, Math.min(MAX_ESTIMATED_OVR, Math.ro
 
 export interface EnhancedCard {
   grade: number;
+  /**
+   * 이 단계의 오버롤.
+   *
+   * 두 층이 섞여 있다: 기본 오버롤은 **우리 추정**(공개 API 에 없다),
+   * 거기 얹은 상승분은 **공식 표**(ENHANCEMENT_OVR_BONUS). 화면에서는
+   * 더 약한 쪽에 맞춰 추정으로 표기한다.
+   */
   ovr: number;
   stats: HexStats;
   gk?: GkStats;
-  /** 추정 BP 가치 */
-  value: number;
-  /** 직전 단계 대비 오버롤 상승 */
+  /**
+   * 이 프로젝트가 **추정한** BP 가치 — 계층 C.
+   *
+   * 관측된 거래가와 절대 섞이지 않는다. 이름이 estimated 로 시작하는
+   * 이유가 그것이다: 어딘가에서 "관측이 없으면 추정값으로 채운다" 는
+   * 코드가 생기면, 화면은 지어낸 값을 관측가라고 적게 된다. 관측이
+   * 없으면 없다고 적는다(market/lookup.ts 의 stat: null).
+   */
+  estimatedValue: number;
+  /** 직전 단계 대비 오버롤 상승 (공식 표에서 나온 차이) */
   ovrDelta: number;
 }
 
@@ -87,7 +101,7 @@ export function enhanceCard(card: PlayerCardData, grade: number): EnhancedCard {
     ovr: card.ovr + gain,
     stats: scaleHex(card.stats, factor),
     gk: card.gk ? scaleGk(card.gk, factor) : undefined,
-    value: estimateValue({ ovr: card.ovr, seasonClassName: card.seasonName, grade: g }),
+    estimatedValue: estimateValue({ ovr: card.ovr, seasonClassName: card.seasonName, grade: g }),
     ovrDelta: g === 1 ? 0 : gain - OVR_GAIN_BY_GRADE[g - 2],
   };
 }
