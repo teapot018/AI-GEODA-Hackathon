@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { findBox, PACK_BOXES, validateBox } from '@/lib/pack/boxes';
+import {
+  EV_BELOW_PRICE,
+  findBox,
+  isOfficialOdds,
+  PACK_BOXES,
+  probabilitySourceOf,
+  validateBox,
+} from '@/lib/pack/boxes';
 import { candidatePool } from '@/lib/players/catalog';
 import { describeBox, openBox } from '@/lib/pack/simulator';
 
@@ -283,7 +290,15 @@ describe('describeBox — 열기 전 기대값', () => {
     const bp = await describeBox('premium-bp');
     expect(bp.valueRatio).not.toBeNull();
     expect(bp.valueRatio!).toBeGreaterThan(0);
-    // 확률형 상품답게 기대값이 가격을 넘지 않아야 한다.
+    /*
+     * 기대값이 가격을 넘지 않는다.
+     *
+     * 이건 **이 프로젝트가 모의 상자를 설계하며 건 가정**이지(boxes.ts
+     * EV_BELOW_PRICE), 실제 FC 온라인 상품에서 관측한 규칙이 아니다.
+     * 여기서 지키는 이유는 가격을 손으로 고칠 때 이 관계가 조용히
+     * 뒤집히는 것을 막기 위해서다.
+     */
+    expect(EV_BELOW_PRICE, '가정이 바뀌면 이 단언도 같이 바뀌어야 한다').toBe(true);
     expect(bp.valueRatio!).toBeLessThan(1);
 
     const cash = await describeBox('ultimate-cash');
@@ -292,5 +307,52 @@ describe('describeBox — 열기 전 기대값', () => {
 
   it('모르는 상자는 던진다', async () => {
     await expect(describeBox('없는-상자')).rejects.toThrow('알 수 없는 상자');
+  });
+});
+
+
+describe('모의 상자를 실제 상품처럼 보이지 않게 한다', () => {
+  /*
+   * 넥슨은 확률형 아이템 확률을 게임 내 '확률 공개' 페이지에 공시하고,
+   * Open API 로는 주지 않는다. 즉 이 프로젝트에는 공시표를 가져올
+   * 경로가 아예 없다 — 여기 있는 확률은 전부 우리가 지어낸 표본이다.
+   */
+  it('모든 등급 확률이 표본으로 표시된다', () => {
+    for (const box of PACK_BOXES) {
+      for (const tier of box.tiers) {
+        expect(probabilitySourceOf(tier), `${box.id}/${tier.id}`).toBe('project-sample');
+      }
+      expect(isOfficialOdds(box), box.id).toBe(false);
+    }
+  });
+
+  it('출처를 적지 않은 등급은 표본으로 친다', () => {
+    /*
+     * 기본값이 '공식' 이면, 새 상자를 추가하며 필드를 빼먹은 순간 우리가
+     * 지어낸 확률이 공시 확률로 화면에 뜬다. 잊었을 때 안전한 쪽으로
+     * 기울어 있어야 한다.
+     */
+    expect(probabilitySourceOf({ ...PACK_BOXES[0].tiers[0], probabilitySource: undefined })).toBe(
+      'project-sample',
+    );
+  });
+
+  it('한 등급만 공시여도 상자 전체를 공시라고 부르지 않는다', () => {
+    const mixed = {
+      ...PACK_BOXES[0],
+      tiers: PACK_BOXES[0].tiers.map((tier, i) =>
+        i === 0 ? { ...tier, probabilitySource: 'official' as const } : tier,
+      ),
+    };
+    expect(isOfficialOdds(mixed)).toBe(false);
+  });
+
+  it('describeBox 가 등급별 출처를 그대로 실어 보낸다', async () => {
+    // 화면이 줄마다 표시하려면 이 값이 올라와야 한다.
+    const box = await describeBox('premium-bp');
+    expect(box.officialOdds).toBe(false);
+    for (const tier of box.tiers) {
+      expect(tier.probabilitySource).toBe('project-sample');
+    }
   });
 });

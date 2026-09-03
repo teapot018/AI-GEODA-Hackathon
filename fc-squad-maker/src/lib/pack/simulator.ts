@@ -4,7 +4,15 @@ import { candidatePool, getCard } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
 import { estimateValue } from '@/lib/players/value';
 import { createRng, weightedPick, type Rng } from '@/lib/utils/rng';
-import { findBox, validateBox, type PackBox, type PackTier } from './boxes';
+import {
+  findBox,
+  isOfficialOdds,
+  probabilitySourceOf,
+  validateBox,
+  type PackBox,
+  type PackTier,
+  type ProbabilitySource,
+} from './boxes';
 
 /**
  * 상자 개봉 시뮬레이터.
@@ -146,6 +154,8 @@ export interface TierExpectation {
   label: string;
   color: string;
   probability: number;
+  /** 위 확률이 공시표에서 온 것인지, 이 프로젝트의 표본인지 */
+  probabilitySource: ProbabilitySource;
   poolSize: number;
   averageValue: number;
   /** 1회 개봉에서 이 등급이 한 장이라도 나올 확률 */
@@ -155,6 +165,13 @@ export interface TierExpectation {
 export interface BoxExpectation {
   boxId: string;
   drawCount: number;
+  /**
+   * 이 상자의 확률이 **전부** 공시표에서 왔는가.
+   *
+   * 하나라도 표본이 섞여 있으면 false 다. 섞인 표를 "공시 확률" 이라고
+   * 부르면 공식인 줄 알고 읽는 줄이 생긴다.
+   */
+  officialOdds: boolean;
   tiers: TierExpectation[];
   /** 1회 개봉의 기대 가치(BP) */
   expectedValue: number;
@@ -193,6 +210,7 @@ export async function describeBox(boxId: string): Promise<BoxExpectation> {
         label: tier.label,
         color: tier.color,
         probability: tier.probability,
+        probabilitySource: probabilitySourceOf(tier),
         poolSize: size,
         averageValue: avg,
         atLeastOnce: 1 - (1 - tier.probability) ** box.drawCount,
@@ -207,6 +225,7 @@ export async function describeBox(boxId: string): Promise<BoxExpectation> {
   return {
     boxId: box.id,
     drawCount: box.drawCount,
+    officialOdds: isOfficialOdds(box),
     tiers,
     expectedValue,
     valueRatio: box.currency === 'BP' ? expectedValue / box.price : null,

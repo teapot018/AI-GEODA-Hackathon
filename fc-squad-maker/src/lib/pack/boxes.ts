@@ -1,26 +1,65 @@
 import type { SeasonTier } from '@/lib/players/seasons';
 
 /**
- * ── 상자(팩) 확률 정의 ─────────────────────────────────────
+ * ── 모의 상자 정의 — **계층 C (이 프로젝트가 지어낸 값)** ────
  *
- *  중요: 아래 확률은 **샘플 값**이다. 넥슨은 확률형 아이템 확률을
- *  게임 내 "확률 공개" 페이지와 공식 홈페이지에 공시하며, Open API 로는
- *  제공하지 않는다. 실제 서비스에 쓰려면 공시된 표를 그대로 옮겨
- *  이 파일만 교체하면 되고, 나머지 시뮬레이션 코드는 손댈 필요가 없다.
+ *  여기 있는 상자는 **실제 FC 온라인 상품이 아니다.** 이름도, 가격도,
+ *  확률도 이 프로젝트가 만들었다. 실제 상품과 같은 이름이 있다면 우연이
+ *  아니라 흉내 낸 것이고, 그래도 숫자는 다르다.
  *
- *  가격 역시 샘플이다. 로컬 가치 모델(estimateValue) 기준으로 "기대값이 가격보다
- *  약간 낮게" 나오도록 잡아 뒀다 — 실제 확률형 상품의 경제 구조와 같은 방향이다.
+ *  ── 확률 ──
+ *  넥슨은 확률형 아이템 확률을 게임 내 '확률 공개' 페이지와 공식
+ *  홈페이지에 공시하며, **Open API 로는 제공하지 않는다.** 그래서 이
+ *  프로젝트가 공시표를 가져올 방법이 없고, 아래 값은 "확률형 상품이란
+ *  대개 이런 모양" 을 흉내 낸 표본이다.
+ *
+ *  각 tier 는 probabilitySource 로 그 사실을 들고 다닌다. 공시표를
+ *  옮겨 넣을 때는 값과 함께 이 필드를 'official' 로 바꾼다 — 값만 바꾸면
+ *  화면은 여전히 샘플이라고 적고, 필드만 바꾸면 샘플을 공식이라 부르게
+ *  된다. 둘을 같이 두어야 한 쪽만 바뀌는 일이 눈에 띈다.
+ *
+ *  ── 가격과 기대값 ──
+ *  가격도 샘플이다. 로컬 가치 모델(estimateValue) 기준으로 기대값이
+ *  가격보다 낮게 나오도록 잡아 뒀다(EV_BELOW_PRICE 참고). 그건 실제
+ *  게임에서 관측한 규칙이 아니라 **이 프로젝트가 상자를 설계할 때 건
+ *  가정**이다 — 실제 상품이 그렇다는 주장이 아니다.
  *
  *  구조상 지켜야 할 것:
  *   - 한 상자의 tiers[].probability 합은 1 이어야 한다 (validateBox 로 검증).
  *   - 각 tier 는 카탈로그에서 어떤 카드를 뽑을지 filter 로 지정한다.
  */
 
+/**
+ * 이 확률이 어디서 왔는가.
+ *
+ *  - 'official'       : 넥슨 공시 확률표를 옮긴 값
+ *  - 'project-sample' : 이 프로젝트가 흉내 낸 표본
+ *
+ * 지금은 전부 후자다. 공시표는 Open API 로 오지 않고, 이 개발 환경에서는
+ * 넥슨 도메인이 막혀 공시 페이지도 열 수 없다.
+ */
+export type ProbabilitySource = 'official' | 'project-sample';
+
+/**
+ * 상자 설계에 건 가정: **기대값 < 가격.**
+ *
+ * 실제 게임에서 관측한 규칙이 아니다. 이 프로젝트가 모의 상자를 만들 때
+ * "확률형 상품은 파는 쪽이 남아야 성립한다" 는 상식으로 건 조건이고,
+ * pack 테스트가 그 조건을 지킨다. 실제 상품이 반드시 그렇다는 주장이
+ * 아니므로 화면에서도 '가정' 이라고 적는다.
+ */
+export const EV_BELOW_PRICE = true;
+
 export interface PackTier {
   id: string;
   label: string;
   /** 0 ~ 1 */
   probability: number;
+  /**
+   * 위 확률이 어디서 왔는가. 생략하면 'project-sample' 이다 —
+   * 기본값을 '공식' 으로 두면 적어 넣기를 잊은 표가 공식으로 뜬다.
+   */
+  probabilitySource?: ProbabilitySource;
   /** UI 색상 (tailwind 색 대신 직접 hex) */
   color: string;
   /** 연출 등급: 높을수록 화려한 애니메이션 */
@@ -34,6 +73,10 @@ export interface PackTier {
 
 export interface PackBox {
   id: string;
+  /**
+   * 상자 이름. **실제 FC 온라인 상품명이 아니다** — 이 프로젝트가 지은
+   * 이름이고, 실제 상품과 비슷하게 들리더라도 다른 물건이다.
+   */
   name: string;
   subtitle: string;
   currency: 'BP' | '캐시';
@@ -121,4 +164,19 @@ export function findBox(id: string): PackBox | undefined {
 export function validateBox(box: PackBox): { ok: boolean; sum: number } {
   const sum = box.tiers.reduce((acc, tier) => acc + tier.probability, 0);
   return { ok: Math.abs(sum - 1) < 1e-6, sum };
+}
+
+/** 이 등급 확률이 어디서 왔는가. 적지 않았으면 샘플이다. */
+export function probabilitySourceOf(tier: PackTier): ProbabilitySource {
+  return tier.probabilitySource ?? 'project-sample';
+}
+
+/**
+ * 이 상자의 확률이 **전부** 공시표에서 온 것인가.
+ *
+ * 하나라도 샘플이 섞여 있으면 false 다 — 섞인 표를 "공시 확률" 이라고
+ * 부르면 공식인 줄 알고 읽는 줄이 생긴다.
+ */
+export function isOfficialOdds(box: PackBox): boolean {
+  return box.tiers.every((tier) => probabilitySourceOf(tier) === 'official');
 }
