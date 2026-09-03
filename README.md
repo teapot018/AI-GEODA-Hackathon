@@ -7,7 +7,7 @@ AI-GEODA 해커톤 - 학교 안전 프로젝트
 | 디렉토리 | 설명 |
 | --- | --- |
 | [`demo/`](./demo) | **바로 열어 보는 단독 실행본.** `demo/index.html` 을 더블클릭하면 설치 없이 동작합니다. |
-| [`fc-squad-maker/`](./fc-squad-maker) | 넥슨 FC 온라인 Open API 기반 구단주 조회 · 스쿼드 메이커 · 시세 관측소 · 모의 상자 개봉 시뮬레이터 (Next.js 15 + TypeScript + Tailwind) |
+| [`fc-squad-maker/`](./fc-squad-maker) | 넥슨 FC 온라인 Open API 기반 구단주 조회 · 스쿼드 메이커 · 거래 관측소 · 모의 상자 개봉 시뮬레이터 (Next.js 15 + TypeScript + Tailwind) |
 
 ---
 
