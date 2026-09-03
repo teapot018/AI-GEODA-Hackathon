@@ -271,3 +271,77 @@ export function estimateRefresh(
     overdue: nextAt.getTime() <= now.getTime(),
   };
 }
+
+/* ── 체결 간격: 데이터센터 없이도 답할 수 있는 쪽 ──────────── */
+
+/**
+ * ── 왜 이게 따로 있나 ──
+ *
+ * 위쪽 기준가 관측은 넥슨 **데이터센터 페이지**를 읽어야 굴러간다. 그런데 그
+ * 페이지는 개발 환경의 이그레스 정책에 막혀 있고(CONNECT 403), 배포 환경에서
+ * 파서가 실제 구조에 맞을지도 아직 확인되지 않았다. 즉 그 경로 하나에만
+ * 기대면, 화면은 영영 "관측 없음" 만 띄울 수 있다.
+ *
+ * 그래서 같은 질문에 **막히지 않는 재료로** 답한다. `/user/trade` 가 주는
+ * 체결 기록에는 `tradeDate` 가 붙어 있다 — 우리가 알아챈 시각이 아니라
+ * **넥슨이 적어 준 실제 체결 시각**이다. 기준가 관측과 달리 '구간' 이 없다.
+ *
+ * 다만 표본은 여전히 일부다. 조회된 구단주가 사고판 것만 보이므로, 우리가
+ * 재는 간격은 실제 거래 빈도보다 **길게** 나온다(중간 거래를 못 봤을 뿐이다).
+ * 그래서 이 값은 상한으로 읽어야 하고, 화면에도 그렇게 적는다.
+ *
+ * ── 다음 체결 시각은 찍지 않는다 ──
+ * 기준가 갱신은 주기가 있는 집계지만, 체결은 사람이 사고파는 사건이라
+ * 주기가 아니다. 평균 4시간마다 팔렸다고 다음이 4시간 뒤인 건 아니다.
+ * 빈도까지만 말하고 시각은 말하지 않는다 — nextRefreshAt 을 지운 것과 같은 선이다.
+ */
+export interface TradeCadence {
+  /** 표본에서 가장 최근 체결 시각 (넥슨이 적어 준 값) */
+  lastTradeAt: Date | null;
+  /** 이 카드에서 본 체결 건수 */
+  samples: number;
+  /**
+   * 체결 사이 간격의 중앙값(ms). 표본이 2건 미만이면 null.
+   * 우리가 못 본 거래가 있으므로 **실제 빈도의 상한**이다.
+   */
+  intervalMs: number | null;
+  /** 표본이 걸쳐 있는 기간(ms) */
+  spanMs: number | null;
+}
+
+/**
+ * 체결 시각만으로 거래 빈도를 낸다.
+ *
+ * 문자열 그대로 받는 이유: 넥슨은 타임존 없는 "2026-09-01T12:00:00" 를 주고,
+ * 그건 UTC 다. 파싱 규칙을 한 곳(data/freshness parseApiDate)에 두려고
+ * 호출부에서 Date 로 바꿔 넘긴다.
+ */
+export function tradeCadence(tradeTimes: readonly Date[]): TradeCadence {
+  const times = tradeTimes
+    .map((d) => d.getTime())
+    .filter((t) => Number.isFinite(t))
+    .sort((a, b) => a - b);
+
+  if (times.length === 0) {
+    return { lastTradeAt: null, samples: 0, intervalMs: null, spanMs: null };
+  }
+
+  const lastTradeAt = new Date(times[times.length - 1]);
+  const spanMs = times[times.length - 1] - times[0];
+
+  if (times.length < 2) {
+    return { lastTradeAt, samples: times.length, intervalMs: null, spanMs: null };
+  }
+
+  const gaps: number[] = [];
+  for (let i = 1; i < times.length; i += 1) gaps.push(times[i] - times[i - 1]);
+
+  return {
+    lastTradeAt,
+    samples: times.length,
+    // 중앙값을 쓰는 이유: 한 달 비어 있다가 몰아서 거래된 카드에서
+    // 평균은 그 공백 하나에 통째로 끌려간다.
+    intervalMs: medianOf(gaps),
+    spanMs,
+  };
+}

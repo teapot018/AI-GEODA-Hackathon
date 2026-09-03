@@ -5,6 +5,7 @@ import {
   historyOf,
   recordBaseline,
   resetRefreshHistory,
+  tradeCadence,
 } from '@/lib/market/refresh';
 
 const HOUR = 3_600_000;
@@ -181,5 +182,61 @@ describe('estimateRefresh', () => {
     const e = estimateRefresh(historyOf(SPID, 1), at(5));
     expect(e.nextAt).toBeNull();
     expect(e.confidence).toBe('none');
+  });
+});
+
+describe('tradeCadence — 데이터센터 없이 재는 거래 빈도', () => {
+  /*
+   * 위 estimateRefresh 는 넥슨 데이터센터 페이지를 읽어야 굴러가는데, 그
+   * 페이지는 막혀 있을 수 있다(개발 환경은 CONNECT 403). 이 쪽은 /user/trade
+   * 의 tradeDate 만 쓰므로 그 경로가 막혀도 항상 답한다.
+   */
+  it('체결이 없으면 아무 말도 하지 않는다', () => {
+    const c = tradeCadence([]);
+    expect(c.lastTradeAt).toBeNull();
+    expect(c.samples).toBe(0);
+    expect(c.intervalMs).toBeNull();
+  });
+
+  it('체결이 하나면 시각만 사실로 남기고 빈도는 말하지 않는다', () => {
+    const c = tradeCadence([at(5)]);
+    expect(c.lastTradeAt).toEqual(at(5));
+    expect(c.samples).toBe(1);
+    expect(c.intervalMs).toBeNull();
+  });
+
+  it('체결 간격의 중앙값을 낸다', () => {
+    const c = tradeCadence([at(0), at(2), at(4), at(6)]);
+    expect(c.samples).toBe(4);
+    expect(c.intervalMs).toBe(2 * HOUR);
+    expect(c.lastTradeAt).toEqual(at(6));
+    expect(c.spanMs).toBe(6 * HOUR);
+  });
+
+  it('순서가 뒤섞여 와도 시간순으로 잰다', () => {
+    // 풀은 매입/매도를 합쳐 담으므로 정렬돼 있다는 보장이 없다.
+    const c = tradeCadence([at(6), at(0), at(4), at(2)]);
+    expect(c.intervalMs).toBe(2 * HOUR);
+    expect(c.lastTradeAt).toEqual(at(6));
+  });
+
+  it('공백 하나에 끌려가지 않는다 (평균이 아니라 중앙값)', () => {
+    /*
+     * 한 달 비어 있다가 몰아서 거래된 카드에서, 평균은 그 공백 하나가
+     * 통째로 끌고 간다. 중앙값은 실제로 자주 있었던 간격을 가리킨다.
+     */
+    const c = tradeCadence([at(0), at(1), at(2), at(3), at(720)]);
+    expect(c.intervalMs).toBe(HOUR);
+  });
+
+  it('다음 체결 시각은 내놓지 않는다', () => {
+    /*
+     * 체결은 주기가 아니라 사람이 사고파는 사건이다. 평균 2시간마다
+     * 팔렸다고 다음이 2시간 뒤인 건 아니라서, 빈도까지만 말한다.
+     * nextRefreshAt 을 지운 것과 같은 선.
+     */
+    const c = tradeCadence([at(0), at(2), at(4)]) as unknown as Record<string, unknown>;
+    expect(c.nextAt).toBeUndefined();
+    expect(c.confidence).toBeUndefined();
   });
 });

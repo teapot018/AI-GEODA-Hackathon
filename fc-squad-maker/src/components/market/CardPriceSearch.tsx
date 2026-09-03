@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { Database, Search, UserSearch } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Clock, Database, Search, UserSearch } from 'lucide-react';
 
 import { Badge, Button, Card, CardHeader, Input, SourceBadge, Spinner } from '@/components/ui';
 import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { CardLookupResult, CardPrice } from '@/lib/market/lookup';
 import { MIN_SAMPLES } from '@/lib/market/observations';
+import { formatAge, formatDuration } from '@/lib/data/freshness';
 import { formatBP } from '@/lib/utils/format';
 
 /**
@@ -224,6 +225,44 @@ function CardPriceRow({ card }: { card: CardPrice }) {
           ))}
         </div>
       ) : null}
+
+      <CadenceNote cadence={card.cadence} />
     </li>
+  );
+}
+
+/**
+ * 이 카드가 마지막으로 언제, 얼마나 자주 거래됐나.
+ *
+ * 시각은 넥슨이 체결 기록에 적어 준 값이라 추정이 아니다. 다만 표본은 조회된
+ * 구단주가 사고판 것뿐이라, 우리가 재는 간격은 **실제보다 길게** 나온다 —
+ * 중간 거래를 못 봤을 뿐이므로. 그래서 '최소' 라고 적는다.
+ *
+ * 다음 체결 시각은 찍지 않는다. 체결은 주기가 아니라 사람이 사고파는
+ * 사건이라, 평균 4시간이라고 다음이 4시간 뒤인 게 아니다.
+ */
+function CadenceNote({ cadence }: { cadence: CardPrice['cadence'] }) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => setNow(new Date()), []);
+
+  if (!cadence.lastTradeAt) return null;
+  const last = new Date(cadence.lastTradeAt);
+
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-600">
+      <span className="inline-flex items-center gap-1">
+        <Clock size={10} className="shrink-0" />
+        마지막 체결
+        <b className="text-slate-400">
+          {now ? formatAge(Math.max(0, now.getTime() - last.getTime())) : '-'}
+        </b>
+      </span>
+      {cadence.intervalMs !== null ? (
+        <span>
+          체결 간격 최소 <b className="text-slate-400">{formatDuration(cadence.intervalMs)}</b>
+          <span className="text-slate-700"> ({cadence.samples}건 기준)</span>
+        </span>
+      ) : null}
+    </p>
   );
 }

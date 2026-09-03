@@ -2,8 +2,10 @@ import 'server-only';
 
 import { getCard, searchPlayers } from '@/lib/players/catalog';
 import type { DataSource } from '@/lib/nexon/service';
+import { parseApiDate } from '@/lib/data/freshness';
 import { buildPriceIndex, type Observation, type PriceStat } from './observations';
 import { read } from './pool';
+import { tradeCadence, type TradeCadence } from './refresh';
 
 /**
  * ── 선수 이름으로 시세 찾기 ────────────────────────────────
@@ -41,6 +43,13 @@ export interface CardPrice {
    * 0 이나 추정치가 아니라 null 인 이유는 위 주석 참고.
    */
   stat: PriceStat | null;
+  /**
+   * 이 카드가 얼마나 자주 거래됐나 — 체결 시각만으로 낸다.
+   *
+   * 기준가 갱신 관측(refresh.ts 위쪽)은 데이터센터 페이지를 읽어야 하는데
+   * 그쪽은 막혀 있을 수 있다. 이 값은 `/user/trade` 만으로 나오므로 항상 답한다.
+   */
+  cadence: TradeCadence;
 }
 
 export interface CardLookupResult {
@@ -121,6 +130,13 @@ export async function lookupCardPrices({
     ...new Set(observations.filter((row) => wanted.has(row.spid)).map((row) => row.grade)),
   ].sort((a, b) => a - b);
 
+  // 체결 시각은 고른 등급으로 좁혀 잰다 — +1 과 +8 은 거래 빈도가 다르다.
+  const timesOf = (cardSpid: number): Date[] =>
+    observations
+      .filter((row) => row.spid === cardSpid && (grade === undefined || row.grade === grade))
+      .map((row) => parseApiDate(row.tradeDate))
+      .filter((d): d is Date => d !== null);
+
   const priced: CardPrice[] = candidates.map((card) => ({
     spid: card.spid,
     name: card.name,
@@ -128,6 +144,7 @@ export async function lookupCardPrices({
     imageUrl: card.imageUrl,
     ovr: card.ovr,
     stat: statOf.get(card.spid) ?? null,
+    cadence: tradeCadence(timesOf(card.spid)),
   }));
 
   /*
