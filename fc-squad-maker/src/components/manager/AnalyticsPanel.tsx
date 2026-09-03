@@ -47,7 +47,8 @@ export function AnalyticsPanel({
     );
   }
 
-  const { form, timeline, players, matchTypeName, analyzed } = analytics;
+  const { form, timeline, players, matchTypeName } = analytics;
+  const { requestedMatches, listedMatches, analyzedMatches, incompleteMatches } = analytics;
 
   return (
     <Card>
@@ -57,7 +58,7 @@ export function AnalyticsPanel({
             <TrendingUp size={14} className="text-neon-cyan" /> 전적 분석
           </span>
         }
-        description={`${matchTypeName} 최근 ${analyzed}경기를 겹쳐 계산했습니다`}
+        description={`${matchTypeName} 최근 ${analyzedMatches}경기를 겹쳐 계산했습니다`}
         action={
           form.streak ? (
             <Badge tone={form.streak.kind === '승' ? 'lime' : form.streak.kind === '패' ? 'rose' : 'neutral'}>
@@ -77,6 +78,24 @@ export function AnalyticsPanel({
         showInterval={false}
         className="mb-3"
       />
+
+      {/*
+        "최근 20경기 분석" 이라고만 적으면 20경기가 다 반영된 것처럼
+        읽힌다. 실제로는 넥슨 목록이 그만큼 안 오거나, 온 것 중 일부는
+        상세 조회가 실패한다. 아래 세 숫자가 어긋날 때만 적는다 —
+        전부 같으면 굳이 셋을 늘어놓아 화면을 어지럽힐 이유가 없다.
+      */}
+      {listedMatches < requestedMatches || incompleteMatches > 0 ? (
+        <p className="mb-3 text-[10px] leading-relaxed text-slate-500">
+          {requestedMatches}경기를 요청해 {listedMatches}경기를 받았고, 그중{' '}
+          <b className="text-slate-400">{analyzedMatches}경기</b>의 상세를 집계했습니다
+          {incompleteMatches > 0 ? (
+            <> — {incompleteMatches}경기는 상세를 받지 못해 이 분석에 들어가지 않았습니다.</>
+          ) : (
+            '.'
+          )}
+        </p>
+      ) : null}
 
       <div className="space-y-3 p-3">
         <ResultStrip results={form.results} />

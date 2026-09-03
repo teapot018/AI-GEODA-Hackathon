@@ -17,6 +17,30 @@ export const NX = {
   userTrade: '/fconline/v1/user/trade',
 } as const;
 
+/**
+ * Open API 에 있지만 **이 프로젝트가 쓰지 않는** 엔드포인트.
+ *
+ * 안 쓴다는 사실을 적어 두는 이유: 화면에 랭킹이나 전체 유저 통계가
+ * 없는 것이 "API 가 안 준다" 로 오해되면, 다음 사람이 없는 데이터를
+ * 추정으로 메우려 든다. 있는데 안 쓰는 것과 없는 것은 다르다.
+ *
+ * 랭커 API 를 안 쓰는 이유는 단순하다 — 이 프로젝트가 답하려는 질문
+ * ("이 카드 얼마야", "내 스쿼드 어때") 에 랭커 데이터가 필요 없고,
+ * 남의 서버를 부르는 횟수는 필요한 만큼만 쓰는 게 맞다.
+ */
+export const NX_UNUSED = [
+  {
+    path: '/fconline/v1/ranker/maxdivision',
+    what: '등급별 랭커의 스쿼드·전적',
+    why: '이 프로젝트의 화면 중 랭커 데이터를 쓰는 곳이 없다.',
+  },
+  {
+    path: '/fconline/v1/ranker/status',
+    what: '랭커 선수 지표',
+    why: '위와 같다. 선수 성능은 조회한 구단주의 경기에서만 낸다.',
+  },
+] as const;
+
 export const NX_META = {
   spid: '/static/fconline/meta/spid.json',
   season: '/static/fconline/meta/seasonid.json',

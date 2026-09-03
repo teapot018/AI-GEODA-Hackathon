@@ -194,3 +194,49 @@ describe('inferFormation', () => {
     expect(inferFormation([]).formation.id).toBe(FORMATIONS[0].id);
   });
 });
+
+describe('포메이션은 추정이지 복원이 아니다', () => {
+  /*
+   * 넥슨 `/match-detail` 은 포메이션 이름을 주지 않는다. 선발 선수와
+   * 각자의 포지션 코드만 준다. 우리가 그 구성에 가장 잘 맞는 포메이션을
+   * 골라 낸 것이므로, 맞을 수도 있고 틀릴 수도 있다.
+   *
+   * 그래서 inferFormation 은 점수를 반드시 같이 돌려준다 — 점수 없이
+   * 포메이션 이름만 쓰면 화면은 "이 경기의 포메이션" 이라고 단정하게 된다.
+   */
+  it('고른 포메이션과 함께 일치도를 돌려준다', () => {
+    const fit = inferFormation(lineup([0, 3, 4, 5, 7, 13, 14, 15, 23, 25, 27]));
+    expect(fit.score).toBeGreaterThan(0);
+    expect(fit.score).toBeLessThanOrEqual(1);
+  });
+
+  it('구성이 어긋날수록 일치도가 낮아진다', () => {
+    // 4-3-3 그대로면 높고, 수비수만 늘어놓으면 어느 포메이션에도 잘 안 맞는다.
+    const clean = inferFormation(lineup([0, 3, 4, 5, 7, 13, 14, 15, 23, 25, 27]));
+    const messy = inferFormation(lineup([0, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]));
+    expect(messy.score).toBeLessThan(clean.score);
+  });
+
+  it('11명이라고 가정하지 않는다 — 적게 와도 그만큼만 배치한다', () => {
+    /*
+     * 응답이 잘리거나 포지션 코드가 우리 표에 없으면 선발이 11명보다
+     * 적게 온다. 그때 빈 자리를 아무 카드로 메우면 그 스쿼드는 더 이상
+     * 그 경기의 스쿼드가 아니다.
+     */
+    const seven = lineup([0, 3, 4, 5, 7, 14, 25]);
+    const fit = inferFormation(seven);
+    expect(fit.placements).toHaveLength(7);
+    expect(fit.placements.length).toBeLessThan(fit.formation.slots.length);
+  });
+
+  it('우리 표에 없는 포지션 코드는 조용히 빠진다 (지어내지 않는다)', () => {
+    // 신규 코드가 생기면 매핑이 없다. 아무 포지션으로 찍어 넣는 대신
+    // 빼고, 배치 인원이 줄어든 것으로 드러난다.
+    const withUnknown = startersOf([
+      { spId: 1, spPosition: 0, spGrade: 1 },
+      { spId: 2, spPosition: 14, spGrade: 1 },
+      { spId: 3, spPosition: 99, spGrade: 1 },
+    ]);
+    expect(withUnknown).toHaveLength(2);
+  });
+});

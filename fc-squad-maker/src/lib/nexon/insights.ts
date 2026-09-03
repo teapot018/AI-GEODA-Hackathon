@@ -327,7 +327,22 @@ export interface ManagerAnalytics {
   timeline: FormPoint[];
   players: PlayerPerformanceRow[];
   matchTypeName: string;
-  /** 실제로 상세까지 받아온 경기 수 */
+  /**
+   * 몇 경기를 달라고 했나 (limit).
+   *
+   * 아래 세 숫자를 다 내보내는 이유: "20경기 분석" 이라고만 적으면
+   * 20경기가 다 반영된 것처럼 읽힌다. 실제로는 넥슨이 20개를 다 주지
+   * 않을 수도 있고(경기 수가 그만큼 없거나 목록이 잘림), 준 것 중 일부는
+   * 상세 조회가 실패할 수도 있다. 그 차이를 화면이 말할 수 있어야 한다.
+   */
+  requestedMatches: number;
+  /** 넥슨이 실제로 준 매치 ID 수 */
+  listedMatches: number;
+  /** 상세까지 받아 집계에 들어간 경기 수 */
+  analyzedMatches: number;
+  /** 목록에는 있었지만 상세를 받지 못한 경기 수 */
+  incompleteMatches: number;
+  /** @deprecated analyzedMatches 를 쓴다. 옛 화면 호환용 */
   analyzed: number;
 }
 
@@ -350,12 +365,20 @@ export async function getManagerAnalytics({
   const [matchTypes, positions] = await Promise.all([matchTypeMap(), positionMap()]);
   const matchTypeName = matchTypes.get(matchType) ?? `매치 ${matchType}`;
 
-  const build = async (details: MatchDetail[], myOuid: string): Promise<ManagerAnalytics> => {
+  const build = async (
+    details: MatchDetail[],
+    myOuid: string,
+    listed: number,
+  ): Promise<ManagerAnalytics> => {
     const performance = buildPlayerPerformance(details, myOuid);
     const cards = await getCards(performance.map((row) => row.spid));
 
     return {
       matchTypeName,
+      requestedMatches: limit,
+      listedMatches: listed,
+      analyzedMatches: details.length,
+      incompleteMatches: Math.max(0, listed - details.length),
       analyzed: details.length,
       form: buildManagerForm(details, myOuid),
       timeline: buildFormTimeline(details, myOuid),
@@ -392,14 +415,18 @@ export async function getManagerAnalytics({
     if (usable.length === 0) {
       throw new NexonApiError(502, 'NO_MATCH_DETAIL', '매치 상세를 하나도 받아오지 못했습니다.');
     }
-    return { data: await build(usable, ouid), source: 'nexon' };
+    return { data: await build(usable, ouid, ids.slice(0, limit).length), source: 'nexon' };
   } catch (error) {
     if (!shouldFallback(error, allowMock)) throw error;
     const ids = mockMatchIds(ouid, matchType, limit);
     const details = ids.map((id) => mockMatchDetail(id, nicknameForMock, matchType));
     // 목업의 내 ouid 는 닉네임에서 파생되므로 첫 사이드의 ouid 를 쓴다.
     const myOuid = details[0]?.matchInfo[0]?.ouid ?? ouid;
-    return { data: await build(details, myOuid), source: 'mock', note: describeFallback(error) };
+    return {
+      data: await build(details, myOuid, ids.length),
+      source: 'mock',
+      note: describeFallback(error),
+    };
   }
 }
 
@@ -418,11 +445,26 @@ export interface ImportedSquad {
   matchId: string;
   matchDate: string;
   nickname: string;
+  /**
+   * 우리가 **추정한** 포메이션 — 계층 C.
+   *
+   * 넥슨 `/match-detail` 은 포메이션 이름을 주지 않는다. 선발 선수들의
+   * 포지션 코드만 주므로, 그 구성에 가장 잘 맞는 포메이션을 우리가
+   * 골라 낸 것이다. 4-2-3-1 로 세운 스쿼드가 4-2-1-3 으로 읽히는 일이
+   * 얼마든지 있어서, 일치도를 반드시 같이 들고 다닌다.
+   */
   formationId: string;
   formationName: string;
-  /** 포메이션 추론 신뢰도 (0~1) */
-  confidence: number;
+  /** 포메이션 추정의 일치도 (0~1). 1 이어도 '맞았다'는 보장은 아니다 */
+  formationConfidence: number;
   slots: ImportedSlot[];
+  /**
+   * 넥슨이 준 **선발** 인원 수.
+   *
+   * 11 이라고 가정하지 않는다 — 응답이 잘리거나, 포지션 코드가 우리
+   * 표에 없거나(신규 코드), 경기 형식이 다르면 그보다 적게 온다.
+   */
+  starters: number;
   /** 카탈로그에서 못 찾아 배치하지 못한 spid */
   missing: number[];
 }
@@ -484,7 +526,8 @@ export async function getSquadFromMatch({
       nickname: side.nickname,
       formationId: fit.formation.id,
       formationName: fit.formation.name,
-      confidence: Math.round(fit.score * 100) / 100,
+      formationConfidence: Math.round(fit.score * 100) / 100,
+      starters: lineup.length,
       slots,
       missing,
     };

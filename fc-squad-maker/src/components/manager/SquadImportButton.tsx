@@ -51,7 +51,13 @@ export function SquadImportButton({
           ouid,
         )}&nickname=${encodeURIComponent(nickname)}`,
       );
-      importSquad(res.data.formationId, res.data.slots);
+      importSquad(res.data.formationId, res.data.slots, {
+        matchId: res.data.matchId,
+        nickname: res.data.nickname,
+        formationConfidence: res.data.formationConfidence,
+        starters: res.data.starters,
+        missing: res.data.missing.length,
+      });
       router.push('/squad');
     } catch (err) {
       setError(err instanceof Error ? err.message : '스쿼드를 불러오지 못했습니다.');

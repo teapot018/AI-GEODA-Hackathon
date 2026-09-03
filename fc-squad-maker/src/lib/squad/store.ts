@@ -20,10 +20,34 @@ export interface Assignment {
   grade: number;
 }
 
+/**
+ * 가져온 스쿼드가 **어디까지 사실인지**.
+ *
+ * 넥슨 `/match-detail` 이 주는 것은 선발 선수 목록과 각자의 포지션
+ * 코드다. **포메이션 이름은 주지 않는다.** 우리가 포지션 구성으로
+ * 가장 잘 맞는 포메이션을 골라 낸 것이고, 그건 추정이다 — 4-2-3-1 로
+ * 세운 스쿼드가 4-2-1-3 으로 읽히는 일이 얼마든지 있다.
+ *
+ * 그래서 "포메이션 복원" 이라고 부르지 않고, 일치도를 같이 들고 다닌다.
+ */
+export interface ImportProvenance {
+  /** 어느 경기에서 왔는지 (계층 A) */
+  matchId: string;
+  nickname: string;
+  /** 포메이션 추정의 일치도 0~1 (계층 C) */
+  formationConfidence: number;
+  /** 넥슨이 준 선발 인원 수 — 11명이 아닐 수 있다 */
+  starters: number;
+  /** 카탈로그에서 못 찾아 배치하지 못한 카드 수 */
+  missing: number;
+}
+
 interface SquadState {
   formationId: string;
   assignments: Record<string, Assignment>;
   selectedSlot: string | null;
+  /** 마지막으로 가져온 스쿼드의 출처. 직접 편집을 시작하면 지운다. */
+  imported: ImportProvenance | null;
 
   formation: () => Formation;
   setFormation: (id: string) => void;
@@ -36,7 +60,11 @@ interface SquadState {
   /** 검색 결과에서 오버롤 순으로 빈 자리를 자동으로 채운다 */
   autoFill: (candidates: PlayerCardData[]) => void;
   /** 실제 경기 라인업을 통째로 올린다 (기존 구성은 덮어쓴다) */
-  importSquad: (formationId: string, slots: ImportedSlotInput[]) => void;
+  importSquad: (
+    formationId: string,
+    slots: ImportedSlotInput[],
+    provenance: ImportProvenance,
+  ) => void;
 }
 
 /** /api/manager/squad 가 내려주는 슬롯 배치 */
@@ -81,6 +109,7 @@ export const useSquadStore = create<SquadState>()(
       formationId: DEFAULT_FORMATION.id,
       assignments: {},
       selectedSlot: null,
+      imported: null,
 
       formation: () => findFormation(get().formationId),
 
@@ -93,6 +122,9 @@ export const useSquadStore = create<SquadState>()(
             formationId: next.id,
             assignments: remap(previous, next, state.assignments),
             selectedSlot: null,
+            // 사용자가 포메이션을 직접 골랐으면 "이 경기의 스쿼드" 가
+            // 아니게 된다. 출처를 남겨 두면 화면이 거짓말을 하게 된다.
+            imported: null,
           };
         }),
 
@@ -107,14 +139,14 @@ export const useSquadStore = create<SquadState>()(
             if (entry.card.spid === card.spid && id !== slotId) delete next[id];
           }
           next[slotId] = { card, grade: next[slotId]?.grade ?? 1 };
-          return { assignments: next, selectedSlot: null };
+          return { assignments: next, selectedSlot: null, imported: null };
         }),
 
       remove: (slotId) =>
         set((state) => {
           const next = { ...state.assignments };
           delete next[slotId];
-          return { assignments: next, selectedSlot: null };
+          return { assignments: next, selectedSlot: null, imported: null };
         }),
 
       setGrade: (slotId, grade) =>
@@ -126,6 +158,7 @@ export const useSquadStore = create<SquadState>()(
               ...state.assignments,
               [slotId]: { ...entry, grade: clampGrade(grade) },
             },
+            imported: null,
           };
         }),
 
@@ -139,10 +172,10 @@ export const useSquadStore = create<SquadState>()(
           else delete next[a];
           if (entryA) next[b] = entryA;
           else delete next[b];
-          return { assignments: next, selectedSlot: null };
+          return { assignments: next, selectedSlot: null, imported: null };
         }),
 
-      clear: () => set({ assignments: {}, selectedSlot: null }),
+      clear: () => set({ assignments: {}, selectedSlot: null, imported: null }),
 
       autoFill: (candidates) =>
         set((state) => {
@@ -167,10 +200,10 @@ export const useSquadStore = create<SquadState>()(
               used.add(best.spid);
             }
           }
-          return { assignments: next };
+          return { assignments: next, imported: null };
         }),
 
-      importSquad: (formationId, slots) => {
+      importSquad: (formationId, slots, provenance) => {
         const formation = findFormation(formationId);
         const valid = new Set(formation.slots.map((slot) => slot.id));
         const assignments: Record<string, Assignment> = {};
@@ -181,7 +214,18 @@ export const useSquadStore = create<SquadState>()(
           assignments[slotId] = { card, grade: clampGrade(grade) };
         }
 
-        set({ formationId: formation.id, assignments, selectedSlot: null });
+        set({
+          formationId: formation.id,
+          assignments,
+          selectedSlot: null,
+          imported: {
+            ...provenance,
+            // 배치까지 마친 뒤의 실제 인원. 서버가 센 값과 다를 수 있어
+            // 여기서 다시 센다 — 화면이 "11명 중 9명 배치" 를 적으려면
+            // 두 숫자가 같은 시점의 것이어야 한다.
+            missing: provenance.starters - Object.keys(assignments).length,
+          },
+        });
       },
     }),
     {
@@ -191,6 +235,7 @@ export const useSquadStore = create<SquadState>()(
       partialize: (state) => ({
         formationId: state.formationId,
         assignments: state.assignments,
+        imported: state.imported,
       }),
     },
   ),
