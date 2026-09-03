@@ -19,14 +19,17 @@ import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
-import { parseApiDate } from '@/lib/data/freshness';
+import { formatAge, formatDuration, parseApiDate } from '@/lib/data/freshness';
 import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
+import type { RefreshConfidence, RefreshEstimate } from '@/lib/market/refresh';
 import { canRefresh, msUntilRefresh, DEFAULT_POLL_MS, MIN_POLL_MS } from '@/lib/market/livefeed';
 import { judgePrice, MIN_SAMPLES, type PriceVerdict, type Trend } from '@/lib/market/observations';
 
 /** /api/market/official 응답 모양 */
 interface OfficialLookup extends OfficialPrice {
   comparison: PriceComparison | null;
+  refresh: RefreshEstimate;
+  checks: number;
 }
 import type { MarketCardStat, MarketReport, MarketScope } from '@/lib/nexon/insights';
 import type { ManagerOverview } from '@/lib/nexon/service';
@@ -736,6 +739,8 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
         </p>
       ) : null}
 
+      {result?.price ? <RefreshNote refresh={result.refresh} checks={result.checks} /> : null}
+
       <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
         기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 체결가는 실제 거래 기록입니다.
         둘은 서로를 대체하지 않으며 어긋나는 폭이 곧 정보입니다.
@@ -775,6 +780,94 @@ function PriceJudge({ card }: { card: MarketCardStat }) {
         />
       </label>
       <p className={cn('mt-1.5 text-[11px] font-medium', verdict.className)}>{verdict.text}</p>
+    </div>
+  );
+}
+
+const CONFIDENCE_LABEL: Record<RefreshConfidence, string> = {
+  none: '관측 부족',
+  weak: '대략',
+  fair: '관측 기준',
+};
+
+const CONFIDENCE_TONE: Record<RefreshConfidence, 'neutral' | 'amber' | 'cyan'> = {
+  none: 'neutral',
+  weak: 'amber',
+  fair: 'cyan',
+};
+
+/**
+ * 이 카드의 기준가가 언제 갱신되는지 — **관측된 것만** 말한다.
+ *
+ * 예전에 있던 "다음 집계 예상 14:00" 은 2시간 주기가 UTC 정각에 떨어진다고
+ * 가정하고 찍은 값이었다. 근거가 없어 지웠고, 대신 값이 실제로 달라진 순간을
+ * 세기 시작했다. 여기 뜨는 숫자는 전부 우리가 본 것에서 나온다.
+ *
+ * 우리 확인은 사용자가 이 버튼을 눌렀을 때만 일어나므로 촘촘하지 않다.
+ * 그래서 "몇 시에 바뀌었다"가 아니라 "이 구간 안에서 바뀐 걸 확인했다"로
+ * 말하고, 구간이 넓으면 예측도 흐리다고 적는다.
+ */
+function RefreshNote({ refresh, checks }: { refresh: RefreshEstimate; checks: number }) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => setNow(new Date()), []);
+
+  // 변경을 한 번도 못 봤으면 할 말이 없다. 없는 걸 지어내지 않고,
+  // 어떻게 하면 쌓이는지만 알려 준다.
+  if (!refresh.lastChangeAt) {
+    return (
+      <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+        <RefreshCw size={10} className="mr-1 inline shrink-0" />
+        아직 이 카드의 기준가가 바뀌는 걸 본 적이 없습니다 (확인 {checks}회). 갱신 주기는
+        추측하지 않고, 값이 실제로 달라진 걸 확인할 때부터 세기 시작합니다.
+      </p>
+    );
+  }
+
+  const lastChange = new Date(refresh.lastChangeAt);
+  const ago = now ? formatAge(Math.max(0, now.getTime() - lastChange.getTime())) : null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500">
+      <span className="inline-flex items-center gap-1">
+        <RefreshCw size={10} className="shrink-0" />
+        마지막 갱신 확인
+        <b className="text-slate-300">{formatDateTime(lastChange.toISOString())}</b>
+        {ago ? <span className="text-slate-600">({ago})</span> : null}
+      </span>
+
+      {refresh.intervalMs !== null ? (
+        <>
+          <Badge tone={CONFIDENCE_TONE[refresh.confidence]}>
+            {CONFIDENCE_LABEL[refresh.confidence]} {formatDuration(refresh.intervalMs)} 주기
+          </Badge>
+          <span className="text-slate-600">
+            변경 {refresh.intervalSamples + 1}회 관측
+            {refresh.windowMs !== null ? ` · 확인 간격 ±${formatDuration(refresh.windowMs)}` : ''}
+          </span>
+        </>
+      ) : (
+        <span className="text-slate-600">
+          변경을 한 번만 봐서 주기는 아직 말할 수 없습니다 (간격은 두 번째 변경부터 나옵니다).
+        </span>
+      )}
+
+      {/*
+        예상 시각은 관측된 주기가 있을 때만 찍는다. 그마저도 우리가 알아챈
+        시각에서 센 값이라, 실제 갱신은 그보다 앞섰을 수 있다고 밝힌다.
+      */}
+      {refresh.nextAt && now ? (
+        <span className={cn('inline-flex items-center gap-1', refresh.overdue && 'text-neon-amber')}>
+          {refresh.overdue
+            ? '예상 시각은 이미 지났습니다 — 곧 바뀔 때가 됐습니다'
+            : `다음 예상 ${formatDateTime(new Date(refresh.nextAt).toISOString())}`}
+        </span>
+      ) : null}
+
+      <span className="w-full text-slate-600">
+        위 시각은 <b className="text-slate-500">우리가 값이 달라진 걸 확인한 때</b>입니다. 확인은
+        이 버튼을 누를 때만 하므로 실제 갱신은 그보다 앞섰을 수 있고, 기록은 서버가 재시작되면
+        비워집니다.
+      </span>
     </div>
   );
 }
