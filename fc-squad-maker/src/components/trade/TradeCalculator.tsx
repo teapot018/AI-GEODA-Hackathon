@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Calculator } from 'lucide-react';
 
-import { Card, CardHeader, Input } from '@/components/ui';
+import { Card, CardHeader, DataLayerTag, Input } from '@/components/ui';
 import { formatBP } from '@/lib/utils/format';
 import {
   BASE_FEE_RATE,
@@ -44,6 +44,7 @@ export function TradeCalculator() {
           </span>
         }
         description="이적시장 판매 수수료를 반영한 실현 손익을 계산합니다"
+        action={<DataLayerTag layer="official-rule">공식 수수료율</DataLayerTag>}
       />
 
       <div className="grid grid-cols-2 gap-2">
@@ -105,6 +106,8 @@ export function TradeCalculator() {
         {(totalDiscount(discounts) * 100).toFixed(0)}%)
         <br />
         감면율은 서로 <b>더해서</b> 적용됩니다 — PC방+TOP CLASS 면 50% 감면이라 수수료가 20% 가 됩니다.
+        <br />
+        수수료는 <b>판매자에게서만</b> 뗍니다. 매입가에는 붙지 않습니다.
       </p>
 
       <div className="space-y-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-xs">
@@ -126,9 +129,19 @@ export function TradeCalculator() {
         />
       </div>
 
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] leading-relaxed text-slate-500">
         손익분기 매도가: <span className="num font-semibold text-slate-300">{formatBP(breakEven)}</span> 이상이어야
         수수료를 떼고도 손해가 없습니다.
+        {/*
+          손익분기는 계산식이지 예측이 아니다. 무엇을 가정하고 나온
+          숫자인지 적지 않으면, 이 값 이상으로만 팔면 반드시 남는다는
+          뜻으로 읽힌다 — 그 가격에 사 줄 사람이 있는지는 다른 문제다.
+        */}
+        <br />
+        <span className="text-slate-600">
+          가정: 위 수수료 외에 다른 비용이 없고, 입력한 매입가에 실제로 샀으며, 매도가에 팔린다는
+          전제의 계산입니다. 그 가격에 거래가 성사될지는 이 계산이 말해 주지 않습니다.
+        </span>
       </p>
     </Card>
   );

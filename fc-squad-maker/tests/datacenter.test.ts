@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -7,6 +9,7 @@ import {
   GAP_EPSILON_PERCENT,
   OFFICIAL_TTL_MS,
   parseBP,
+  PARSER_VERIFIED,
   parseOfficialPrice,
   playerInfoUrl,
   POLITE_GAP_MS,
@@ -109,6 +112,44 @@ describe('parseOfficialPrice — 전략별', () => {
 
   it('0 은 가격으로 인정하지 않는다', () => {
     expect(parseOfficialPrice(`<div data-price="0"></div>`, 1).strategy).not.toBe('data-attribute');
+  });
+});
+
+describe('파서가 검증되지 않았다는 사실을 값에 달고 다닌다', () => {
+  /*
+   * 이 파서는 실제 데이터센터 페이지로 검증된 적이 없다 — 이 환경에서
+   * 넥슨 도메인이 막혀(CONNECT 403) HTML 을 한 번도 열지 못했다. 아래
+   * 테스트들이 통과하는 것은 **우리가 만든 가짜 HTML** 에 대해서다.
+   *
+   * 그런데 파서가 숫자를 뱉으면 화면은 그걸 "넥슨 공시 기준가" 라고
+   * 적는다. 검증 안 된 정규식은 옆 칸의 다른 숫자도 똑같이 잡아 오므로,
+   * 값이 나왔다는 것과 그 값이 맞다는 것은 다른 얘기다. 그 차이를
+   * 화면이 말할 수 있어야 한다.
+   */
+  it('성공한 결과에도 미검증 표시가 붙는다', () => {
+    const result = parseOfficialPrice('<span class="price">1,234,000 BP</span>', 1, 1);
+    expect(result.price).toBe(1_234_000);
+    expect(result.parserVerified).toBe(false);
+  });
+
+  it('실패한 결과에도 붙는다', () => {
+    expect(parseOfficialPrice('<p>가격 없음</p>', 1, 1).parserVerified).toBe(false);
+  });
+
+  it('상수를 true 로 바꾸려면 실제 페이지 픽스처가 있어야 한다', () => {
+    /*
+     * 이 단언은 "아직 검증 안 됐다" 를 못 박는 것이 아니라, 검증했다고
+     * 선언할 때 **무엇을 같이 해야 하는지**를 붙들어 둔다. 실제 HTML
+     * 픽스처 없이 PARSER_VERIFIED 만 true 로 바꾸면 여기서 걸린다.
+     */
+    if (PARSER_VERIFIED) {
+      expect(
+        existsSync(new URL('./fixtures/datacenter-real.html', import.meta.url).pathname),
+        'PARSER_VERIFIED 를 true 로 두려면 실제 페이지 픽스처가 있어야 한다',
+      ).toBe(true);
+    } else {
+      expect(PARSER_VERIFIED).toBe(false);
+    }
   });
 });
 

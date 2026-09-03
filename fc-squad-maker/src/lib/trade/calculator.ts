@@ -1,3 +1,5 @@
+import { BASE_TRADE_FEE_RATE, FEE_DISCOUNT } from '@/lib/fconline/rules';
+
 /**
  * ── 이적시장 손익 계산 ────────────────────────────────────
  *
@@ -15,16 +17,16 @@
  * 게임에서 알려진 값(×0.72, ×0.8)과 맞아떨어지는 것으로 검증했다.
  */
 
-/** 이적시장 기본 판매 수수료. 감면이 하나도 없을 때. */
-export const BASE_FEE_RATE = 0.4;
+/**
+ * 이적시장 기본 판매 수수료. 감면이 하나도 없을 때.
+ *
+ * 값은 공식 규칙 파일에서 온다 — 같은 숫자를 두 곳에 적어 두면 게임이
+ * 수수료를 바꿨을 때 한쪽만 고쳐지고, 계산기와 안내 문구가 서로 다른
+ * 말을 하게 된다.
+ */
+export const BASE_FEE_RATE = BASE_TRADE_FEE_RATE;
 
-/** 감면 항목별 비율. 수수료율이 아니라 수수료에서 깎는 몫이다. */
-export const FEE_DISCOUNT = {
-  /** 프리미엄 PC방 접속 */
-  pcCafe: 0.3,
-  /** TOP CLASS */
-  topClass: 0.2,
-} as const;
+export { FEE_DISCOUNT };
 
 export interface FeeDiscounts {
   pcCafe?: boolean;

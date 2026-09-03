@@ -107,6 +107,27 @@ export type ParseStrategy =
   | 'bp-label'
   | 'none';
 
+/**
+ * 이 파서를 **실제 데이터센터 페이지로 검증했는가.**
+ *
+ * false 다. 그리고 지금 이 값을 true 로 바꿀 방법이 없다 — 이 개발
+ * 환경의 이그레스 정책이 넥슨 도메인을 막아서(CONNECT 403) 실제 HTML 을
+ * 한 번도 열어 본 적이 없다. 아래 전략들은 "이런 구조라면 이렇게 잡히겠다"
+ * 는 추측으로 쓴 것이고, 단위 테스트도 우리가 만든 가짜 HTML 로만 돈다.
+ *
+ * 왜 이걸 상수로 두는가: 파서가 숫자를 하나 뱉으면 화면은 그걸 "넥슨
+ * 공시 기준가" 라고 적는다. 그런데 검증 안 된 정규식이 잡아 온 숫자는
+ * 옆 칸의 다른 값일 수도 있다 — **가격처럼 생긴 아무 숫자**여도 통과한다.
+ * 값이 나왔다는 것과 그 값이 맞다는 것은 다른 얘기고, 그 차이를 화면이
+ * 말할 수 있어야 한다.
+ *
+ * true 로 바꾸는 조건: 실제 페이지 HTML 을 받아 (1) 어떤 전략이 걸리는지,
+ * (2) 뽑힌 숫자가 페이지에 보이는 기준가와 같은지 확인하고, 그 HTML 을
+ * 픽스처로 넣어 테스트를 붙일 것. `npm run probe:datacenter` 가 그 확인을
+ * 돕는다.
+ */
+export const PARSER_VERIFIED = false;
+
 export interface OfficialPrice {
   spid: number;
   grade: number;
@@ -114,6 +135,13 @@ export interface OfficialPrice {
   price: number | null;
   /** 어떤 방법으로 읽어냈는지 — 구조가 바뀌었을 때 추적용 */
   strategy: ParseStrategy;
+  /**
+   * 이 값을 뽑은 파서가 실제 페이지로 검증됐는가 (PARSER_VERIFIED).
+   *
+   * 응답에 실어 보낸다 — 화면이 서버 상수를 알 수 없으니, 값과 같이
+   * 따라가야 "검증 안 됨" 을 적을 수 있다.
+   */
+  parserVerified: boolean;
 }
 
 /** "1,234,567 BP" / "123만" 같은 표기를 숫자로. */
@@ -233,13 +261,15 @@ export function parseOfficialPrice(
   options: { customPattern?: string } = {},
 ): OfficialPrice {
   const custom = fromCustomPattern(html, options.customPattern);
-  if (custom !== null) return { spid, grade, price: custom, strategy: 'custom' };
+  if (custom !== null)
+    return { spid, grade, price: custom, strategy: 'custom', parserVerified: PARSER_VERIFIED };
 
   for (const [strategy, extract] of STRATEGIES) {
     const price = extract(html);
-    if (price !== null && price > 0) return { spid, grade, price, strategy };
+    if (price !== null && price > 0)
+      return { spid, grade, price, strategy, parserVerified: PARSER_VERIFIED };
   }
-  return { spid, grade, price: null, strategy: 'none' };
+  return { spid, grade, price: null, strategy: 'none', parserVerified: PARSER_VERIFIED };
 }
 
 export interface FetchOptions {
@@ -287,13 +317,14 @@ export async function fetchOfficialPrice(
         signal: controller.signal,
         headers: { accept: 'text/html,application/xhtml+xml' },
       });
-      if (!res.ok) return { spid, grade, price: null, strategy: 'none' as const };
+      if (!res.ok)
+        return { spid, grade, price: null, strategy: 'none' as const, parserVerified: PARSER_VERIFIED };
 
       const parsed = parseOfficialPrice(await res.text(), spid, grade, { customPattern });
       if (parsed.price !== null) cache.set(key, { at: now(), value: parsed });
       return parsed;
     } catch {
-      return { spid, grade, price: null, strategy: 'none' as const };
+      return { spid, grade, price: null, strategy: 'none' as const, parserVerified: PARSER_VERIFIED };
     } finally {
       clearTimeout(timer);
     }

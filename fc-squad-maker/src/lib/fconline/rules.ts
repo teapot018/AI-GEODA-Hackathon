@@ -85,9 +85,28 @@ export function enhancementOvrBonus(grade: number): number {
  *
  * 100만에 팔면 40만을 떼고 60만이 들어온다. PC방·TOP CLASS·쿠폰의 %는
  * 수수료율이 아니라 **이 수수료에서 깎아 주는 감면율**이고, 곱이 아니라
- * 더해서 적용된다(trade/fee.ts 참고).
+ * 더해서 적용된다(아래 FEE_DISCOUNT).
+ *
+ * 적용 범위: **판매자에게서만** 뗀다. 구매 쪽에는 붙지 않는다.
  */
 export const BASE_TRADE_FEE_RATE = 0.4;
+
+/**
+ * 수수료 감면 항목.
+ *
+ * 각 값은 수수료율이 아니라 **수수료에서 깎는 몫**이다. "PC방 30%" 는
+ * 수수료가 30% 가 된다는 뜻이 아니라 40% 에서 30% 를 깎아 28% 가 된다는
+ * 뜻이고, 여러 개면 더해서 적용된다(곱이 아니다).
+ *
+ * 검증: PC방만 → 실수령 원금의 72%, PC방+TOP CLASS → 80%. 게임에서
+ * 알려진 두 값과 이 표의 계산이 맞아떨어진다.
+ */
+export const FEE_DISCOUNT = {
+  /** 프리미엄 PC방 접속 */
+  pcCafe: 0.3,
+  /** TOP CLASS */
+  topClass: 0.2,
+} as const;
 
 /**
  * 넥슨 데이터센터가 공시하는 기준가의 집계 주기(시간).

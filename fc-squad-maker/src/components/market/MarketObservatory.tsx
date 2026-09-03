@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, Database, LineChart, Minus, RefreshCw, Scale, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronDown, Database, LineChart, Minus, RefreshCw, Scale, Search, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react';
 
 import {
   Badge,
@@ -746,10 +746,27 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
         </p>
       ) : null}
 
+      {/*
+        파서가 숫자를 뱉었다는 것과 그 숫자가 맞다는 것은 다른 얘기다.
+        이 파서는 실제 데이터센터 페이지로 검증된 적이 없어서(넥슨 도메인이
+        막혀 HTML 을 한 번도 못 열었다), 잡아 온 값이 옆 칸의 다른 숫자일
+        수 있다. 값 옆에 그 사실을 적지 않으면 화면은 검증된 공시가처럼
+        보인다 — 그게 우리가 주는 오해다.
+      */}
+      {result?.price && result.parserVerified === false ? (
+        <p className="mt-1 flex gap-1.5 text-[10px] leading-relaxed text-amber-300/80">
+          <TriangleAlert size={11} className="mt-px shrink-0" />
+          <span>
+            이 기준가를 읽어 온 <b>파서는 실제 페이지로 검증되지 않았습니다</b> (전략:{' '}
+            {result.strategy}). 페이지 구조가 다르면 가격이 아닌 다른 숫자를 잡았을 수 있습니다.
+          </span>
+        </p>
+      ) : null}
+
       {result?.price ? <RefreshNote refresh={result.refresh} checks={result.checks} /> : null}
 
       <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-        기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 체결가는 실제 거래 기록입니다.
+        기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 가격은 우리가 관측한 거래 기록입니다.
         둘은 서로를 대체하지 않으며 어긋나는 폭이 곧 정보입니다.
       </p>
     </div>
