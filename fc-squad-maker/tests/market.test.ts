@@ -124,10 +124,59 @@ describe('buildPriceIndex', () => {
       obs({ grade: 5, value: 900, tradeDate: '2024-06-03T00:00:00' }),
     ]);
 
+    // 등급별 통계도 전체 통계와 같은 급으로 낸다 — 화면에서 사람이 읽는 건
+    // 평균이 아니라 중앙값이고, 흥정할 때 보는 건 사분위다.
     expect(index[0].byGrade).toEqual([
-      { grade: 1, samples: 2, avg: 150, min: 100, max: 200 },
-      { grade: 5, samples: 1, avg: 900, min: 900, max: 900 },
+      { grade: 1, samples: 2, avg: 150, min: 100, max: 200, median: 150, p25: 125, p75: 175 },
+      { grade: 5, samples: 1, avg: 900, min: 900, max: 900, median: 900, p25: 900, p75: 900 },
     ]);
+  });
+
+  it('등급을 고르면 그 등급의 체결만으로 값을 낸다', () => {
+    /*
+     * 이게 이 기능의 핵심이다. +1 과 +5 를 한 통에 넣고 중앙값을 내면
+     * 어느 쪽 시세도 아닌 숫자가 나온다 — 게임에서 둘은 몇 배씩 차이 난다.
+     */
+    const rows = [
+      obs({ grade: 1, value: 100 }),
+      obs({ grade: 1, value: 120, tradeDate: '2024-06-02T00:00:00', saleSn: '2' }),
+      obs({ grade: 5, value: 5_000, tradeDate: '2024-06-03T00:00:00', saleSn: '3' }),
+      obs({ grade: 5, value: 6_000, tradeDate: '2024-06-04T00:00:00', saleSn: '4' }),
+    ];
+
+    const mixed = buildPriceIndex(rows)[0];
+    expect(mixed.grade).toBeNull();
+    // 섞으면 100~120 짜리도 5000~6000 짜리도 아닌 값이 나온다.
+    expect(mixed.median).toBe(2_560);
+
+    const plusOne = buildPriceIndex(rows, { grade: 1 })[0];
+    expect(plusOne.grade).toBe(1);
+    expect(plusOne.samples).toBe(2);
+    expect(plusOne.median).toBe(110);
+
+    const plusFive = buildPriceIndex(rows, { grade: 5 })[0];
+    expect(plusFive.median).toBe(5_500);
+  });
+
+  it('등급을 골라도 등급 사다리는 전부 보여 준다', () => {
+    // +1 을 골라 놓고 "그럼 +5 는?" 을 물으려면 다시 검색해야 한다면
+    // 고르는 의미가 없다.
+    const index = buildPriceIndex(
+      [
+        obs({ grade: 1, value: 100 }),
+        obs({ grade: 5, value: 900, tradeDate: '2024-06-03T00:00:00', saleSn: '2' }),
+      ],
+      { grade: 1 },
+    );
+
+    expect(index[0].median).toBe(100);
+    expect(index[0].byGrade.map((g) => g.grade)).toEqual([1, 5]);
+  });
+
+  it('고른 등급의 표본이 없는 카드는 빼 버린다', () => {
+    // 값이 없는데 줄만 남으면 화면에서 0 으로 읽힌다.
+    const index = buildPriceIndex([obs({ grade: 1, value: 100 })], { grade: 7 });
+    expect(index).toEqual([]);
   });
 
   it('빈 입력은 빈 배열', () => {

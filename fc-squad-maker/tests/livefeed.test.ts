@@ -33,7 +33,7 @@ function stat(spid: number, median: number): PriceStat {
   // 실제 타입을 그대로 채운다 — 스냅샷 모양이 바뀌면 여기서 걸려야 한다.
   const point: PricePoint = { date: '2026-08-31T12:00:00', value: median, side: 'buy' };
   return {
-    spid, samples: 1, buyCount: 1, sellCount: 0,
+    spid, grade: null, samples: 1, buyCount: 1, sellCount: 0,
     min: median, max: median, avg: median, median,
     p25: median, p75: median, spread: 0,
     buyMedian: median, sellMedian: null,

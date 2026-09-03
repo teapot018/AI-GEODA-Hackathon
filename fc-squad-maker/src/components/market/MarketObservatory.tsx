@@ -16,6 +16,7 @@ import {
   StatTile,
 } from '@/components/ui';
 import { FreshnessNote } from '@/components/ui/FreshnessNote';
+import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
 import { parseApiDate } from '@/lib/data/freshness';
@@ -44,6 +45,11 @@ export function MarketObservatory() {
   const [nickname, setNickname] = useState('');
   const [pages, setPages] = useState(3);
   const [scope, setScope] = useState<MarketScope>('pool');
+  /**
+   * 기본값 +1. 등급을 안 고르면 +1 과 고강화가 한 중앙값에 섞여 어느 쪽
+   * 시세도 아닌 숫자가 나오고, 흥정 범위는 등급 차이만큼 넓어 보인다.
+   */
+  const [grade, setGrade] = useState<number | null>(1);
 
   const [report, setReport] = useState<MarketReport | null>(null);
   const [source, setSource] = useState<string | undefined>();
@@ -61,6 +67,7 @@ export function MarketObservatory() {
     nickname: string;
     pages: number;
     scope: MarketScope;
+    grade: number | null;
   } | null>(null);
 
   /**
@@ -72,6 +79,7 @@ export function MarketObservatory() {
       value: string,
       pageCount: number,
       sampleScope: MarketScope,
+      sampleGrade: number | null,
       keepPrevious = false,
     ) => {
       const target = value.trim();
@@ -79,7 +87,7 @@ export function MarketObservatory() {
 
       setLoading(true);
       setError(null);
-      setLastQuery({ nickname: target, pages: pageCount, scope: sampleScope });
+      setLastQuery({ nickname: target, pages: pageCount, scope: sampleScope, grade: sampleGrade });
       if (!keepPrevious) setReport(null);
 
       try {
@@ -90,7 +98,9 @@ export function MarketObservatory() {
         const res = await apiGet<MarketReport>(
           `/api/market/observations?ouid=${encodeURIComponent(
             manager.data.ouid,
-          )}&nickname=${encodeURIComponent(target)}&pages=${pageCount}&scope=${sampleScope}`,
+          )}&nickname=${encodeURIComponent(target)}&pages=${pageCount}&scope=${sampleScope}${
+            sampleGrade ? `&grade=${sampleGrade}` : ''
+          }`,
         );
         setReport(res.data);
         setSource(res.source);
@@ -118,7 +128,7 @@ export function MarketObservatory() {
 
   const refresh = useCallback(() => {
     if (!lastQuery) return;
-    void search(lastQuery.nickname, lastQuery.pages, lastQuery.scope, true);
+    void search(lastQuery.nickname, lastQuery.pages, lastQuery.scope, lastQuery.grade, true);
   }, [search, lastQuery]);
 
   return (
@@ -127,7 +137,7 @@ export function MarketObservatory() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void search(nickname, pages, scope);
+            void search(nickname, pages, scope, grade);
           }}
           className="flex flex-col gap-3 sm:flex-row"
         >
@@ -184,7 +194,7 @@ export function MarketObservatory() {
               type="button"
               onClick={() => {
                 setScope(value);
-                if (report) void search(nickname, pages, value);
+                if (report) void search(nickname, pages, value, grade);
               }}
               title={hint}
               className={cn(
@@ -198,6 +208,16 @@ export function MarketObservatory() {
             </button>
           ))}
         </div>
+
+        <GradeSelect
+          className="mt-3"
+          value={grade}
+          available={report?.availableGrades ?? []}
+          onChange={(next) => {
+            setGrade(next);
+            if (report) void search(nickname, pages, scope, next);
+          }}
+        />
 
         <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
           위 매입·매도 총액은 표본 범위와 무관하게 <b>조회한 계정의 거래</b>만 셉니다 — 그 계정의
@@ -297,11 +317,17 @@ function ReportView({
               : '표본이 많은 카드부터. 행을 펼치면 강화 등급별 가격과 가격 판정기가 나옵니다.'
           }
           action={
-            <Badge tone={report.scope === 'pool' ? 'violet' : 'neutral'}>
-              {report.scope === 'pool' ? '누적 풀' : '이 계정만'}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge tone={report.grade === null ? 'amber' : 'cyan'}>
+                {report.grade === null ? '등급 전체' : `+${report.grade}`}
+              </Badge>
+              <Badge tone={report.scope === 'pool' ? 'violet' : 'neutral'}>
+                {report.scope === 'pool' ? '누적 풀' : '이 계정만'}
+              </Badge>
+            </div>
           }
         />
+        {report.grade === null ? <MixedGradeWarning className="px-3 pt-1" /> : null}
         <ul className="space-y-1.5 p-3">
           {cards.map((card) => (
             <PriceRow key={card.spid} card={card} />
@@ -544,7 +570,7 @@ function PriceRow({ card }: { card: MarketCardStat }) {
                   key={grade.grade}
                   className="rounded-md border border-white/[0.08] px-2 py-1 text-[10px] text-slate-400"
                 >
-                  <b className="text-slate-200">+{grade.grade}</b> {formatBP(grade.avg)}{' '}
+                  <b className="text-slate-200">+{grade.grade}</b> {formatBP(grade.median)}{' '}
                   <span className="text-slate-600">({grade.samples}건)</span>
                 </span>
               ))}
@@ -622,6 +648,15 @@ function SideSpread({ card }: { card: MarketCardStat }) {
   );
 }
 
+/**
+ * 넥슨 공시 기준가와 맞대 본다.
+ *
+ * 등급을 반드시 같이 넘겨야 한다. 예전에는 grade=1 로 고정해 놓고 우리 쪽
+ * 중앙값(등급이 섞인 값)과 비교했다 — 서로 다른 물건의 값을 나란히 놓고
+ * "몇 % 차이"라고 적고 있었던 셈이다. 지금은 표가 보고 있는 등급 그대로
+ * 물어본다. 등급을 안 고른 상태(혼합)라면 기준가 쪽도 기준을 잡을 수 없어
+ * +1 로 물어보되, 그 사실을 화면에 적는다.
+ */
 function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<OfficialLookup | null>(null);
@@ -631,7 +666,9 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
     setState('loading');
     try {
       const res = await apiGet<OfficialLookup>(
-        `/api/market/official?spid=${card.spid}&grade=1&observed=${Math.round(card.median)}`,
+        `/api/market/official?spid=${card.spid}&grade=${card.grade ?? 1}&observed=${Math.round(
+          card.median,
+        )}`,
       );
       setResult(res.data);
       setNote(res.note);
@@ -667,9 +704,13 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-slate-400">
             넥슨 기준가 <b className="num text-slate-200">{formatBP(result.price)}</b>
+            <span className="text-slate-600"> (+{card.grade ?? 1})</span>
           </span>
           <span className="text-slate-400">
             우리 체결 중앙값 <b className="num text-slate-200">{formatBP(card.median)}</b>
+            <span className="text-slate-600">
+              {card.grade === null ? ' (등급 혼합)' : ` (+${card.grade})`}
+            </span>
           </span>
           {comparison?.gapPercent !== null && comparison?.gapPercent !== undefined ? (
             <Badge tone={VERDICT_TONE[verdict]}>
@@ -683,6 +724,17 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
           {note ?? '기준가를 읽지 못했습니다.'}
         </p>
       )}
+
+      {/*
+        등급을 안 고른 상태면 두 숫자의 기준이 서로 다르다. 그걸 밝히지 않고
+        "몇 % 차이"만 띄우면 없는 정보를 만들어 주는 셈이다.
+      */}
+      {card.grade === null ? (
+        <p className="mt-1 text-[10px] leading-relaxed text-amber-300/80">
+          지금 체결 중앙값은 등급이 섞인 값이고 기준가는 +1 입니다 — 서로 다른 물건이라 위
+          차이율은 시세 차이로 읽으면 안 됩니다. 등급을 골라 다시 보세요.
+        </p>
+      ) : null}
 
       <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
         기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 체결가는 실제 거래 기록입니다.

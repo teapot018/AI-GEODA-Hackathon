@@ -4,8 +4,8 @@ import { fail, handleError, intParam, ok } from '@/lib/api/respond';
 import { lookupCardPrices } from '@/lib/market/lookup';
 
 /**
- * GET /api/market/card?q=손흥민&limit=8
- * GET /api/market/card?spid=300235494
+ * GET /api/market/card?q=손흥민&grade=1&limit=8
+ * GET /api/market/card?spid=300235494&grade=5
  *
  * 선수 이름으로 누적 관측 풀을 찾아본다. q 는 초성도 받는다.
  *
@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const query = params.get('q')?.trim() ?? '';
   const spid = intParam(params.get('spid'), 0, { min: 0, max: 999_999_999 });
+  // grade 를 주지 않으면 등급을 가리지 않고 합친다 — 그건 '거래 전반'이지
+  // '이 등급의 시세'가 아니라서, 화면은 기본으로 등급을 하나 집어 보낸다.
+  const grade = intParam(params.get('grade'), 0, { min: 0, max: 10 });
 
   if (!query && !spid) {
     return fail(400, 'EMPTY_QUERY', '선수 이름(q) 또는 spid 가 필요합니다.');
@@ -30,6 +33,7 @@ export async function GET(request: NextRequest) {
     const result = await lookupCardPrices({
       query,
       spid: spid || undefined,
+      grade: grade || undefined,
       limit: intParam(params.get('limit'), 8, { min: 1, max: 30 }),
     });
 

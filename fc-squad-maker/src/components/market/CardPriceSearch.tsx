@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Database, Search, UserSearch } from 'lucide-react';
 
 import { Badge, Button, Card, CardHeader, Input, SourceBadge, Spinner } from '@/components/ui';
+import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { CardLookupResult, CardPrice } from '@/lib/market/lookup';
 import { MIN_SAMPLES } from '@/lib/market/observations';
@@ -26,13 +27,18 @@ import { formatBP } from '@/lib/utils/format';
  */
 export function CardPriceSearch() {
   const [query, setQuery] = useState('');
+  /**
+   * 기본값을 +1 로 둔다. 거래가 가장 많이 도는 등급이고, 등급을 안 고르면
+   * +1 과 고강화가 한 중앙값에 섞여 어느 쪽 시세도 아닌 숫자가 나온다.
+   */
+  const [grade, setGrade] = useState<number | null>(1);
   const [result, setResult] = useState<CardLookupResult | null>(null);
   const [source, setSource] = useState<string | undefined>();
   const [note, setNote] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const lookup = useCallback(async (value: string) => {
+  const lookup = useCallback(async (value: string, forGrade: number | null) => {
     const target = value.trim();
     if (!target) return;
 
@@ -40,7 +46,7 @@ export function CardPriceSearch() {
     setError(null);
     try {
       const res = await apiGet<CardLookupResult>(
-        `/api/market/card?q=${encodeURIComponent(target)}`,
+        `/api/market/card?q=${encodeURIComponent(target)}${forGrade ? `&grade=${forGrade}` : ''}`,
       );
       setResult(res.data);
       setSource(res.source);
@@ -58,7 +64,7 @@ export function CardPriceSearch() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          void lookup(query);
+          void lookup(query, grade);
         }}
         className="flex flex-col gap-3 sm:flex-row"
       >
@@ -80,6 +86,18 @@ export function CardPriceSearch() {
           {loading ? <Spinner className="border-t-pitch-950" /> : '시세 찾기'}
         </Button>
       </form>
+
+      <GradeSelect
+        className="mt-3"
+        value={grade}
+        available={result?.availableGrades ?? []}
+        onChange={(next) => {
+          setGrade(next);
+          // 이미 결과가 떠 있으면 등급만 바꿔 바로 다시 찾는다.
+          // 넥슨을 부르지 않는 조회라 눌러도 호출량이 늘지 않는다.
+          if (result) void lookup(query, next);
+        }}
+      />
 
       <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
         아래 구단주 조회로 쌓인 <b className="text-slate-400">누적 관측 풀</b>에서 찾습니다. 넥슨을
@@ -119,14 +137,17 @@ function LookupResult({
         <CardHeader
           title={`'${result.query}' 검색 결과`}
           description={[
+            result.grade === null ? '등급 전체' : `+${result.grade} 기준`,
             result.matched > result.cards.length
               ? `${result.matched}종 중 ${result.cards.length}종`
               : `${result.cards.length}종`,
-            `관측 풀 ${result.poolSamples.toLocaleString('ko-KR')}건 기준`,
+            `관측 풀 ${result.poolSamples.toLocaleString('ko-KR')}건`,
           ].join(' · ')}
         />
         <SourceBadge source={source} note={note} />
       </div>
+
+      {result.grade === null ? <MixedGradeWarning /> : null}
 
       <ul className="space-y-1.5">
         {result.cards.map((card) => (
@@ -154,35 +175,55 @@ function CardPriceRow({ card }: { card: CardPrice }) {
   const { stat } = card;
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-slate-100">
-          {card.name}
-          {card.ovr > 0 ? <span className="ml-1.5 text-[10px] text-slate-500">OVR {card.ovr}</span> : null}
-        </p>
-        <p className="truncate text-[10px] text-slate-500">{card.seasonName}</p>
+    <li className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-slate-100">
+            {card.name}
+            {card.ovr > 0 ? <span className="ml-1.5 text-[10px] text-slate-500">OVR {card.ovr}</span> : null}
+          </p>
+          <p className="truncate text-[10px] text-slate-500">{card.seasonName}</p>
+        </div>
+
+        {stat ? (
+          <>
+            <div className="text-right">
+              <p className="text-xs font-bold text-neon-cyan">{formatBP(stat.median)}</p>
+              <p className="text-[10px] text-slate-500">
+                {stat.grade === null ? '중앙가 (등급 혼합)' : `+${stat.grade} 중앙가`}
+              </p>
+            </div>
+            <div className="hidden text-right sm:block">
+              <p className="text-[11px] text-slate-300">
+                {formatBP(stat.p25)} ~ {formatBP(stat.p75)}
+              </p>
+              <p className="text-[10px] text-slate-500">흥정 범위</p>
+            </div>
+            <Badge tone={stat.samples >= MIN_SAMPLES ? 'violet' : 'amber'}>
+              <Database size={10} className="mr-1 inline shrink-0" />
+              표본 {stat.samples}
+            </Badge>
+          </>
+        ) : (
+          <Badge tone="neutral">관측 없음</Badge>
+        )}
       </div>
 
-      {stat ? (
-        <>
-          <div className="text-right">
-            <p className="text-xs font-bold text-neon-cyan">{formatBP(stat.median)}</p>
-            <p className="text-[10px] text-slate-500">중앙가</p>
-          </div>
-          <div className="hidden text-right sm:block">
-            <p className="text-[11px] text-slate-300">
-              {formatBP(stat.p25)} ~ {formatBP(stat.p75)}
-            </p>
-            <p className="text-[10px] text-slate-500">흥정 범위</p>
-          </div>
-          <Badge tone={stat.samples >= MIN_SAMPLES ? 'violet' : 'amber'}>
-            <Database size={10} className="mr-1 inline shrink-0" />
-            표본 {stat.samples}
-          </Badge>
-        </>
-      ) : (
-        <Badge tone="neutral">관측 없음</Badge>
-      )}
+      {/*
+        등급 사다리. 고른 등급 하나만 보여 주면 "+5는 얼마인데?"에 다시
+        검색을 시켜야 한다. 표본이 있는 등급은 여기서 바로 비교된다.
+        한 등급뿐이면 사다리가 아니라 같은 숫자의 반복이라 접는다.
+      */}
+      {stat && stat.byGrade.length > 1 ? (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/5 pt-2">
+          {stat.byGrade.map((row) => (
+            <span key={row.grade} className="text-[10px] text-slate-500">
+              <b className="text-slate-300">+{row.grade}</b> {formatBP(row.median)}
+              <span className="text-slate-600"> ({row.samples}건)</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </li>
   );
 }

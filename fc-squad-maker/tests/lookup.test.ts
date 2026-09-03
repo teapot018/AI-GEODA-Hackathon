@@ -18,12 +18,12 @@ async function spidOf(name: string): Promise<number> {
   return cards[0].spid;
 }
 
-function trades(spid: number, values: number[]): Observation[] {
+function trades(spid: number, values: number[], grade = 1): Observation[] {
   return values.map((value, i) => ({
     tradeDate: `2026-08-3${(i % 2) + 1}T0${i % 9}:00:00`,
-    saleSn: `${spid}-${i}`,
+    saleSn: `${spid}-${grade}-${i}`,
     spid,
-    grade: 1,
+    grade,
     value,
     side: i % 2 === 0 ? 'buy' : 'sell',
   }));
@@ -139,6 +139,65 @@ describe('lookupCardPrices', () => {
     const result = await lookupCardPrices({ query: '손흥민' });
     expect(result.source).toBe('nexon');
     expect(result.cards.every((card) => card.stat === null)).toBe(true);
+  });
+
+  it('등급을 고르면 그 등급의 시세만 낸다', async () => {
+    /*
+     * +1 과 +6 은 이름만 같지 값이 몇 배씩 다른 물건이다. 섞어 놓은
+     * 중앙값은 어느 쪽 시세도 아니라서, 등급별 가격을 보러 온 사람에게
+     * 아무 답이 되지 않는다.
+     */
+    const spid = await spidOf('손흥민');
+    absorb(trades(spid, [1_000_000, 1_100_000], 1), NOW, 'nexon');
+    absorb(trades(spid, [12_000_000, 13_000_000], 6), NOW, 'nexon');
+
+    const plusOne = await lookupCardPrices({ query: '손흥민', grade: 1 });
+    const one = plusOne.cards.find((card) => card.spid === spid);
+    expect(one?.stat?.median).toBe(1_050_000);
+    expect(one?.stat?.samples).toBe(2);
+    expect(plusOne.grade).toBe(1);
+
+    const plusSix = await lookupCardPrices({ query: '손흥민', grade: 6 });
+    expect(plusSix.cards.find((card) => card.spid === spid)?.stat?.median).toBe(12_500_000);
+
+    // 등급을 안 고르면 둘이 섞여 어느 쪽도 아닌 값이 나온다.
+    const mixed = await lookupCardPrices({ query: '손흥민' });
+    expect(mixed.grade).toBeNull();
+    expect(mixed.cards.find((card) => card.spid === spid)?.stat?.median).toBe(6_550_000);
+  });
+
+  it('등급을 골라도 등급 사다리는 전부 보여 준다', async () => {
+    // +1 을 골라 놓고 "그럼 +6 은?" 을 물으려면 다시 검색해야 한다면
+    // 등급을 고르는 의미가 없다.
+    const spid = await spidOf('손흥민');
+    absorb(trades(spid, [1_000_000, 1_100_000], 1), NOW, 'nexon');
+    absorb(trades(spid, [12_000_000, 13_000_000], 6), NOW, 'nexon');
+
+    const result = await lookupCardPrices({ query: '손흥민', grade: 1 });
+    const hit = result.cards.find((card) => card.spid === spid);
+
+    expect(hit?.stat?.median).toBe(1_050_000);
+    expect(hit?.stat?.byGrade.map((row) => row.grade)).toEqual([1, 6]);
+    expect(hit?.stat?.byGrade.find((row) => row.grade === 6)?.median).toBe(12_500_000);
+  });
+
+  it('표본에 있는 등급만 선택지로 알려 준다', async () => {
+    // 표본도 없는 +9 를 눌러 놓고 빈 표를 보게 만들 이유가 없다.
+    const spid = await spidOf('손흥민');
+    absorb(trades(spid, [1_000_000, 1_100_000], 1), NOW, 'nexon');
+    absorb(trades(spid, [5_000_000], 4), NOW, 'nexon');
+
+    const result = await lookupCardPrices({ query: '손흥민' });
+    expect(result.availableGrades).toEqual([1, 4]);
+  });
+
+  it('고른 등급의 표본이 없으면 관측 없음으로 둔다', async () => {
+    // +1 기록만 있는데 +6 을 물으면, 값을 지어내지 않고 없다고 한다.
+    const spid = await spidOf('손흥민');
+    absorb(trades(spid, [1_000_000, 1_100_000], 1), NOW, 'nexon');
+
+    const result = await lookupCardPrices({ query: '손흥민', grade: 6 });
+    expect(result.cards.find((card) => card.spid === spid)?.stat ?? null).toBeNull();
   });
 
   it('빈 검색어는 카드를 내지 않는다', async () => {

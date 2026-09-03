@@ -54,6 +54,10 @@ export interface CardLookupResult {
   poolSamples: number;
   /** 어느 풀을 읽었는지 */
   source: DataSource;
+  /** 어느 강화 등급의 값인지. null 이면 등급을 가리지 않고 합친 값 */
+  grade: number | null;
+  /** 검색된 카드들의 표본에 실제로 있는 등급 (선택 UI 용) */
+  availableGrades: number[];
 }
 
 export interface LookupOptions {
@@ -62,6 +66,13 @@ export interface LookupOptions {
   /** 이름 대신 카드를 직접 지정 */
   spid?: number;
   limit?: number;
+  /**
+   * 이 강화 등급의 체결만 본다.
+   *
+   * +1 과 +6 은 이름만 같지 값이 몇 배씩 다른 물건이라, 섞어 놓은 중앙값은
+   * 어느 쪽 시세도 아니다. 등급을 지정하면 그 등급의 시세가 나온다.
+   */
+  grade?: number;
   /**
    * 읽을 풀. 지정하지 않으면 실데이터 풀을 쓰되, 그쪽이 비어 있고 데모 풀에는
    * 관측이 있으면 데모 풀로 내려간다 — 키 없이 띄운 배포에서 검색이 늘
@@ -92,6 +103,7 @@ export async function lookupCardPrices({
   query = '',
   spid,
   limit = 8,
+  grade,
   source,
 }: LookupOptions): Promise<CardLookupResult> {
   const pool = pickSource(source);
@@ -101,7 +113,13 @@ export async function lookupCardPrices({
     ? await cardsBySpid(spid)
     : await cardsByName(query, limit);
 
-  const statOf = indexPool(observations, new Set(candidates.map((card) => card.spid)));
+  const wanted = new Set(candidates.map((card) => card.spid));
+  const statOf = indexPool(observations, wanted, grade);
+
+  // 이 카드들에 실제로 존재하는 등급만 골라 준다 (선택 UI 를 채운다).
+  const availableGrades = [
+    ...new Set(observations.filter((row) => wanted.has(row.spid)).map((row) => row.grade)),
+  ].sort((a, b) => a - b);
 
   const priced: CardPrice[] = candidates.map((card) => ({
     spid: card.spid,
@@ -136,6 +154,8 @@ export async function lookupCardPrices({
     matched: candidates.length,
     poolSamples: observations.length,
     source: pool,
+    grade: grade ?? null,
+    availableGrades,
   };
 }
 
@@ -162,9 +182,10 @@ async function cardsByName(query: string, limit: number) {
 function indexPool(
   observations: readonly Observation[],
   wanted: Set<number>,
+  grade?: number,
 ): Map<number, PriceStat> {
   if (wanted.size === 0) return new Map();
 
   const slice = observations.filter((row) => wanted.has(row.spid));
-  return new Map(buildPriceIndex(slice).map((stat) => [stat.spid, stat]));
+  return new Map(buildPriceIndex(slice, { grade }).map((stat) => [stat.spid, stat]));
 }

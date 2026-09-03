@@ -18,7 +18,7 @@ import {
   type TradeSide,
 } from '@/lib/market/observations';
 import { pruneObservations, RETENTION_DAYS, type PoolStats, type PriceDelta } from '@/lib/market/livefeed';
-import { absorb } from '@/lib/market/pool';
+import { absorb, read as readPool } from '@/lib/market/pool';
 import { env } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
@@ -125,6 +125,13 @@ export interface MarketReport {
   retentionDays: number;
   /** 가격표가 어느 표본을 썼는지 */
   scope: MarketScope;
+  /**
+   * 가격표가 어느 강화 등급의 것인지. null 이면 등급을 가리지 않고 합친 값.
+   * +1 과 +6 은 값이 몇 배씩 차이 나므로, 이 값이 곧 표의 의미를 정한다.
+   */
+  grade: number | null;
+  /** 표본에 실제로 존재하는 등급들 (선택 UI 를 채운다) */
+  availableGrades: number[];
   /** 실제로 긁어온 페이지 수 (요청한 만큼 없을 수 있다) */
   pagesFetched: number;
 }
@@ -177,6 +184,11 @@ export interface MarketOptions {
   maxCards?: number;
   /** 가격표 표본 범위. 기본은 누적 풀 */
   scope?: MarketScope;
+  /**
+   * 가격표를 낼 강화 등급. 지정하지 않으면 등급을 가리지 않고 합친다.
+   * 합친 값은 +1 과 +6 이 뒤섞인 숫자라 시세로 읽으면 안 된다.
+   */
+  grade?: number;
   allowMock?: boolean;
 }
 
@@ -187,6 +199,7 @@ export async function getMarketReport({
   minSamples = 1,
   maxCards = 60,
   scope = 'pool',
+  grade,
   allowMock = env.allowMock,
 }: MarketOptions): Promise<Sourced<MarketReport>> {
   const build = async (
@@ -204,9 +217,20 @@ export async function getMarketReport({
     // 그중 상당수가 보관 기한 밖이라 풀에 남지 않는다 — 그 차이를 숫자로 넘긴다.
     const excluded = observations.length - pruneObservations(observations, now).length;
 
-    // 가격표의 표본. pool 이면 풀이 이미 접어 둔 지수를 그대로 쓴다 —
-    // 같은 관측으로 buildPriceIndex 를 두 번 돌릴 이유가 없다.
-    const basis = scope === 'pool' ? pooled.pooledIndex : buildPriceIndex(observations);
+    /*
+     * 가격표의 표본.
+     *
+     * 풀이 접어 둔 지수(pooled.pooledIndex)를 그대로 쓰지 않는다. 그건 등급을
+     * 가리지 않고 접은 것이라 +1 과 +6 이 한 중앙값에 섞여 있다 — 스냅샷 비교
+     * (무엇이 움직였나)에는 그걸로 충분하지만, 사람이 읽는 가격표로는 못 쓴다.
+     * 그래서 표는 원본 관측에서 등급을 걸러 다시 접는다.
+     */
+    const sample = scope === 'pool' ? [...readPool(source)] : observations;
+    const basis = buildPriceIndex(sample, { grade });
+
+    // 선택 UI 는 실제로 표본이 있는 등급만 보여 준다 — 비어 있는 +9 를
+    // 눌러 놓고 빈 표를 보게 만들 이유가 없다.
+    const availableGrades = [...new Set(sample.map((row) => row.grade))].sort((a, b) => a - b);
     const index = basis.filter((stat) => stat.samples >= minSamples);
     // 표본이 많은 순으로 이미 정렬돼 있으므로 앞에서 자르면 볼 만한 것만 남는다.
     const top = index.slice(0, maxCards);
@@ -220,6 +244,8 @@ export async function getMarketReport({
       summary: summarizeMarket(observations),
       pagesFetched,
       scope,
+      grade: grade ?? null,
+      availableGrades,
       cardsTotal: index.length,
       pool: pooled.stats,
       poolAdded: pooled.added,

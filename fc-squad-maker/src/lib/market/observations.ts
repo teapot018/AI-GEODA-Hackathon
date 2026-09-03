@@ -28,6 +28,16 @@ export interface GradeStat {
   avg: number;
   min: number;
   max: number;
+  /**
+   * 등급별 중앙값·사분위.
+   *
+   * 예전에는 평균/최소/최대만 냈다. 그런데 화면에서 사람이 실제로 읽는
+   * 숫자는 중앙값이고, 흥정할 때 보는 건 사분위 범위다. 등급을 고르면
+   * 그 등급의 숫자가 헤드라인이 되므로, 전체 통계와 같은 급으로 낸다.
+   */
+  median: number;
+  p25: number;
+  p75: number;
 }
 
 export type Trend = 'up' | 'down' | 'flat';
@@ -40,6 +50,12 @@ export interface PricePoint {
 
 export interface PriceStat {
   spid: number;
+  /**
+   * 이 통계가 어느 강화 등급의 것인가. null 이면 등급을 가리지 않고 합친 값.
+   *
+   * 합친 값은 기본값으로 두기에 위험하다 — 아래 buildPriceIndex 주석 참고.
+   */
+  grade: number | null;
   samples: number;
   buyCount: number;
   sellCount: number;
@@ -142,13 +158,19 @@ function gradeStats(observations: Observation[]): GradeStat[] {
   }
 
   return [...buckets.entries()]
-    .map(([grade, values]) => ({
-      grade,
-      samples: values.length,
-      avg: Math.round(mean(values)),
-      min: Math.min(...values),
-      max: Math.max(...values),
-    }))
+    .map(([grade, values]) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return {
+        grade,
+        samples: sorted.length,
+        avg: Math.round(mean(sorted)),
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        median: Math.round(median(sorted)),
+        p25: Math.round(percentile(sorted, 0.25)),
+        p75: Math.round(percentile(sorted, 0.75)),
+      };
+    })
     .sort((a, b) => a.grade - b.grade);
 }
 
@@ -156,11 +178,40 @@ function gradeStats(observations: Observation[]): GradeStat[] {
 const byDateAsc = (a: { tradeDate: string }, b: { tradeDate: string }) =>
   a.tradeDate.localeCompare(b.tradeDate);
 
+export interface IndexOptions {
+  /**
+   * 이 강화 등급의 체결만 써서 통계를 낸다.
+   * 지정하지 않으면 등급을 가리지 않고 합친다(아래 경고 참고).
+   */
+  grade?: number;
+}
+
 /**
  * 관측 거래를 카드(spid)별로 묶어 가격 통계를 만든다.
  * 표본이 많은 카드가 앞에 오고, 같으면 평균가가 높은 쪽이 앞이다.
+ *
+ * ── 강화 등급을 섞으면 중앙값이 무의미해진다 ──
+ *
+ * +1 카드와 +6 카드는 이름만 같지 **다른 물건**이다. 게임 안에서 +6은 +1의
+ * 몇 배에 거래되는데, 둘을 한 통에 넣고 중앙값을 내면 어느 쪽 가격도 아닌
+ * 숫자가 나온다. 사분위(흥정 범위)는 더 나쁘다 — 등급 차이가 그대로
+ * 범위로 잡혀서, 실제로는 좁은 시세를 폭이 몇 배인 것처럼 보여 준다.
+ *
+ * 그래서 grade 를 주면 그 등급의 체결만 남기고 접는다. 화면은 등급을
+ * 고르게 하고, 고른 등급의 숫자를 헤드라인으로 쓴다. 등급을 가리지 않는
+ * 모드도 남겨 두긴 했지만(카드가 어떤 등급으로 돌고 있는지 훑을 때 쓴다),
+ * 그건 '이 카드의 시세'가 아니라 '이 카드의 거래 전반'이라는 뜻이다.
  */
-export function buildPriceIndex(observations: Observation[]): PriceStat[] {
+export function buildPriceIndex(
+  observations: Observation[],
+  { grade }: IndexOptions = {},
+): PriceStat[] {
+  /*
+   * 카드별로 묶을 때는 등급을 가리지 않는다. 등급 사다리(byGrade)는 고른
+   * 등급과 무관하게 전부 보여 줘야 하기 때문이다 — +1 을 골라 놓고
+   * "그럼 +5 는?" 을 물으려면 다시 검색해야 한다면 고르는 의미가 없다.
+   * 헤드라인 숫자만 고른 등급으로 낸다.
+   */
   const grouped = new Map<number, Observation[]>();
   for (const row of observations) {
     if (!Number.isFinite(row.value) || row.value <= 0) continue;
@@ -170,7 +221,11 @@ export function buildPriceIndex(observations: Observation[]): PriceStat[] {
   }
 
   const stats: PriceStat[] = [];
-  for (const [spid, rows] of grouped) {
+  for (const [spid, all] of grouped) {
+    // 헤드라인은 고른 등급의 체결만. 그 등급 표본이 없는 카드는 내보내지
+    // 않는다 — 값이 없는데 줄만 있으면 0 으로 읽힌다.
+    const rows = grade === undefined ? all : all.filter((row) => row.grade === grade);
+    if (rows.length === 0) continue;
     const chronological = [...rows].sort(byDateAsc);
     const series: PricePoint[] = chronological.map((row) => ({
       date: row.tradeDate,
@@ -191,6 +246,7 @@ export function buildPriceIndex(observations: Observation[]): PriceStat[] {
 
     stats.push({
       spid,
+      grade: grade ?? null,
       samples: rows.length,
       buyCount: rows.filter((row) => row.side === 'buy').length,
       sellCount: rows.filter((row) => row.side === 'sell').length,
@@ -206,7 +262,8 @@ export function buildPriceIndex(observations: Observation[]): PriceStat[] {
       latest: series[series.length - 1],
       oldest: series[0],
       ...trendOf(series),
-      byGrade: gradeStats(rows),
+      // 사다리는 언제나 전체 등급으로 낸다 (위 주석 참고).
+      byGrade: gradeStats(all),
       series,
     });
   }
