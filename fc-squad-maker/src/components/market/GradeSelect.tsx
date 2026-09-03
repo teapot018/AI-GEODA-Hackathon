@@ -1,5 +1,6 @@
 'use client';
 
+import { ENHANCEMENT_STEPS } from '@/lib/fconline/rules';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -22,8 +23,11 @@ import { cn } from '@/lib/utils/cn';
 /** 등급을 가리지 않는 모드 */
 export const ALL_GRADES = null;
 
-/** 게임에 존재하는 강화 단계 전부 (ALL_GRADES 는 '등급 무관' 센티넬이라 이름을 나눈다) */
-const GRADE_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+/*
+ * 단계 목록은 공식 규칙에서 읽는다. 여기 배열을 따로 적어 두면 게임에
+ * 단계가 추가될 때(실제로 +11~+13 이 그렇게 추가됐다) 화면만 옛 게임에
+ * 머문다. ALL_GRADES 는 '등급 무관' 센티넬이라 이름을 나눠 둔다.
+ */
 
 interface Props {
   /** 지금 고른 등급. null 이면 전체 */
@@ -47,14 +51,14 @@ export function GradeSelect({ value, onChange, available, className }: Props) {
       {/*
         +1 ~ +10 을 전부 띄운다. 표본이 있는 등급만 보여 주려다 보니, 풀에
         +1 과 +4 밖에 없으면 "+7 은 얼마지?" 를 물어볼 방법 자체가 사라졌다.
-        게임에는 +10 까지 있고 사람은 그 기준으로 생각하므로 선택지는 그대로
+        게임에는 +13 까지 있고 사람은 그 기준으로 생각하므로 선택지는 그대로
         두고, 표본이 없는 등급은 눌렀을 때 '관측 없음' 으로 답한다 —
         고를 수 없게 막는 것과 골랐더니 없다고 말해 주는 것은 다르다.
 
         표본이 있는 등급에는 점을 찍어, 누르기 전에도 어디에 데이터가 있는지
         보이게 한다.
       */}
-      {GRADE_STEPS.map((grade) => (
+      {ENHANCEMENT_STEPS.map((grade) => (
         <button
           key={grade}
           type="button"

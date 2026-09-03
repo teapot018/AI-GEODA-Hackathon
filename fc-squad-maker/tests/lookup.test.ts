@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { lookupCardPrices } from '@/lib/market/lookup';
 import { absorb, reset } from '@/lib/market/pool';
 import { searchPlayers } from '@/lib/players/catalog';
-import type { Observation } from '@/lib/market/observations';
+import { meaningOf, type Observation, type TradeSide } from '@/lib/market/observations';
+
+/** side 와 시각 의미를 함께 — 둘을 따로 적으면 어긋날 수 있다. */
+const sideOf = (side: TradeSide) => ({ side, timestampMeaning: meaningOf(side) });
 
 const NOW = new Date('2026-09-01T00:00:00Z');
 
@@ -25,7 +28,7 @@ function trades(spid: number, values: number[], grade = 1): Observation[] {
     spid,
     grade,
     value,
-    side: i % 2 === 0 ? 'buy' : 'sell',
+    ...sideOf(i % 2 === 0 ? 'buy' : 'sell'),
   }));
 }
 

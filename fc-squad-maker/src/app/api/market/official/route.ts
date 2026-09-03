@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { fail, handleError, intParam, ok } from '@/lib/api/respond';
+import { MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { env } from '@/lib/env';
 import { comparePrice, fetchOfficialPrice, OFFICIAL_TTL_MS } from '@/lib/market/datacenter';
 import { estimateRefresh, recordBaseline } from '@/lib/market/refresh';
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   const spid = intParam(params.get('spid'), 0, { min: 1, max: 999_999_999 });
   if (!spid) return fail(400, 'EMPTY_SPID', 'spid 가 필요합니다.');
 
-  const grade = intParam(params.get('grade'), 1, { min: 1, max: 10 });
+  const grade = intParam(params.get('grade'), 1, { min: 1, max: MAX_ENHANCEMENT });
   const observed = intParam(params.get('observed'), 0, { min: 0, max: 99_999_999_999 });
 
   try {

@@ -295,13 +295,13 @@ export function estimateRefresh(
  * 주기가 아니다. 평균 4시간마다 팔렸다고 다음이 4시간 뒤인 건 아니다.
  * 빈도까지만 말하고 시각은 말하지 않는다 — nextRefreshAt 을 지운 것과 같은 선이다.
  */
-export interface TradeCadence {
-  /** 표본에서 가장 최근 체결 시각 (넥슨이 적어 준 값) */
-  lastTradeAt: Date | null;
-  /** 이 카드에서 본 체결 건수 */
+export interface SideCadence {
+  /** 표본에서 가장 최근 시각 (넥슨이 적어 준 값) */
+  lastAt: Date | null;
+  /** 이 방향에서 본 건수 */
   samples: number;
   /**
-   * 체결 사이 간격의 중앙값(ms). 표본이 2건 미만이면 null.
+   * 간격의 중앙값(ms). 표본이 2건 미만이면 null.
    * 우리가 못 본 거래가 있으므로 **실제 빈도의 상한**이다.
    */
   intervalMs: number | null;
@@ -310,38 +310,65 @@ export interface TradeCadence {
 }
 
 /**
- * 체결 시각만으로 거래 빈도를 낸다.
+ * 매입·매도를 **따로** 잰 거래 빈도.
  *
- * 문자열 그대로 받는 이유: 넥슨은 타임존 없는 "2026-09-01T12:00:00" 를 주고,
- * 그건 UTC 다. 파싱 규칙을 한 곳(data/freshness parseApiDate)에 두려고
- * 호출부에서 Date 로 바꿔 넘긴다.
+ * 한때 둘을 합쳐 하나의 "체결 빈도" 로 냈는데, 그건 서로 다른 사건의
+ * 간격을 한 줄로 평균 낸 것이었다. 구매 등록과 판매 완료는 가리키는 사건이
+ * 다르므로(nexon/types.ts TradeRecord 주석 참고) 섞으면 어느 쪽 빈도도
+ * 아닌 숫자가 나온다.
  */
-export function tradeCadence(tradeTimes: readonly Date[]): TradeCadence {
-  const times = tradeTimes
+export interface TradeCadence {
+  /** 구매 등록 기준 */
+  purchase: SideCadence;
+  /** 판매 완료 기준 */
+  sale: SideCadence;
+}
+
+function cadenceOf(times: readonly Date[]): SideCadence {
+  const sorted = times
     .map((d) => d.getTime())
     .filter((t) => Number.isFinite(t))
     .sort((a, b) => a - b);
 
-  if (times.length === 0) {
-    return { lastTradeAt: null, samples: 0, intervalMs: null, spanMs: null };
-  }
+  if (sorted.length === 0) return { lastAt: null, samples: 0, intervalMs: null, spanMs: null };
 
-  const lastTradeAt = new Date(times[times.length - 1]);
-  const spanMs = times[times.length - 1] - times[0];
-
-  if (times.length < 2) {
-    return { lastTradeAt, samples: times.length, intervalMs: null, spanMs: null };
-  }
+  const lastAt = new Date(sorted[sorted.length - 1]);
+  if (sorted.length < 2) return { lastAt, samples: 1, intervalMs: null, spanMs: null };
 
   const gaps: number[] = [];
-  for (let i = 1; i < times.length; i += 1) gaps.push(times[i] - times[i - 1]);
+  for (let i = 1; i < sorted.length; i += 1) gaps.push(sorted[i] - sorted[i - 1]);
 
   return {
-    lastTradeAt,
-    samples: times.length,
+    lastAt,
+    samples: sorted.length,
     // 중앙값을 쓰는 이유: 한 달 비어 있다가 몰아서 거래된 카드에서
     // 평균은 그 공백 하나에 통째로 끌려간다.
     intervalMs: medianOf(gaps),
-    spanMs,
+    spanMs: sorted[sorted.length - 1] - sorted[0],
   };
+}
+
+/**
+ * 거래 시각만으로 방향별 빈도를 낸다.
+ *
+ * ── 왜 이게 따로 있나 ──
+ * 위쪽 기준가 관측은 넥슨 **데이터센터 페이지**를 읽어야 굴러가는데, 그
+ * 페이지는 이 개발 환경의 이그레스 정책에 막혀 있고(CONNECT 403) 파서가
+ * 실제 구조에 맞을지도 확인되지 않았다. 그 경로 하나에만 기대면 화면은
+ * 영영 "관측 없음" 만 띄울 수 있다.
+ *
+ * 이쪽은 `/user/trade` 의 tradeDate 만 쓴다 — 우리가 알아챈 시각이 아니라
+ * **넥슨이 적어 준 시각**이라 구간도 추론도 없다.
+ *
+ * ── 표본의 한계 ──
+ * 이 기록은 전체 시장이 아니라 **현재 Open API 인증 주체에서 조회 가능한
+ * 거래**다. 못 본 거래가 있으므로 간격은 실제보다 길게 나온다 — 상한으로
+ * 읽어야 하고 화면에도 '최소' 라고 적는다.
+ *
+ * ── 다음 시각은 찍지 않는다 ──
+ * 거래는 주기가 아니라 사람이 사고파는 사건이다. 평균 4시간이라고 다음이
+ * 4시간 뒤인 게 아니라서, 빈도까지만 말한다.
+ */
+export function tradeCadence(purchaseTimes: readonly Date[], saleTimes: readonly Date[]): TradeCadence {
+  return { purchase: cadenceOf(purchaseTimes), sale: cadenceOf(saleTimes) };
 }

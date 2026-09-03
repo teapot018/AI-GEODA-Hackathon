@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPriceIndex,
   judgePrice,
+  meaningOf,
   median,
   percentile,
   summarizeMarket,
@@ -25,7 +26,10 @@ function trade(over: Partial<TradeRecord> = {}): TradeRecord {
 }
 
 function obs(over: Partial<Observation> = {}): Observation {
-  return { ...trade(), side: 'buy', ...over };
+  // side 를 덮어써도 시각 의미가 따라오게 한다 — 둘이 어긋나면
+  // 매입 기록에 '판매 완료' 라벨이 붙는다.
+  const side = over.side ?? 'buy';
+  return { ...trade(), side, timestampMeaning: meaningOf(side), ...over };
 }
 
 describe('percentile / median', () => {

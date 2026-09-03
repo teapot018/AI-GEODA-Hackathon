@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import { enhancementOvrBonus, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { DEFAULT_FORMATION, findFormation, FORMATIONS } from '@/lib/squad/formations';
 import { rateSquad, type SquadEntry } from '@/lib/squad/rating';
 import { makeCard } from './helpers';
@@ -146,10 +148,12 @@ describe('rateSquad — 팀컬러 보너스', () => {
 describe('rateSquad — 강화 반영', () => {
   it('강화하면 평점과 가치가 함께 오른다', () => {
     const plus1 = rateSquad(perfectSquad({}, 1));
-    const plus10 = rateSquad(perfectSquad({}, 10));
-    expect(plus10.rawOverall).toBe(plus1.rawOverall + 18); // OVR_GAIN_BY_GRADE 마지막 값
-    expect(plus10.totalValue).toBeGreaterThan(plus1.totalValue);
-    expect(plus10.averageStats.shooting).toBeGreaterThan(plus1.averageStats.shooting);
+    const maxed = rateSquad(perfectSquad({}, MAX_ENHANCEMENT));
+    // 상승치를 상수로 박지 않는다 — 공식 규칙에서 읽어야 게임에 단계가
+    // 추가될 때 테스트가 규칙을 따라간다.
+    expect(maxed.rawOverall).toBe(plus1.rawOverall + enhancementOvrBonus(MAX_ENHANCEMENT));
+    expect(maxed.totalValue).toBeGreaterThan(plus1.totalValue);
+    expect(maxed.averageStats.shooting).toBeGreaterThan(plus1.averageStats.shooting);
   });
 
   it('총 가치는 개별 가치의 합이다', () => {

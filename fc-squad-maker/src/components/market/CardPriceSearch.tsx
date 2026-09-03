@@ -232,37 +232,50 @@ function CardPriceRow({ card }: { card: CardPrice }) {
 }
 
 /**
- * 이 카드가 마지막으로 언제, 얼마나 자주 거래됐나.
+ * 이 카드가 마지막으로 언제, 얼마나 자주 거래됐나 — **매입·매도를 따로**.
  *
- * 시각은 넥슨이 체결 기록에 적어 준 값이라 추정이 아니다. 다만 표본은 조회된
- * 구단주가 사고판 것뿐이라, 우리가 재는 간격은 **실제보다 길게** 나온다 —
- * 중간 거래를 못 봤을 뿐이므로. 그래서 '최소' 라고 적는다.
- *
- * 다음 체결 시각은 찍지 않는다. 체결은 주기가 아니라 사람이 사고파는
- * 사건이라, 평균 4시간이라고 다음이 4시간 뒤인 게 아니다.
+ * 시각은 넥슨이 거래 기록에 적어 준 값이라 추정이 아니다. 다만:
+ *  - 표본은 **현재 API 인증 주체에서 조회 가능한 거래**뿐이라, 못 본 거래
+ *    만큼 간격이 길게 나온다. 그래서 '최소' 라고 적는다.
+ *  - 구매 등록과 판매 완료는 가리키는 사건이 달라 한 줄로 합치지 않는다.
+ *  - 다음 거래 시각은 찍지 않는다. 거래는 주기가 아니라 사건이다.
  */
 function CadenceNote({ cadence }: { cadence: CardPrice['cadence'] }) {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => setNow(new Date()), []);
 
-  if (!cadence.lastTradeAt) return null;
-  const last = new Date(cadence.lastTradeAt);
+  const rows = [
+    { label: '판매 완료', side: cadence.sale },
+    { label: '구매 등록', side: cadence.purchase },
+  ].filter((row) => row.side.lastAt !== null);
+
+  if (rows.length === 0) return null;
 
   return (
-    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-600">
-      <span className="inline-flex items-center gap-1">
-        <Clock size={10} className="shrink-0" />
-        마지막 체결
-        <b className="text-slate-400">
-          {now ? formatAge(Math.max(0, now.getTime() - last.getTime())) : '-'}
-        </b>
-      </span>
-      {cadence.intervalMs !== null ? (
-        <span>
-          체결 간격 최소 <b className="text-slate-400">{formatDuration(cadence.intervalMs)}</b>
-          <span className="text-slate-700"> ({cadence.samples}건 기준)</span>
-        </span>
-      ) : null}
-    </p>
+    <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-600">
+      {rows.map(({ label, side }) => {
+        const last = new Date(side.lastAt!);
+        return (
+          <p key={label} className="flex flex-wrap items-center gap-x-2">
+            <span className="inline-flex items-center gap-1">
+              <Clock size={10} className="shrink-0" />
+              API에서 확인된 마지막 {label}
+              <b className="text-slate-400">
+                {now ? formatAge(Math.max(0, now.getTime() - last.getTime())) : '-'}
+              </b>
+            </span>
+            {side.intervalMs !== null ? (
+              <span>
+                간격 최소 <b className="text-slate-400">{formatDuration(side.intervalMs)}</b>
+                <span className="text-slate-700"> ({side.samples}건 기준)</span>
+              </span>
+            ) : (
+              <span className="text-slate-700">({side.samples}건 — 간격은 2건부터)</span>
+            )}
+          </p>
+        );
+      })}
+    </div>
   );
 }
+

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { fail, handleError, intParam, ok } from '@/lib/api/respond';
+import { MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { getMarketReport } from '@/lib/nexon/insights';
 
 /**
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       // 모르는 값이 오면 기본(누적 풀)으로 떨어뜨린다.
       scope: params.get('scope') === 'account' ? 'account' : 'pool',
       // 0 이면 등급을 가리지 않는다(합친 값). 화면은 기본으로 +1 을 보낸다.
-      grade: intParam(params.get('grade'), 0, { min: 0, max: 10 }) || undefined,
+      grade: intParam(params.get('grade'), 0, { min: 0, max: MAX_ENHANCEMENT }) || undefined,
     });
     return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 300 });
   } catch (error) {

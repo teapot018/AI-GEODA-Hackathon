@@ -26,11 +26,30 @@ export interface MaxDivision {
 export type MatchIdList = string[];
 
 /** GET /fconline/v1/user/trade */
+/**
+ * `/fconline/v1/user/trade` 한 행 — **계층 A (넥슨 공식 응답)**.
+ *
+ * ── 이 데이터가 누구 것인가 ──
+ * 전체 이적시장의 거래가 아니다. **현재 사용 중인 Open API 인증 주체에서
+ * 조회 가능한 거래 기록**이다. 화면에서 "이 선수의 전체 시장 거래량" 처럼
+ * 말하면 안 된다 — 그런 데이터를 이 API 는 주지 않는다.
+ *
+ * ── tradeDate 의 의미는 방향에 따라 다르다 ──
+ * 매입(buy)과 매도(sell)를 같은 "체결 시각" 으로 뭉뚱그리면 안 된다.
+ * 둘이 가리키는 사건이 다르므로, 내부에서는 Observation.timestampMeaning
+ * 으로 구분해 들고 다닌다(market/observations.ts).
+ */
 export interface TradeRecord {
+  /**
+   * 거래 시각. 타임존 없는 문자열이며 UTC 다(parseApiDate 가 Z 를 붙인다).
+   * 방향별 의미는 위 주석 참고.
+   */
   tradeDate: string;
   saleSn: string;
   spid: number;
+  /** 강화 단계 (+1 ~ +13). fconline/rules.ts 참고 */
   grade: number;
+  /** BP */
   value: number;
 }
 

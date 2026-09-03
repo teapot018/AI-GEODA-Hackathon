@@ -3,7 +3,12 @@ import 'server-only';
 import { getCard, searchPlayers } from '@/lib/players/catalog';
 import type { DataSource } from '@/lib/nexon/service';
 import { parseApiDate } from '@/lib/data/freshness';
-import { buildPriceIndex, type Observation, type PriceStat } from './observations';
+import {
+  buildPriceIndex,
+  type Observation,
+  type PriceStat,
+  type TradeSide,
+} from './observations';
 import { read } from './pool';
 import { tradeCadence, type TradeCadence } from './refresh';
 
@@ -44,7 +49,8 @@ export interface CardPrice {
    */
   stat: PriceStat | null;
   /**
-   * 이 카드가 얼마나 자주 거래됐나 — 체결 시각만으로 낸다.
+   * 이 카드가 얼마나 자주 거래됐나 — 거래 시각만으로 내고, **매입·매도를
+   * 따로** 잰다.
    *
    * 기준가 갱신 관측(refresh.ts 위쪽)은 데이터센터 페이지를 읽어야 하는데
    * 그쪽은 막혀 있을 수 있다. 이 값은 `/user/trade` 만으로 나오므로 항상 답한다.
@@ -137,10 +143,20 @@ export async function lookupCardPrices({
     ...new Set(observations.filter((row) => wanted.has(row.spid)).map((row) => row.grade)),
   ].sort((a, b) => a - b);
 
-  // 체결 시각은 고른 등급으로 좁혀 잰다 — +1 과 +8 은 거래 빈도가 다르다.
-  const timesOf = (cardSpid: number): Date[] =>
+  /*
+   * 거래 시각은 고른 등급으로 좁혀 재고, 방향도 나눈다.
+   *  - 등급: +1 과 +8 은 거래 빈도가 다르다.
+   *  - 방향: 구매 등록과 판매 완료는 가리키는 사건이 달라, 합치면
+   *          어느 쪽 빈도도 아닌 값이 나온다.
+   */
+  const timesOf = (cardSpid: number, side: TradeSide): Date[] =>
     observations
-      .filter((row) => row.spid === cardSpid && (grade === undefined || row.grade === grade))
+      .filter(
+        (row) =>
+          row.spid === cardSpid &&
+          row.side === side &&
+          (grade === undefined || row.grade === grade),
+      )
       .map((row) => parseApiDate(row.tradeDate))
       .filter((d): d is Date => d !== null);
 
@@ -151,7 +167,7 @@ export async function lookupCardPrices({
     imageUrl: card.imageUrl,
     ovr: card.ovr,
     stat: statOf.get(card.spid) ?? null,
-    cadence: tradeCadence(timesOf(card.spid)),
+    cadence: tradeCadence(timesOf(card.spid, 'buy'), timesOf(card.spid, 'sell')),
   }));
 
   /*

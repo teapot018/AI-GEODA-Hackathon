@@ -190,34 +190,39 @@ describe('tradeCadence — 데이터센터 없이 재는 거래 빈도', () => {
    * 위 estimateRefresh 는 넥슨 데이터센터 페이지를 읽어야 굴러가는데, 그
    * 페이지는 막혀 있을 수 있다(개발 환경은 CONNECT 403). 이 쪽은 /user/trade
    * 의 tradeDate 만 쓰므로 그 경로가 막혀도 항상 답한다.
+   *
+   * 인자는 (구매 등록 시각, 판매 완료 시각) 두 묶음이다. 한 묶음으로 받던
+   * 시절이 있었는데, 그건 서로 다른 사건을 한 줄로 평균 낸 것이었다.
    */
   it('체결이 없으면 아무 말도 하지 않는다', () => {
-    const c = tradeCadence([]);
-    expect(c.lastTradeAt).toBeNull();
-    expect(c.samples).toBe(0);
-    expect(c.intervalMs).toBeNull();
+    const c = tradeCadence([], []);
+    expect(c.sale.lastAt).toBeNull();
+    expect(c.sale.samples).toBe(0);
+    expect(c.sale.intervalMs).toBeNull();
+    expect(c.purchase.lastAt).toBeNull();
+    expect(c.purchase.samples).toBe(0);
   });
 
   it('체결이 하나면 시각만 사실로 남기고 빈도는 말하지 않는다', () => {
-    const c = tradeCadence([at(5)]);
-    expect(c.lastTradeAt).toEqual(at(5));
-    expect(c.samples).toBe(1);
-    expect(c.intervalMs).toBeNull();
+    const c = tradeCadence([], [at(5)]);
+    expect(c.sale.lastAt).toEqual(at(5));
+    expect(c.sale.samples).toBe(1);
+    expect(c.sale.intervalMs).toBeNull();
   });
 
   it('체결 간격의 중앙값을 낸다', () => {
-    const c = tradeCadence([at(0), at(2), at(4), at(6)]);
-    expect(c.samples).toBe(4);
-    expect(c.intervalMs).toBe(2 * HOUR);
-    expect(c.lastTradeAt).toEqual(at(6));
-    expect(c.spanMs).toBe(6 * HOUR);
+    const c = tradeCadence([], [at(0), at(2), at(4), at(6)]);
+    expect(c.sale.samples).toBe(4);
+    expect(c.sale.intervalMs).toBe(2 * HOUR);
+    expect(c.sale.lastAt).toEqual(at(6));
+    expect(c.sale.spanMs).toBe(6 * HOUR);
   });
 
   it('순서가 뒤섞여 와도 시간순으로 잰다', () => {
-    // 풀은 매입/매도를 합쳐 담으므로 정렬돼 있다는 보장이 없다.
-    const c = tradeCadence([at(6), at(0), at(4), at(2)]);
-    expect(c.intervalMs).toBe(2 * HOUR);
-    expect(c.lastTradeAt).toEqual(at(6));
+    // 풀은 거래 기록을 온 순서대로 담으므로 정렬돼 있다는 보장이 없다.
+    const c = tradeCadence([], [at(6), at(0), at(4), at(2)]);
+    expect(c.sale.intervalMs).toBe(2 * HOUR);
+    expect(c.sale.lastAt).toEqual(at(6));
   });
 
   it('공백 하나에 끌려가지 않는다 (평균이 아니라 중앙값)', () => {
@@ -225,8 +230,47 @@ describe('tradeCadence — 데이터센터 없이 재는 거래 빈도', () => {
      * 한 달 비어 있다가 몰아서 거래된 카드에서, 평균은 그 공백 하나가
      * 통째로 끌고 간다. 중앙값은 실제로 자주 있었던 간격을 가리킨다.
      */
-    const c = tradeCadence([at(0), at(1), at(2), at(3), at(720)]);
-    expect(c.intervalMs).toBe(HOUR);
+    const c = tradeCadence([], [at(0), at(1), at(2), at(3), at(720)]);
+    expect(c.sale.intervalMs).toBe(HOUR);
+  });
+
+  it('구매 등록과 판매 완료를 한 빈도로 섞지 않는다', () => {
+    /*
+     * 이것이 이 함수를 두 인자로 쪼갠 이유다. `/user/trade` 의 tradeDate 는
+     * 방향에 따라 가리키는 사건이 다르다 — 구매 쪽은 **구매 등록** 시각,
+     * 판매 쪽은 **판매 완료** 시각이다(nexon/types.ts 주석). 둘을 한 배열에
+     * 부어 간격을 재면 "등록과 완료 사이" 라는, 아무도 묻지 않은 값이 나온다.
+     *
+     * 여기서는 매입이 4시간 간격, 매도가 5시간 간격이다. 합쳐서 재면
+     * 뒤섞인 시각들의 간격(2시간)이 나오는데, 그건 매입 빈도도 매도
+     * 빈도도 아닌 숫자다.
+     */
+    const purchases = [at(0), at(4), at(8), at(12)];
+    const sales = [at(1), at(6), at(11), at(16)];
+
+    const c = tradeCadence(purchases, sales);
+
+    expect(c.purchase.intervalMs).toBe(4 * HOUR);
+    expect(c.sale.intervalMs).toBe(5 * HOUR);
+    expect(c.purchase.samples).toBe(4);
+    expect(c.sale.samples).toBe(4);
+    expect(c.purchase.lastAt).toEqual(at(12));
+    expect(c.sale.lastAt).toEqual(at(16));
+
+    // 합쳐서 쟀다면 나왔을 값. 어느 쪽 빈도도 아니다.
+    const merged = tradeCadence([], [...purchases, ...sales]);
+    expect(merged.sale.intervalMs).not.toBe(c.sale.intervalMs);
+    expect(merged.sale.intervalMs).not.toBe(c.purchase.intervalMs);
+  });
+
+  it('한쪽만 있어도 다른 쪽을 빌려 오지 않는다', () => {
+    // 매도 기록만 있는 카드에서 매입 빈도를 지어내면, 화면은 없는 사건을
+    // 있었다고 적게 된다.
+    const c = tradeCadence([], [at(0), at(3), at(6)]);
+    expect(c.sale.intervalMs).toBe(3 * HOUR);
+    expect(c.purchase.samples).toBe(0);
+    expect(c.purchase.intervalMs).toBeNull();
+    expect(c.purchase.lastAt).toBeNull();
   });
 
   it('다음 체결 시각은 내놓지 않는다', () => {
@@ -235,7 +279,7 @@ describe('tradeCadence — 데이터센터 없이 재는 거래 빈도', () => {
      * 팔렸다고 다음이 2시간 뒤인 건 아니라서, 빈도까지만 말한다.
      * nextRefreshAt 을 지운 것과 같은 선.
      */
-    const c = tradeCadence([at(0), at(2), at(4)]) as unknown as Record<string, unknown>;
+    const c = tradeCadence([], [at(0), at(2), at(4)]).sale as unknown as Record<string, unknown>;
     expect(c.nextAt).toBeUndefined();
     expect(c.confidence).toBeUndefined();
   });

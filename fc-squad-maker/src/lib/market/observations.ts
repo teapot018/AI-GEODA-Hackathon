@@ -18,8 +18,28 @@ import type { TradeRecord } from '@/lib/nexon/types';
 
 export type TradeSide = 'buy' | 'sell';
 
+/**
+ * tradeDate 가 실제로 가리키는 사건.
+ *
+ * 매입과 매도를 하나의 "체결 시각" 으로 합치면, 서로 다른 사건의 간격을
+ * 한 줄로 평균 내게 된다. 타입에 적어 두어 합칠 수 없게 한다.
+ */
+export type TimestampMeaning = 'purchase-registration' | 'sale-completion';
+
+export const TIMESTAMP_LABEL: Readonly<Record<TimestampMeaning, string>> = {
+  'purchase-registration': '구매 등록',
+  'sale-completion': '판매 완료',
+};
+
 export interface Observation extends TradeRecord {
   side: TradeSide;
+  /** 이 행의 tradeDate 가 무엇을 가리키는지 (side 에서 유도) */
+  timestampMeaning: TimestampMeaning;
+}
+
+/** 거래 방향 → 시각의 의미. 한 곳에서만 정한다. */
+export function meaningOf(side: TradeSide): TimestampMeaning {
+  return side === 'buy' ? 'purchase-registration' : 'sale-completion';
 }
 
 export interface GradeStat {
@@ -110,7 +130,8 @@ export const TREND_EPSILON = 3;
 export const MIN_SAMPLES = 2;
 
 export function tagSide(records: TradeRecord[], side: TradeSide): Observation[] {
-  return records.map((record) => ({ ...record, side }));
+  const timestampMeaning = meaningOf(side);
+  return records.map((record) => ({ ...record, side, timestampMeaning }));
 }
 
 /** 오름차순 정렬된 배열의 q(0~1) 분위수. 사이값은 선형 보간. */

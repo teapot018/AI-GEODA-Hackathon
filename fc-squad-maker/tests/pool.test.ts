@@ -14,7 +14,8 @@ function obs(overrides: Partial<Observation> = {}): Observation {
     spid: 300_000_007,
     grade: 1,
     value: 1_000_000,
-    side: 'buy',
+    side: 'buy' as const,
+    timestampMeaning: 'purchase-registration' as const,
     ...overrides,
   };
 }

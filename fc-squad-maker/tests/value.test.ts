@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { ENHANCEMENT_STEPS, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
+import { MAX_ESTIMATED_OVR } from '@/lib/players/seasons';
 import {
   baseValueOf,
   clampGrade,
@@ -23,7 +25,7 @@ import { makeCard } from './helpers';
  */
 
 describe('상수표의 형태', () => {
-  it('강화 배수는 +1 ~ +10 열 개이고 계속 커진다', () => {
+  it('강화 배수는 +1 ~ +13 열세 개이고 계속 커진다', () => {
     expect(GRADE_VALUE_MULTIPLIER).toHaveLength(MAX_GRADE);
     expect(GRADE_VALUE_MULTIPLIER[0]).toBe(1);
     for (let i = 1; i < GRADE_VALUE_MULTIPLIER.length; i += 1) {
@@ -52,11 +54,13 @@ describe('상수표의 형태', () => {
 });
 
 describe('clampGrade', () => {
-  it('+1 ~ +10 밖의 값을 안으로 접는다', () => {
+  it('+1 ~ +13 밖의 값을 안으로 접는다', () => {
     expect(clampGrade(0)).toBe(1);
     expect(clampGrade(-5)).toBe(1);
-    expect(clampGrade(11)).toBe(10);
-    expect(clampGrade(999)).toBe(10);
+    // 상한은 공식 규칙에서 온다 — 여기 숫자를 박으면 게임에 단계가
+    // 추가될 때(실제로 +11~+13 이 그렇게 추가됐다) 테스트만 옛 게임에 남는다.
+    expect(clampGrade(MAX_ENHANCEMENT + 1)).toBe(MAX_ENHANCEMENT);
+    expect(clampGrade(999)).toBe(MAX_ENHANCEMENT);
   });
 
   it('소수는 반올림한다', () => {
@@ -104,11 +108,13 @@ describe('estimateValue — 시즌 티어 × 강화 단계', () => {
 
   it('강화 단계를 벗어난 입력도 접어서 계산한다', () => {
     expect(estimateValue({ ovr: 85, grade: 0 })).toBe(estimateValue({ ovr: 85, grade: 1 }));
-    expect(estimateValue({ ovr: 85, grade: 99 })).toBe(estimateValue({ ovr: 85, grade: 10 }));
+    expect(estimateValue({ ovr: 85, grade: 99 })).toBe(
+      estimateValue({ ovr: 85, grade: MAX_ENHANCEMENT }),
+    );
   });
 });
 
-describe('valueCurve — +1 ~ +10 가치 곡선', () => {
+describe('valueCurve — +1 ~ +13 가치 곡선', () => {
   it('열 개이고 계속 우상향한다', () => {
     const curve = valueCurve(90, 'ICON (Icon)');
     expect(curve).toHaveLength(MAX_GRADE);
@@ -151,13 +157,13 @@ describe('enhanceCard — 카드 한 장의 강화 결과', () => {
     expect(curve[MAX_GRADE - 1].ovr - curve[0].ovr).toBe(summed);
   });
 
-  it('세부 능력치도 같이 오르고 130 을 넘지 않는다', () => {
+  it('세부 능력치도 같이 오르고 추정 상한을 넘지 않는다', () => {
     const c = makeCard({
       stats: { pace: 129, shooting: 128, passing: 120, dribbling: 125, defending: 40, physical: 99 },
     });
     const plus10 = enhanceCard(c, 10);
-    expect(plus10.stats.pace).toBeLessThanOrEqual(130);
-    expect(plus10.stats.shooting).toBeLessThanOrEqual(130);
+    expect(plus10.stats.pace).toBeLessThanOrEqual(MAX_ESTIMATED_OVR);
+    expect(plus10.stats.shooting).toBeLessThanOrEqual(MAX_ESTIMATED_OVR);
     expect(plus10.stats.dribbling).toBeGreaterThan(c.stats.dribbling);
   });
 
@@ -173,7 +179,7 @@ describe('enhanceCard — 카드 한 장의 강화 결과', () => {
       10,
     );
     expect(keeper.gk!.diving).toBeGreaterThan(90);
-    expect(keeper.gk!.reflexes).toBeLessThanOrEqual(130);
+    expect(keeper.gk!.reflexes).toBeLessThanOrEqual(MAX_ESTIMATED_OVR);
   });
 
   it('가치는 카드의 원래 오버롤 기준으로 계산한다 (강화 보너스를 두 번 세지 않는다)', () => {
@@ -183,9 +189,9 @@ describe('enhanceCard — 카드 한 장의 강화 결과', () => {
     );
   });
 
-  it('enhanceCurve 는 열 단계를 순서대로 돌려준다', () => {
+  it('enhanceCurve 는 열세 단계를 순서대로 돌려준다', () => {
     const curve = enhanceCurve(makeCard());
-    expect(curve.map((s) => s.grade)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(curve.map((s) => s.grade)).toEqual(ENHANCEMENT_STEPS);
   });
 });
 
@@ -215,7 +221,7 @@ describe('upgradeOdds — 연속 강화 성공 확률', () => {
   });
 
   it('범위 밖 입력도 접어서 처리한다', () => {
-    expect(upgradeOdds(0, 99)).toEqual(upgradeOdds(1, 10));
+    expect(upgradeOdds(0, 99)).toEqual(upgradeOdds(1, MAX_ENHANCEMENT));
   });
 
   it('구간이 길수록 확률은 낮아지고 기대 시도는 늘어난다', () => {

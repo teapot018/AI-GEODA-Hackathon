@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import { fail, handleError, intParam, ok } from '@/lib/api/respond';
+import { MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { lookupCardPrices } from '@/lib/market/lookup';
 
 /**
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   const spid = intParam(params.get('spid'), 0, { min: 0, max: 999_999_999 });
   // grade 를 주지 않으면 등급을 가리지 않고 합친다 — 그건 '거래 전반'이지
   // '이 등급의 시세'가 아니라서, 화면은 기본으로 등급을 하나 집어 보낸다.
-  const grade = intParam(params.get('grade'), 0, { min: 0, max: 10 });
+  const grade = intParam(params.get('grade'), 0, { min: 0, max: MAX_ENHANCEMENT });
 
   if (!query && !spid) {
     return fail(400, 'EMPTY_QUERY', '선수 이름(q) 또는 spid 가 필요합니다.');

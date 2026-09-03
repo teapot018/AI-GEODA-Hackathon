@@ -5,7 +5,7 @@ import { playerImageUrl, seasonIdOf, seasonImageUrl, pidOf } from '@/lib/nexon/e
 import { choseongKey, matchScore, normalize } from '@/lib/utils/hangul';
 import { PLAYER_SEED } from './dataset';
 import { estimateProfile } from './estimate';
-import { cardOvr, cardStatFactor, seasonRule, type SeasonTier } from './seasons';
+import { estimatedCardOvr, estimatedStatFactor, seasonRule, type SeasonTier } from './seasons';
 import type { GkStats, HexStats, PlayerCardData, PlayerProfile, PositionCode } from './types';
 
 /**
@@ -92,12 +92,12 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
     entry.profileIndex >= 0 ? PLAYER_SEED[entry.profileIndex] : undefined;
   const profile = seeded ?? estimateProfile({ name: entry.name });
 
-  const ovr = cardOvr(profile.baseOvr, season?.className);
+  const ovr = estimatedCardOvr(profile.baseOvr, season?.className);
   /*
    * 스탯도 카드 표기에 맞춰 민다. 오버롤만 올리면 OVR 125 카드에 페이스 56 이
    * 붙어, 같은 카드를 설명하는 두 숫자가 서로 다른 게임을 말하게 된다.
    */
-  const factor = cardStatFactor(profile.baseOvr, season?.className);
+  const factor = estimatedStatFactor(profile.baseOvr, season?.className);
 
   return {
     spid: entry.spid,
@@ -216,7 +216,7 @@ export async function getCard(spid: number): Promise<PlayerCardData | null> {
     imageUrl: playerImageUrl(spid),
     name: `알 수 없는 선수 (${spid})`,
     positions: profile.positions,
-    ovr: cardOvr(profile.baseOvr, season?.className),
+    ovr: estimatedCardOvr(profile.baseOvr, season?.className),
     stats: profile.stats,
     skillMoves: profile.skillMoves,
     weakFoot: profile.weakFoot,
@@ -261,7 +261,7 @@ function poolKey(filter: PoolFilter): string {
 async function quickOvr(entry: CatalogEntry, classNames: Map<number, string>): Promise<number> {
   const profile =
     entry.profileIndex >= 0 ? PLAYER_SEED[entry.profileIndex] : estimateProfile({ name: entry.name });
-  return cardOvr(profile.baseOvr, classNames.get(entry.seasonId));
+  return estimatedCardOvr(profile.baseOvr, classNames.get(entry.seasonId));
 }
 
 /** 필터에 맞는 spid 목록. 결과는 캐시된다. */

@@ -1,5 +1,10 @@
 import type { GkStats, HexStats, PlayerCardData } from './types';
-import { clampGrade, estimateValue, MAX_GRADE } from './value';
+import {
+  ENHANCEMENT_OVR_BONUS,
+  ENHANCEMENT_STEPS,
+} from '@/lib/fconline/rules';
+import { MAX_ESTIMATED_OVR } from './seasons';
+import { clampGrade, estimateValue } from './value';
 
 /**
  * ── 강화 단계 시뮬레이션 ───────────────────────────────────
@@ -10,15 +15,33 @@ import { clampGrade, estimateValue, MAX_GRADE } from './value';
  * 숫자를 바꾸고 싶으면 이 파일의 상수 두 개만 고치면 된다.
  */
 
-/** +1 대비 누적 오버롤 상승치 (index 0 = +1) */
-export const OVR_GAIN_BY_GRADE: readonly number[] = [0, 1, 2, 3, 4, 6, 8, 11, 14, 18];
+/**
+ * +1 대비 누적 오버롤 상승치 — **계층 B (공식 규칙)**.
+ *
+ * 예전에는 이 자리에 [0,1,2,3,4,6,8,11,14,18] 이라는 자체 근사표가 있었다.
+ * 실제 게임과 여러 단계가 달랐고(+8 은 11 이 아니라 15, +10 은 18 이 아니라
+ * 19), 무엇보다 +10 에서 끝나 있었다 — 게임에는 +13 까지 있다.
+ * 지금은 공식 규칙 하나에서만 읽는다.
+ */
+export const OVR_GAIN_BY_GRADE: readonly number[] = ENHANCEMENT_STEPS.map(
+  (grade) => ENHANCEMENT_OVR_BONUS[grade],
+);
 
-/** 누적 세부 능력치 상승 배율 */
-const STAT_GAIN_BY_GRADE: readonly number[] = [
-  1.0, 1.012, 1.025, 1.038, 1.052, 1.078, 1.105, 1.14, 1.185, 1.24,
-];
+/**
+ * 누적 세부 능력치 상승 배율 — **계층 C (프로젝트 추정)**.
+ *
+ * 넥슨은 강화가 세부 능력치를 얼마나 올리는지 공개하지 않는다. 오버롤
+ * 상승량에 비례한다고 보고 공식 곡선에서 유도한다 — 표를 따로 적어 두면
+ * 오버롤은 공식대로 오르는데 스탯은 옛 곡선을 따라가는 일이 생긴다.
+ */
+const STAT_GAIN_PER_OVR = 0.013;
+const STAT_GAIN_BY_GRADE: readonly number[] = OVR_GAIN_BY_GRADE.map(
+  (gain) => 1 + gain * STAT_GAIN_PER_OVR,
+);
 
-const clampStat = (n: number) => Math.max(1, Math.min(130, Math.round(n)));
+// 상한은 카드 오버롤 상한(seasons.ts)과 같은 자리에 둔다 — 13강까지 오른
+// 카드의 스탯이 그보다 낮은 천장에 눌리면 안 된다.
+const clampStat = (n: number) => Math.max(1, Math.min(MAX_ESTIMATED_OVR, Math.round(n)));
 
 export interface EnhancedCard {
   grade: number;
@@ -71,25 +94,32 @@ export function enhanceCard(card: PlayerCardData, grade: number): EnhancedCard {
 
 /** +1 ~ +10 전체 곡선 (가치 시뮬레이션 테이블용) */
 export function enhanceCurve(card: PlayerCardData): EnhancedCard[] {
-  return Array.from({ length: MAX_GRADE }, (_, i) => enhanceCard(card, i + 1));
+  return ENHANCEMENT_STEPS.map((grade) => enhanceCard(card, grade));
 }
 
 /* ── 강화 성공 확률 (근사) ─────────────────────────────────── */
 
 /**
- * n -> n+1 강화 성공 확률. 게임 내 공지 확률표를 그대로 옮긴 값이 아니라
- * "고강화일수록 급격히 낮아진다"는 경향만 반영한 근사치다.
+ * n -> n+1 강화 성공 확률 — **계층 C (프로젝트 추정)**.
+ *
+ * 넥슨 공지 확률표를 그대로 옮긴 값이 **아니다**. "고강화일수록 급격히
+ * 낮아진다" 는 경향만 반영한 근사치이며, 화면에서 실제 강화 확률처럼
+ * 보이지 않게 표기해야 한다. 공식 확률표를 넣을 때는 이 배열을 통째로
+ * 갈아끼우고 이름도 OFFICIAL_ 로 바꾼다.
  */
 export const UPGRADE_SUCCESS_RATE: readonly number[] = [
-  0.95, // +1 -> +2
-  0.90, // +2 -> +3
-  0.80, // +3 -> +4
-  0.65, // +4 -> +5
-  0.50, // +5 -> +6
-  0.34, // +6 -> +7
-  0.20, // +7 -> +8
-  0.11, // +8 -> +9
-  0.05, // +9 -> +10
+  0.95,  // +1 -> +2
+  0.90,  // +2 -> +3
+  0.80,  // +3 -> +4
+  0.65,  // +4 -> +5
+  0.50,  // +5 -> +6
+  0.34,  // +6 -> +7
+  0.20,  // +7 -> +8
+  0.11,  // +8 -> +9
+  0.05,  // +9 -> +10
+  0.03,  // +10 -> +11
+  0.02,  // +11 -> +12
+  0.01,  // +12 -> +13  ← 13강 1% 는 공개 확률표와 대체로 맞는 유일한 칸이다
 ];
 
 /**

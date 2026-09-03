@@ -116,9 +116,29 @@ export function seasonRule(className: string | undefined): TierRule {
  * 이 숫자들은 추정이며 화면에서도 `추정` 으로 표기한다. 넥슨 Open API 는
  * 능력치를 주지 않으므로 실측으로 맞출 방법이 없다.
  */
-export function cardOvr(baseOvr: number, className: string | undefined): number {
+export const MIN_ESTIMATED_OVR = 60;
+
+/**
+ * 프로젝트 추정 오버롤의 상한.
+ *
+ * 공식 상한이 아니다 — 넥슨은 카드 오버롤을 Open API 로 주지 않으므로
+ * 실제 최고값을 알 방법이 없다. 여기서는 **추정 곡선이 잘리지 않을 만큼**
+ * 만 높게 잡는다: 최상위 카드가 +1 에서 125 근처이고 13강이 +27 을
+ * 얹으므로(fconline/rules.ts) 152 까지 나올 수 있다. 상한을 그보다 낮게
+ * 두면 고강화 카드가 전부 천장에 눌려붙어 강화의 의미가 화면에서 사라진다.
+ */
+export const MAX_ESTIMATED_OVR = 155;
+
+/**
+ * 시즌 보정을 얹은 **추정** 카드 오버롤 — 계층 C.
+ *
+ * 이름에 estimated 를 붙인 이유: 이 값은 넥슨이 준 것이 아니라 이 프로젝트가
+ * 계산한 것이다. estimatedCardOvr / officialOvr / actualOvr 같은 이름을 쓰면 화면을
+ * 만드는 사람도, 읽는 사람도 공식값으로 착각한다.
+ */
+export function estimatedCardOvr(baseOvr: number, className: string | undefined): number {
   const bonus = seasonRule(className).ovrBonus;
-  return Math.max(60, Math.min(145, baseOvr + bonus));
+  return Math.max(MIN_ESTIMATED_OVR, Math.min(MAX_ESTIMATED_OVR, baseOvr + bonus));
 }
 
 /**
@@ -128,9 +148,9 @@ export function cardOvr(baseOvr: number, className: string | undefined): number 
  * 붙는다 — 같은 카드를 설명하는 두 숫자가 서로 다른 게임을 말하는 꼴이다.
  * 오버롤이 오른 비율만큼 스탯도 같이 민다.
  */
-export function cardStatFactor(baseOvr: number, className: string | undefined): number {
+export function estimatedStatFactor(baseOvr: number, className: string | undefined): number {
   if (baseOvr <= 0) return 1;
-  return cardOvr(baseOvr, className) / baseOvr;
+  return estimatedCardOvr(baseOvr, className) / baseOvr;
 }
 
 export function seasonTier(className: string | undefined): SeasonTier {

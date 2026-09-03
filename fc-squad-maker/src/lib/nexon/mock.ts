@@ -2,7 +2,7 @@ import 'server-only';
 
 import { PLAYER_SEED } from '@/lib/players/dataset';
 import { archetypeOf } from '@/lib/players/estimate';
-import { cardOvr, DEMO_SEASONS } from '@/lib/players/seasons';
+import { estimatedCardOvr, DEMO_SEASONS } from '@/lib/players/seasons';
 import { clampGrade, estimateValue, GRADE_VALUE_MULTIPLIER } from '@/lib/players/value';
 import type { PositionCode } from '@/lib/players/types';
 import { createRng } from '@/lib/utils/rng';
@@ -153,7 +153,7 @@ export function mockMarketTrades(
        * 티어를 따라가므로, 이미 있는 가치 모델에 물려 그 형태를 지킨다.
        */
       base: estimateValue({
-        ovr: cardOvr(profile.baseOvr, season.className),
+        ovr: estimatedCardOvr(profile.baseOvr, season.className),
         seasonClassName: season.className,
         grade: 1,
       }),
