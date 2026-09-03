@@ -49,7 +49,7 @@ export function GradeSelect({ value, onChange, available, className }: Props) {
       <span className="text-[10px] text-slate-500">강화 등급</span>
 
       {/*
-        +1 ~ +10 을 전부 띄운다. 표본이 있는 등급만 보여 주려다 보니, 풀에
+        +1 ~ +13 을 전부 띄운다. 표본이 있는 등급만 보여 주려다 보니, 풀에
         +1 과 +4 밖에 없으면 "+7 은 얼마지?" 를 물어볼 방법 자체가 사라졌다.
         게임에는 +13 까지 있고 사람은 그 기준으로 생각하므로 선택지는 그대로
         두고, 표본이 없는 등급은 눌렀을 때 '관측 없음' 으로 답한다 —

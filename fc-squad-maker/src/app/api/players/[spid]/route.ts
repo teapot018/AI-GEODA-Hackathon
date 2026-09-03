@@ -4,7 +4,7 @@ import { enhanceCurve, upgradeOdds } from '@/lib/players/enhance';
 
 /**
  * GET /api/players/{spid}
- * 카드 상세 + 강화 +1~+10 전 구간의 오버롤/능력치/추정 가치 곡선.
+ * 카드 상세 + 강화 +1~+13 전 구간의 오버롤/능력치/추정 가치 곡선.
  */
 export async function GET(
   _request: Request,

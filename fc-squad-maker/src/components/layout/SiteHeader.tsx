@@ -12,7 +12,7 @@ const NAV = [
   { href: '/manager', label: '구단주 조회', icon: Search },
   { href: '/squad', label: '스쿼드 메이커', icon: LayoutGrid },
   { href: '/pack', label: '모의 상자 개봉', icon: Box },
-  { href: '/market', label: '시세 관측소', icon: LineChart },
+  { href: '/market', label: '거래 관측소', icon: LineChart },
   { href: '/trade', label: '트레이드 계산기', icon: Calculator },
 ];
 

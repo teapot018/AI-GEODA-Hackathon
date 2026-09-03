@@ -37,7 +37,7 @@ import { type DataSource, type Sourced } from './service';
  * service.ts 가 "화면 하나에 대응하는 단건 조회" 라면, 이 파일은
  * **여러 번 호출해서 겹쳐야 의미가 생기는** 조회를 담당한다:
  *
- *  - 시세 관측소   : /user/trade 를 offset 을 밀며 과거까지 긁는다
+ *  - 거래 관측소   : /user/trade 를 offset 을 밀며 과거까지 긁는다
  *  - 전적 분석     : /user/match 로 ID 를 받고 /match-detail 을 N번 부른다
  *  - 스쿼드 임포트 : /match-detail 의 라인업을 우리 포메이션으로 옮긴다
  *
@@ -79,7 +79,7 @@ async function mapWithLimit<In, Out>(
   return results;
 }
 
-/* ── 시세 관측소 ───────────────────────────────────────────── */
+/* ── 거래 관측소 ───────────────────────────────────────────── */
 
 export interface MarketCardStat extends PriceStat {
   name: string;

@@ -5,6 +5,7 @@ import { Clock, Database, Search, UserSearch } from 'lucide-react';
 
 import { Badge, Button, Card, CardHeader, Input, SourceBadge, Spinner } from '@/components/ui';
 import { GradeSelect, MixedGradeWarning } from './GradeSelect';
+import { TradeSampleNote } from './TradeSampleNote';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { CardLookupResult, CardPrice } from '@/lib/market/lookup';
 import { MIN_SAMPLES } from '@/lib/market/observations';
@@ -12,7 +13,7 @@ import { formatAge, formatDuration } from '@/lib/data/freshness';
 import { formatBP } from '@/lib/utils/format';
 
 /**
- * 선수 이름으로 시세 찾기.
+ * 선수 이름으로 거래 관측 찾기.
  *
  * 이 화면의 원래 입구는 구단주 닉네임이었다. 관측이 거래 내역에서 나오니
  * 구현 순서로는 자연스러웠지만, 사람이 실제로 던지는 질문은 "손흥민 얼마야?"
@@ -53,7 +54,7 @@ export function CardPriceSearch() {
       setSource(res.source);
       setNote(res.note);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '시세를 찾지 못했습니다.');
+      setError(err instanceof ApiError ? err.message : '거래 관측을 찾지 못했습니다.');
       setResult(null);
     } finally {
       setLoading(false);
@@ -77,14 +78,14 @@ export function CardPriceSearch() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="선수 이름으로 시세 찾기 (초성 가능 · 예: ㅅㅎㅁ)"
+            placeholder="선수 이름으로 거래 관측 찾기 (초성 가능 · 예: ㅅㅎㅁ)"
             className="pl-9"
             aria-label="선수 이름"
             maxLength={24}
           />
         </div>
         <Button type="submit" disabled={loading || !query.trim()} className="sm:w-32">
-          {loading ? <Spinner className="border-t-pitch-950" /> : '시세 찾기'}
+          {loading ? <Spinner className="border-t-pitch-950" /> : '관측 찾기'}
         </Button>
       </form>
 
@@ -104,6 +105,8 @@ export function CardPriceSearch() {
         아래 구단주 조회로 쌓인 <b className="text-slate-400">누적 관측 풀</b>에서 찾습니다. 넥슨을
         새로 부르지 않으므로 호출량을 쓰지 않습니다.
       </p>
+
+      <TradeSampleNote className="mt-2" />
 
       {error ? <p className="mt-3 text-[11px] text-rose-300">{error}</p> : null}
 
@@ -163,7 +166,7 @@ function LookupResult({
       {result.withoutSamples > 0 ? (
         <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[10px] leading-relaxed text-slate-500">
           <UserSearch size={11} className="mr-1 inline shrink-0" />
-          {result.withoutSamples}종은 아직 관측 표본이 없습니다. 시세는 조회된 구단주가 실제로
+          {result.withoutSamples}종은 아직 관측 표본이 없습니다. 가격은 조회된 구단주가 실제로
           사고판 기록에서만 나오므로, <b className="text-slate-400">아래에서 구단주를 조회</b>할수록
           풀이 넓어지고 이 카드도 채워집니다.
         </p>

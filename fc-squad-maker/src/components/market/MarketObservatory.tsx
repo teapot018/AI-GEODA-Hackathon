@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { GradeSelect, MixedGradeWarning } from './GradeSelect';
+import { TradeSampleNote } from './TradeSampleNote';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { apiGet, ApiError } from '@/lib/client/api';
 import { formatAge, formatDuration, parseApiDate } from '@/lib/data/freshness';
@@ -37,7 +38,7 @@ import { cn } from '@/lib/utils/cn';
 import { formatBP, formatDateTime, formatPercent } from '@/lib/utils/format';
 
 /**
- * 시세 관측소.
+ * 거래 관측소.
  *
  * 넥슨은 "지금 이적시장에 올라온 매물" 을 API 로 주지 않는다. 대신
  * 거래 내역(/user/trade)이 **실제 체결가**를 주므로, 한 구단주의 기록을
@@ -244,8 +245,8 @@ export function MarketObservatory() {
         <Card>
           <EmptyState
             icon={<LineChart size={32} />}
-            title="구단주의 거래 기록으로 시세를 재구성합니다"
-            description="넥슨 Open API 는 현재 매물을 주지 않지만, 거래 내역의 체결가를 모으면 카드별 실제 거래 가격대를 알 수 있습니다."
+            title="구단주의 거래 기록으로 가격 표본을 쌓습니다"
+            description="넥슨 Open API 는 현재 매물을 주지 않지만, 조회 가능한 거래 기록을 모으면 카드별 가격대를 관측할 수 있습니다. 시장 전체가 아니라 표본입니다."
           />
         </Card>
       ) : null}
@@ -293,6 +294,12 @@ function ReportView({
         <SourceBadge source={source} note={note} />
       </div>
 
+      {/*
+        숫자 위에 놓는다. "관측 거래 3,412건" 을 시장 전체의 거래량으로
+        읽는 순간 아래 통계 전부가 다른 뜻이 되기 때문이다.
+      */}
+      <TradeSampleNote />
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile
           label="관측 거래"
@@ -313,7 +320,7 @@ function ReportView({
 
       <Card>
         <CardHeader
-          title="카드별 실거래 가격"
+          title="카드별 거래 관측 가격"
           description={
             report.cardsTotal > cards.length
               ? `표본이 많은 상위 ${cards.length}종 (전체 ${report.cardsTotal}종). 행을 펼치면 등급별 가격과 판정기가 나옵니다.`
@@ -486,8 +493,8 @@ function PoolPanel({ report }: { report: MarketReport }) {
       ) : null}
 
       <p className="text-[10px] leading-relaxed text-slate-500">
-        조회할수록 표본이 쌓여 시세가 촘촘해집니다. 보관 기한 {retentionDays}일이 지난 관측은
-        자동으로 빠지며, 서버 인스턴스가 재활용되면 풀은 비워집니다.
+        조회할수록 표본이 쌓여 가격 분포가 촘촘해집니다. 보관 기한 {retentionDays}일(이 프로젝트가
+        정한 값)이 지난 관측은 자동으로 빠지며, 서버 인스턴스가 재활용되면 풀은 비워집니다.
         {/*
           위 요약 타일은 받아온 전체 건수, 여기 풀은 기한 안에 남은 건수라
           두 숫자가 다르다. 왜 다른지 화면에서 설명하지 않으면 사용자는
@@ -497,7 +504,7 @@ function PoolPanel({ report }: { report: MarketReport }) {
           <>
             {' '}이번 조회 {summary.samples.toLocaleString('ko-KR')}건 중{' '}
             <span className="num text-slate-400">{excluded.toLocaleString('ko-KR')}</span>건은
-            기한이 지나 시세 계산에서 빠졌습니다.
+            기한이 지나 가격 계산에서 빠졌습니다.
           </>
         ) : null}
       </p>

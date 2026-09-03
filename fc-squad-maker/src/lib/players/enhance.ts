@@ -9,7 +9,7 @@ import { clampGrade, estimateValue } from './value';
 /**
  * ── 강화 단계 시뮬레이션 ───────────────────────────────────
  *
- * FC 온라인의 카드는 +1 ~ +10 으로 강화되며 단계마다 오버롤과 세부 능력치가
+ * FC 온라인의 카드는 +1 ~ +13 으로 강화되며 단계마다 오버롤과 세부 능력치가
  * 오른다. 정확한 상승 폭은 공개 API 로 제공되지 않으므로, 아래 표는
  * 커뮤니티에 알려진 경향(초반 완만 → 후반 급증)을 따른 **근사 모델**이다.
  * 숫자를 바꾸고 싶으면 이 파일의 상수 두 개만 고치면 된다.
@@ -92,7 +92,7 @@ export function enhanceCard(card: PlayerCardData, grade: number): EnhancedCard {
   };
 }
 
-/** +1 ~ +10 전체 곡선 (가치 시뮬레이션 테이블용) */
+/** +1 ~ +13 전체 곡선 (가치 시뮬레이션 테이블용) */
 export function enhanceCurve(card: PlayerCardData): EnhancedCard[] {
   return ENHANCEMENT_STEPS.map((grade) => enhanceCard(card, grade));
 }

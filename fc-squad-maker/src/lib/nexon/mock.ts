@@ -87,31 +87,51 @@ export function mockTrades(nickname: string, type: 'buy' | 'sell', count = 20): 
 }
 
 /**
+ * 데모 거래의 강화 등급 분포 — **계층 C (이 프로젝트가 지어낸 값)**.
+ *
+ * 누적 확률표다. 각 행은 [등급, 그 등급까지의 누적 확률].
+ *
+ * 이 숫자들은 넥슨이 공개한 것이 아니다. 실제 이적시장의 등급별 거래
+ * 비율은 어디에도 공개돼 있지 않고, Open API 로도 알 수 없다. 여기 값은
+ * "고강화로 갈수록 급격히 드물다" 는 상식을 데모용으로 흉내 낸 것뿐이라
+ * 이 파일 밖으로 나가지 않는다(데모 풀은 실데이터 풀과 분리돼 있다).
+ *
+ * 상한이 ENHANCEMENT_STEPS 의 마지막과 같아야 한다. 한때 +10 에서 끊겨
+ * 있었는데, 게임에 +11~+13 이 추가된 뒤로는 화면에서 +11 을 골라도 데모에
+ * 영영 표본이 없는 상태였다 — 없는 것처럼 보이면 안 된다.
+ */
+export const MOCK_GRADE_CDF: readonly (readonly [grade: number, upTo: number])[] = [
+  [1, 0.62],
+  [2, 0.8],
+  [3, 0.9],
+  [4, 0.95],
+  [5, 0.975],
+  [6, 0.99],
+  [7, 0.996],
+  [8, 0.9985],
+  [9, 0.9994],
+  [10, 0.9998],
+  [11, 0.99993],
+  [12, 0.99998],
+  [13, 1],
+];
+
+/**
  * 데모 거래의 강화 등급을 뽑는다.
  *
- * 예전에는 `rng.next() < 0.75 ? 1 : rng.int(2, 6)` 로 +6 에서 잘랐다. 그래서
- * 화면에서 +7 이상을 골라도 데모에는 영원히 표본이 없었다 — 게임에는 +10 까지
- * 있으니 없는 것처럼 보이면 안 된다.
- *
- * 고강화로 갈수록 급격히 드물게 만든다. 실제로도 +8 이상 거래는 아주 드물고,
- * 그 희소함 자체가 "표본 1건짜리 중앙값" 이라는 화면 경고가 실제로 걸리는지
- * 확인할 거리를 만들어 준다.
+ * 고강화가 아주 드물게 나오는 것 자체가 시험 거리다 — "표본 1건짜리
+ * 중앙값" 이라는 화면 경고가 실제로 걸리는지 여기서 확인된다.
  */
 function mockGrade(rng: ReturnType<typeof createRng>): number {
   const roll = rng.next();
-  if (roll < 0.62) return 1;
-  if (roll < 0.80) return 2;
-  if (roll < 0.90) return 3;
-  if (roll < 0.95) return 4;
-  if (roll < 0.975) return 5;
-  if (roll < 0.99) return 6;
-  if (roll < 0.996) return 7;
-  if (roll < 0.999) return 8;
-  return rng.next() < 0.7 ? 9 : 10;
+  for (const [grade, upTo] of MOCK_GRADE_CDF) {
+    if (roll < upTo) return grade;
+  }
+  return MOCK_GRADE_CDF[MOCK_GRADE_CDF.length - 1][0];
 }
 
 /**
- * 시세 관측소용 거래 목업.
+ * 거래 관측소용 거래 목업.
  *
  * mockTrades 는 카드를 매번 새로 뽑아서 spid 가 거의 안 겹친다 —
  * 그러면 카드마다 표본이 1건이라 가격대도 추세도 나오지 않는다.

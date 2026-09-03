@@ -105,7 +105,7 @@ src/
 │       │   └── trades/             ?ouid= → 거래 내역 + 자금 흐름
 │       ├── match/[matchId]/        매치 상세 + 출전 명단(카드 정보 병합)
 │       ├── players/                ?q= 초성 검색 · ?season= · ?position=
-│       │   └── [spid]/             카드 상세 + 강화 +1~+10 곡선
+│       │   └── [spid]/             카드 상세 + 강화 +1~+13 곡선
 │       └── pack/                   상자 목록 / ?box= 확률·기대값
 │           └── open/               POST 서버 추첨
 │

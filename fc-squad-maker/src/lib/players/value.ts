@@ -79,7 +79,7 @@ export function estimateValue({ ovr, seasonClassName, grade = 1 }: ValueInput): 
   return Math.round(value / 1000) * 1000;
 }
 
-/** +1 ~ +10 가치 곡선을 통째로 */
+/** +1 ~ +13 가치 곡선을 통째로 */
 export function valueCurve(ovr: number, seasonClassName?: string): number[] {
   return GRADE_VALUE_MULTIPLIER.map((_, index) =>
     estimateValue({ ovr, seasonClassName, grade: index + 1 }),

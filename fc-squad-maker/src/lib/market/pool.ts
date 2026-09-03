@@ -34,10 +34,11 @@ import type { DataSource } from '@/lib/nexon/service';
  * 숨기지 않는다. 영구 저장이 필요하면 아래 absorb/read 두 함수만
  * KV·DB 로 갈아끼우면 되도록 접점을 좁혀 뒀다.
  *
- * ── 약관 ──
- * 넥슨 Open API 는 받아 둔 데이터를 30일 이내에 갱신할 것을 요구한다.
- * absorb() 가 매번 pruneObservations 를 통과시키므로, 오래된 관측은
- * '언젠가'가 아니라 다음 조회 시점에 반드시 떨어진다.
+ * ── 보관 기한 ──
+ * 오래된 관측은 RETENTION_DAYS(이 프로젝트가 정한 값, 약관 인용이 아니다 —
+ * livefeed.ts 주석 참고) 가 지나면 지수에서 뺀다. absorb() 가 매번
+ * pruneObservations 를 통과시키므로, 그 제거는 '언젠가'가 아니라 다음
+ * 조회 시점에 반드시 일어난다.
  */
 
 interface PoolState {

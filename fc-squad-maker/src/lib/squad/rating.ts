@@ -8,7 +8,7 @@ export interface SquadEntry {
   slotId: string;
   slotPosition: PositionCode;
   card: PlayerCardData;
-  /** 강화 단계 (+1 ~ +10) */
+  /** 강화 단계 (+1 ~ +13). fconline/rules.ts 참고 */
   grade: number;
 }
 
