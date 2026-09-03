@@ -65,7 +65,13 @@ export interface CardLookupResult {
   source: DataSource;
   /** 어느 강화 등급의 값인지. null 이면 등급을 가리지 않고 합친 값 */
   grade: number | null;
-  /** 검색된 카드들의 표본에 실제로 있는 등급 (선택 UI 용) */
+  /**
+   * 검색된 카드들의 표본에 실제로 있는 등급.
+   *
+   * 선택지를 **거르는** 데 쓰지 않는다 — 화면은 +1~+10 을 전부 띄우고
+   * 이 값으로 "여기 데이터가 있다" 표시만 한다. 표본 없는 등급을 고를 수
+   * 없게 막으면 "+7 은 얼마지?" 를 물어볼 방법 자체가 사라진다.
+   */
   availableGrades: number[];
 }
 
@@ -125,7 +131,8 @@ export async function lookupCardPrices({
   const wanted = new Set(candidates.map((card) => card.spid));
   const statOf = indexPool(observations, wanted, grade);
 
-  // 이 카드들에 실제로 존재하는 등급만 골라 준다 (선택 UI 를 채운다).
+  // 이 카드들의 표본에 실제로 있는 등급. 화면은 이걸로 선택지를 거르지 않고
+  // 어느 등급에 데이터가 있는지 표시만 한다(위 필드 주석 참고).
   const availableGrades = [
     ...new Set(observations.filter((row) => wanted.has(row.spid)).map((row) => row.grade)),
   ].sort((a, b) => a - b);

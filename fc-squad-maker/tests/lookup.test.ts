@@ -181,8 +181,9 @@ describe('lookupCardPrices', () => {
     expect(hit?.stat?.byGrade.find((row) => row.grade === 6)?.median).toBe(12_500_000);
   });
 
-  it('표본에 있는 등급만 선택지로 알려 준다', async () => {
-    // 표본도 없는 +9 를 눌러 놓고 빈 표를 보게 만들 이유가 없다.
+  it('어느 등급에 표본이 있는지 알려 준다', async () => {
+    // 이 목록은 선택지를 거르는 데 쓰지 않는다 — 화면은 +1~+10 을 전부
+    // 띄우고, 이 값으로 데이터가 있는 등급에 표시만 한다.
     const spid = await spidOf('손흥민');
     absorb(trades(spid, [1_000_000, 1_100_000], 1), NOW, 'nexon');
     absorb(trades(spid, [5_000_000], 4), NOW, 'nexon');
