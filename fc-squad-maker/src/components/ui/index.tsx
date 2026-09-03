@@ -3,6 +3,7 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 
 import { cn } from '@/lib/utils/cn';
+import { DATA_LAYER, type DataLayer } from '@/lib/data/provenance';
 
 /* ── Button ───────────────────────────────────────────────── */
 
@@ -103,6 +104,43 @@ export function Badge({
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * 이 숫자가 **어느 계층에서 왔는지** 밝히는 태그.
+ *
+ * 화면에는 공식 API 값, 공식 규칙, 우리가 모은 관측, 우리가 지어낸 추정이
+ * 나란히 뜬다. 표시가 없으면 넷 다 "게임에서 온 값" 으로 읽히고, 사람은
+ * 우리 추정치로 실제 거래를 한다(data/provenance.ts 주석 참고).
+ *
+ * 색점만 두지 않고 글자를 같이 둔다 — 색으로만 구분하면 색각 이상이 있는
+ * 사용자에게는 아무 정보도 아니다.
+ */
+const LAYER_TONE: Readonly<Record<DataLayer, BadgeTone>> = {
+  'official-api': 'lime',
+  'official-rule': 'cyan',
+  observed: 'violet',
+  estimated: 'neutral',
+};
+
+export function DataLayerTag({
+  layer,
+  className,
+  children,
+}: {
+  layer: DataLayer;
+  className?: string;
+  /** 계층 이름 대신 쓸 말 (예: '추정 OVR'). 툴팁은 그대로 유지된다 */
+  children?: ReactNode;
+}) {
+  const info = DATA_LAYER[layer];
+  return (
+    <Badge tone={LAYER_TONE[layer]} className={cn('whitespace-nowrap', className)}>
+      <span title={info.description}>
+        {info.dot} {children ?? info.label}
+      </span>
+    </Badge>
   );
 }
 
@@ -242,17 +280,32 @@ export function StatTile({
   value,
   sub,
   tone = 'neutral',
+  layer,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: 'neutral' | 'good' | 'bad';
+  /**
+   * 이 숫자가 어느 계층에서 왔는지. 지정하면 라벨 옆에 색점이 붙는다.
+   *
+   * 생략은 "표시할 필요가 없다"(예: 우리가 센 건수)는 뜻이지 "공식"이라는
+   * 뜻이 아니다 — 추정값 타일에는 반드시 넣는다.
+   */
+  layer?: DataLayer;
 }) {
   const valueTone =
     tone === 'good' ? 'text-neon-lime' : tone === 'bad' ? 'text-neon-rose' : 'text-slate-100';
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500">
+        {label}
+        {layer ? (
+          <span title={DATA_LAYER[layer].description} className="cursor-help not-italic">
+            {DATA_LAYER[layer].dot}
+          </span>
+        ) : null}
+      </p>
       <p className={cn('num mt-0.5 text-lg font-bold leading-tight', valueTone)}>{value}</p>
       {sub ? <p className="mt-0.5 text-[10px] text-slate-500">{sub}</p> : null}
     </div>

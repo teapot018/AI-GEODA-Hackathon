@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Sparkles, TrendingUp, TriangleAlert, Users2 } from 'lucide-react';
 
-import { Badge, Card, CardHeader, StatBar, StatTile } from '@/components/ui';
+import { Badge, Card, CardHeader, DataLayerTag, StatBar, StatTile } from '@/components/ui';
 import { enhanceCard, enhanceCurve, upgradeOdds } from '@/lib/players/enhance';
 import { MAX_GRADE } from '@/lib/players/value';
 import type { Formation } from '@/lib/squad/formations';
@@ -54,18 +54,32 @@ function EnhancePanel({ slotId }: { slotId: string }) {
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          <StatTile label="오버롤" value={current.ovr} sub={`기본 ${entry.card.ovr}`} />
+          {/*
+            같은 줄에 성격이 다른 세 숫자가 뜬다.
+             - 오버롤: 기본값은 우리 추정(카탈로그), 상승분은 공식 표.
+               섞여 있으므로 더 약한 쪽(추정)으로 표시한다.
+             - 가치: 전부 우리 모델. 게임에 이런 숫자는 없다.
+             - 성공률: 넥슨이 공개한 강화 확률.
+          */}
+          <StatTile
+            label="추정 오버롤"
+            value={current.ovr}
+            sub={`추정 기본 ${entry.card.ovr} + 공식 강화 ${current.ovr - entry.card.ovr}`}
+            layer="estimated"
+          />
           <StatTile
             label="추정 가치"
             value={`${formatBP(current.value)}`}
             sub="BP"
             tone="good"
+            layer="estimated"
           />
           <StatTile
             label="+1→현재 성공률"
             value={formatPercent(odds.straightRate, 1)}
             sub={`기대 시도 ${odds.expectedAttempts.toFixed(1)}회`}
             tone={odds.straightRate < 0.05 ? 'bad' : 'neutral'}
+            layer="official-rule"
           />
         </div>
 
@@ -109,9 +123,12 @@ function EnhancePanel({ slotId }: { slotId: string }) {
               </button>
             ))}
           </div>
-          <p className="mt-5 text-[10px] leading-relaxed text-slate-600">
-            가치·상승폭은 공개 API 에 없는 항목이라 자체 추정 모델을 씁니다. 실제 거래소 시세와 다를 수
-            있습니다.
+          <p className="mt-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] leading-relaxed text-slate-600">
+            <DataLayerTag layer="estimated" />
+            가치와 기본 오버롤은 공개 API 에 없는 항목이라 자체 추정 모델을 씁니다 — 게임에 뜨는 값이
+            아니고, 실제 거래 가격과도 다릅니다.
+            <DataLayerTag layer="official-rule" />
+            강화 단계별 오버롤 상승과 성공 확률은 넥슨이 공개한 값입니다.
           </p>
         </div>
       </div>

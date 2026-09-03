@@ -69,6 +69,20 @@ export interface PlayerCardData {
   nation?: string;
   club?: string;
   league?: string;
-  /** 스탯이 로컬 시드에 있는 실측치인지, 추정치인지 */
-  statSource: 'seed' | 'estimated';
+  /**
+   * 능력치가 어디서 왔는가. **둘 다 계층 C(이 프로젝트가 만든 값)다.**
+   *
+   * 넥슨 Open API 는 카드의 오버롤과 세부 능력치를 주지 않는다. 그래서
+   * 어느 쪽도 "게임에 뜨는 값" 이 아니고, 화면에서는 둘 다 추정으로
+   * 표기한다. 한때 'seed' 를 실측치라고 불렀는데, 그 시드는 이 저장소에
+   * 사람이 손으로 적어 넣은 표일 뿐이다 — 손으로 적었다고 공식이 되지
+   * 않는다.
+   *
+   *  - project-seed    : dataset.ts 에 손으로 적어 둔 프로필
+   *  - project-formula : 포지션·이름으로 만들어 낸 추정 프로필
+   *
+   * 카드의 **존재 여부**는 이것과 무관하게 계층 A 다 — 카탈로그는 넥슨
+   * spid.json 이 준 목록으로만 만들어지고, 여기 값은 그 카드를 꾸밀 뿐이다.
+   */
+  statSource: 'project-seed' | 'project-formula';
 }

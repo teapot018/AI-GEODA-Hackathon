@@ -3,6 +3,7 @@ import { candidatePool, getCard, getCards, loadCatalog, searchPlayers } from '@/
 import { PLAYER_SEED } from '@/lib/players/dataset';
 import { DEMO_SEASONS } from '@/lib/players/seasons';
 import { seasonIdOf } from '@/lib/nexon/endpoints';
+import { loadMeta } from '@/lib/nexon/meta';
 
 /**
  * 카탈로그는 세 조각을 합친다 — 넥슨 spid.json(어떤 카드가 있는가),
@@ -50,6 +51,46 @@ describe('데모 폴백 — 넥슨이 안 될 때', () => {
   });
 });
 
+describe('카드가 어디서 왔는지 흐려지지 않는다', () => {
+  it('능력치는 어느 경로로 왔든 이 프로젝트가 만든 값이다', async () => {
+    /*
+     * 넥슨 Open API 는 카드의 오버롤·세부 능력치를 주지 않는다. 시드
+     * 프로필(dataset.ts)은 사람이 손으로 적어 둔 표일 뿐이라, 손으로
+     * 적었다고 공식이 되지 않는다. 그래서 statSource 의 두 값 모두
+     * project- 로 시작한다 — 'seed' 와 'estimated' 로 갈라 두면
+     * 한쪽이 실측처럼 읽힌다.
+     */
+    const { cards } = await searchPlayers({ query: '', limit: 60 });
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.statSource, card.name).toMatch(/^project-/);
+    }
+  });
+
+  it('카드의 존재 여부는 넥슨 메타가 정한다 — 시드가 카드를 만들지 않는다', async () => {
+    /*
+     * 시드에 이름이 있다고 카드가 생기면, 우리가 적어 둔 이름이 실제
+     * 게임에 없는 카드로 화면에 뜬다. 카탈로그는 메타의 spid 목록으로만
+     * 만들어지고 시드는 그 카드를 꾸미기만 한다.
+     */
+    const meta = await loadMeta();
+    const spids = new Set(meta.spids.map((row) => row.id));
+    const { cards } = await searchPlayers({ query: '', limit: 100 });
+
+    for (const card of cards) {
+      expect(spids.has(card.spid), `${card.name} (${card.spid})`).toBe(true);
+    }
+  });
+
+  it('데모 카탈로그는 데모라고 밝힌다', async () => {
+    // 데모 spid 는 시즌 번호와 이름 해시로 만들어 낸 값이라, 그 카드
+    // 조합이 실제 FC 온라인에 있다는 보장이 없다. 화면이 경고를 띄우려면
+    // 이 값이 올라와야 한다.
+    const result = await searchPlayers({ query: '손흥민' });
+    expect(result.source).toBe('demo');
+  });
+});
+
 describe('searchPlayers — 이름 검색', () => {
   it('한글 이름을 찾는다', async () => {
     const { cards } = await searchPlayers({ query: '손흥민' });
@@ -63,9 +104,9 @@ describe('searchPlayers — 이름 검색', () => {
   });
 
   it('별칭은 능력치를 붙이는 데 쓰인다', async () => {
-    // dataset 의 aliases 로 시드 프로필을 찾아 붙이므로 statSource 가 'seed' 가 된다.
+    // dataset 의 aliases 로 시드 프로필을 찾아 붙이므로 statSource 가 'project-seed' 가 된다.
     const { cards } = await searchPlayers({ query: '판 다이크', limit: 1 });
-    expect(cards[0].statSource).toBe('seed');
+    expect(cards[0].statSource).toBe('project-seed');
     expect(cards[0].positions).toContain('CB');
   });
 
@@ -124,7 +165,7 @@ describe('searchPlayers — 이름 검색', () => {
       seasonId: expect.any(Number),
       name: '김민재',
       ovr: expect.any(Number),
-      statSource: 'seed',
+      statSource: 'project-seed',
     });
     expect(card.positions.length).toBeGreaterThan(0);
     expect(card.imageUrl).toContain(String(card.spid));
@@ -155,7 +196,7 @@ describe('getCard / getCards — spid 로 직접 조회', () => {
     expect(card).not.toBeNull();
     expect(card!.spid).toBe(unknown);
     expect(card!.seasonId).toBe(999);
-    expect(card!.statSource).toBe('estimated');
+    expect(card!.statSource).toBe('project-formula');
     expect(card!.ovr).toBeGreaterThan(0);
     expect(card!.positions.length).toBeGreaterThan(0);
   });

@@ -30,7 +30,7 @@ export function makeCard(over: Partial<PlayerCardData> = {}): PlayerCardData {
     skillMoves: 5,
     weakFoot: 4,
     foot: '오른발',
-    statSource: 'seed',
+    statSource: 'project-seed',
     ...over,
   };
 }

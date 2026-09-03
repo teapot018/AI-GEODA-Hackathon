@@ -5,7 +5,13 @@ import { playerImageUrl, seasonIdOf, seasonImageUrl, pidOf } from '@/lib/nexon/e
 import { choseongKey, matchScore, normalize } from '@/lib/utils/hangul';
 import { PLAYER_SEED } from './dataset';
 import { estimateProfile } from './estimate';
-import { estimatedCardOvr, estimatedStatFactor, seasonRule, type SeasonTier } from './seasons';
+import {
+  estimatedCardOvr,
+  estimatedStatFactor,
+  MAX_ESTIMATED_OVR,
+  seasonRule,
+  type SeasonTier,
+} from './seasons';
 import type { GkStats, HexStats, PlayerCardData, PlayerProfile, PositionCode } from './types';
 
 /**
@@ -117,13 +123,19 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
     nation: profile.nation,
     club: profile.club,
     league: profile.league,
-    statSource: seeded ? 'seed' : 'estimated',
+    statSource: seeded ? 'project-seed' : 'project-formula',
   };
 }
 
-/** 카드 표기 배율을 세부 능력치에 적용한다 (상한은 오버롤 상한과 같은 145). */
+/**
+ * 카드 표기 배율을 세부 능력치에 적용한다.
+ *
+ * 상한은 추정 오버롤 상한과 같은 값을 쓴다. 숫자를 여기 따로 박아 두면
+ * (한때 145 가 박혀 있었다) 오버롤 상한만 올렸을 때 스탯이 먼저 천장에
+ * 눌려, 같은 카드를 설명하는 두 숫자가 어긋난다.
+ */
 const scaleStat = (n: number, factor: number) =>
-  Math.max(1, Math.min(145, Math.round(n * factor)));
+  Math.max(1, Math.min(MAX_ESTIMATED_OVR, Math.round(n * factor)));
 
 function scaleHexStats(stats: HexStats, factor: number): HexStats {
   return {
@@ -221,7 +233,7 @@ export async function getCard(spid: number): Promise<PlayerCardData | null> {
     skillMoves: profile.skillMoves,
     weakFoot: profile.weakFoot,
     foot: profile.foot,
-    statSource: 'estimated',
+    statSource: 'project-formula',
   };
 }
 

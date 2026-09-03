@@ -133,14 +133,22 @@ export function PlayerCard({
         ) : null}
       </div>
 
-      {card.statSource === 'estimated' ? (
-        <span
-          className="absolute bottom-1 right-1 rounded bg-black/50 px-1 text-[0.8em] text-slate-400"
-          title="공개 API 에 능력치가 없어 추정한 값입니다."
-        >
-          추정
-        </span>
-      ) : null}
+      {/*
+        오버롤·능력치는 **어느 경로로 왔든** 이 프로젝트가 만든 값이다.
+        넥슨 Open API 는 카드 능력치를 주지 않는다. 한때 시드 프로필에는
+        이 표시를 달지 않았는데, 그러면 손으로 적어 둔 표가 공식값처럼
+        보였다 — 손으로 적었다고 공식이 되지 않는다.
+      */}
+      <span
+        className="absolute bottom-1 right-1 rounded bg-black/50 px-1 text-[0.8em] text-slate-400"
+        title={
+          card.statSource === 'project-seed'
+            ? '공개 API 에 능력치가 없어 이 프로젝트가 정리해 둔 프로필 값을 씁니다. 게임의 공식 수치가 아닙니다.'
+            : '공개 API 에 능력치가 없어 포지션 기반으로 추정한 값입니다. 게임의 공식 수치가 아닙니다.'
+        }
+      >
+        추정
+      </span>
     </Wrapper>
   );
 }

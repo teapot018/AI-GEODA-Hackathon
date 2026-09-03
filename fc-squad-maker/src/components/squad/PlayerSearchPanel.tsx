@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Sparkles, Users } from 'lucide-react';
+import { Info, Search, Sparkles, Users } from 'lucide-react';
 
 import { DRAG_CARD } from '@/components/squad/Pitch';
 import { PlayerCard } from '@/components/squad/PlayerCard';
@@ -37,6 +37,15 @@ export function PlayerSearchPanel() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 카탈로그가 넥슨에서 왔는지 데모인지.
+   *
+   * 데모 카탈로그의 spid 는 시즌 번호와 이름 해시로 **만들어 낸 값**이라,
+   * 여기 뜨는 카드 조합이 실제 FC 온라인에 존재한다는 보장이 없다.
+   * 이름은 진짜 선수라 더 그럴듯해 보이는 게 문제다 — 밝히지 않으면
+   * 사용자는 없는 카드를 찾아 이적시장을 뒤지게 된다.
+   */
+  const [source, setSource] = useState<'nexon' | 'mock' | 'demo' | undefined>();
 
   const selectedSlot = useSquadStore((state) => state.selectedSlot);
   const assign = useSquadStore((state) => state.assign);
@@ -58,6 +67,7 @@ export function PlayerSearchPanel() {
         const res = await apiGet<SearchPayload>(`/api/players?${params}`, signal);
         setCards(res.data.cards);
         setTotal(res.data.total);
+        setSource(res.source);
         if (res.data.seasons) {
           setSeasons(res.data.seasons);
           metaLoaded.current = true;
@@ -108,6 +118,17 @@ export function PlayerSearchPanel() {
           </Button>
         }
       />
+
+      {source === 'demo' ? (
+        <p className="mx-3 mt-3 flex gap-1.5 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3 text-[10px] leading-relaxed text-amber-200/80">
+          <Info size={12} className="mt-px shrink-0" />
+          <span>
+            넥슨 카드 목록을 받지 못해 <b>데모 카탈로그</b>를 보여 주고 있습니다. 선수 이름은
+            실제지만 <b>시즌·카드 조합은 만들어 낸 것</b>이라, 여기 뜬 카드가 실제 FC 온라인에
+            존재한다는 보장이 없습니다.
+          </span>
+        </p>
+      ) : null}
 
       <div className="space-y-2 border-b border-white/[0.06] p-3">
         <div className="relative">
