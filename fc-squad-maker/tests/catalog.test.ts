@@ -175,12 +175,20 @@ describe('getCard / getCards — spid 로 직접 조회', () => {
 
 describe('candidatePool — 상자용 카드 풀', () => {
   it('오버롤 범위를 정확히 지킨다', async () => {
-    const pool = await candidatePool({ minOvr: 85, maxOvr: 88 });
+    /*
+     * 경계를 한 곳에만 적는다. 질의와 검증에 같은 숫자를 두 번 쓰면 한쪽만
+     * 고쳤을 때 조용히 어긋난다 — 실제로 카드 오버롤 표기를 FC 온라인
+     * 범위(90~145)로 올렸을 때 그렇게 됐다.
+     */
+    const minOvr = 114;
+    const maxOvr = 118;
+
+    const pool = await candidatePool({ minOvr, maxOvr });
     expect(pool.length).toBeGreaterThan(0);
     for (const spid of pool) {
       const card = await getCard(spid);
-      expect(card!.ovr, card!.name).toBeGreaterThanOrEqual(85);
-      expect(card!.ovr, card!.name).toBeLessThanOrEqual(88);
+      expect(card!.ovr, card!.name).toBeGreaterThanOrEqual(minOvr);
+      expect(card!.ovr, card!.name).toBeLessThanOrEqual(maxOvr);
     }
   });
 

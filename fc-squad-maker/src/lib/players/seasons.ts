@@ -35,7 +35,7 @@ const TIER_RULES: TierRule[] = [
     tier: 'icon',
     codes: ['ICON', 'LIVEICON', 'HEROES'],
     phrases: ['아이콘'],
-    ovrBonus: 5,
+    ovrBonus: 32,
     valueMultiplier: 6.0,
     color: '#f0c14b',
   },
@@ -43,21 +43,21 @@ const TIER_RULES: TierRule[] = [
     tier: 'legend',
     codes: ['TC', 'CC', 'BTB', 'LH', 'TKI', 'TKL'],
     phrases: ['레전드'],
-    ovrBonus: 4,
+    ovrBonus: 30,
     valueMultiplier: 3.6,
     color: '#a78bfa',
   },
   {
     tier: 'high',
     codes: ['UP', 'TT', 'NG', 'MC', 'OTW', 'TOTS', 'TOTY'],
-    ovrBonus: 2,
+    ovrBonus: 27,
     valueMultiplier: 2.2,
     color: '#22e1ff',
   },
   {
     tier: 'mid',
     codes: ['NHD', 'LN', 'GR', 'HG', 'VTR', 'CFA', 'EBS'],
-    ovrBonus: 0,
+    ovrBonus: 24,
     valueMultiplier: 1.3,
     color: '#c6ff3d',
   },
@@ -66,7 +66,7 @@ const TIER_RULES: TierRule[] = [
 const BASE_RULE: TierRule = {
   tier: 'base',
   codes: [],
-  ovrBonus: -2,
+  ovrBonus: 22,
   valueMultiplier: 1,
   color: '#9aa7b8',
 };
@@ -97,14 +97,40 @@ export function seasonRule(className: string | undefined): TierRule {
 }
 
 /**
- * 시즌 보정을 얹은 카드 오버롤.
+ * ── 시드 능력치 → FC 온라인 카드 표기 ──────────────────────
  *
- * 카탈로그와 데모 생성기가 같은 값을 써야 한다 — 데모가 다른 오버롤로
- * 가격을 매기면 화면에 뜬 OVR 과 가격이 서로 안 맞는다.
+ * PLAYER_SEED 의 baseOvr 는 현실 선수 기량을 68~93 범위로 적어 둔 값이다.
+ * 그런데 게임 안에서 보이는 숫자는 그 범위가 아니다 — 시즌이 쌓이며
+ * 파워 인플레가 진행돼, 요즘 상위 카드는 **+1 에서 이미 120대**를 찍는다.
+ * 68~93 을 그대로 띄우면 게임을 아는 사람 눈에는 다른 게임 화면이다.
+ *
+ * 그래서 시드는 '현실 기량' 층으로 두고, 카드로 만들 때 시즌 티어만큼
+ * 끌어올린다. 티어 차이가 곧 파워 인플레의 크기다.
+ *
+ *   지단(93) + 아이콘(32) = 125    이순민(68) + 기본(22) = 90
+ *
+ * 상한을 145 로 둔 이유: +10 은 여기에 18 을 더 얹으므로(enhance.ts),
+ * 상위 카드가 만강되면 140대까지 올라간다. 120 으로 두면 고강화 카드가
+ * 전부 같은 숫자에 눌려붙어 강화의 의미가 화면에서 사라진다.
+ *
+ * 이 숫자들은 추정이며 화면에서도 `추정` 으로 표기한다. 넥슨 Open API 는
+ * 능력치를 주지 않으므로 실측으로 맞출 방법이 없다.
  */
 export function cardOvr(baseOvr: number, className: string | undefined): number {
   const bonus = seasonRule(className).ovrBonus;
-  return Math.max(40, Math.min(120, baseOvr + bonus));
+  return Math.max(60, Math.min(145, baseOvr + bonus));
+}
+
+/**
+ * 카드 표기에 맞춘 세부 능력치 배율.
+ *
+ * 오버롤만 올리고 스탯을 시드 그대로 두면 OVR 125 카드에 페이스 56 이
+ * 붙는다 — 같은 카드를 설명하는 두 숫자가 서로 다른 게임을 말하는 꼴이다.
+ * 오버롤이 오른 비율만큼 스탯도 같이 민다.
+ */
+export function cardStatFactor(baseOvr: number, className: string | undefined): number {
+  if (baseOvr <= 0) return 1;
+  return cardOvr(baseOvr, className) / baseOvr;
 }
 
 export function seasonTier(className: string | undefined): SeasonTier {

@@ -33,9 +33,16 @@ export function clampGrade(grade: number): number {
   return Math.max(MIN_GRADE, Math.min(MAX_GRADE, Math.round(grade)));
 }
 
-/** 오버롤 -> 기준 BP (+1 기준, 티어 보정 전) */
+/**
+ * 오버롤 -> 기준 BP (+1 기준, 티어 보정 전)
+ *
+ * pivot 은 카드 오버롤 표기와 함께 움직여야 한다. 표기를 FC 온라인 범위로
+ * 올리면서(seasons.ts cardOvr) pivot 을 그대로 뒀더니 지수가 30 가까이 커져
+ * 값이 수천 배로 튀었다. 표기를 올린 만큼 pivot 도 올려, **보이는 숫자만
+ * 바뀌고 가격대는 그대로**가 되게 한다.
+ */
 export function baseValueOf(ovr: number): number {
-  const pivot = 60;
+  const pivot = 87;
   const raw = 900 * 1.315 ** Math.max(0, ovr - pivot);
   return Math.round(raw / 100) * 100;
 }

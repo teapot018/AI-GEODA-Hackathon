@@ -146,9 +146,13 @@ describe('openBox — 개봉', () => {
   });
 
   it('총 가치와 비용이 맞게 집계된다', async () => {
+    // 가격을 상수로 박지 않는다 — 이 테스트가 보는 건 '가격 × 횟수' 라는
+    // 관계지 그날의 가격이 아니다. 박아 두면 샘플 가격을 조정할 때마다
+    // 관계는 멀쩡한데 테스트가 빨개진다.
+    const box = PACK_BOXES.find((b) => b.id === 'premium-bp')!;
     const result = await openBox({ boxId: 'premium-bp', times: 4, seed: 'cost-check' });
     expect(result.totalValue).toBe(result.cards.reduce((s, c) => s + c.value, 0));
-    expect(result.cost).toEqual({ currency: 'BP', amount: 5_000_000 * 4 });
+    expect(result.cost).toEqual({ currency: 'BP', amount: box.price * 4 });
   });
 
   it('낮은 등급은 항상 +1 로 나온다', async () => {

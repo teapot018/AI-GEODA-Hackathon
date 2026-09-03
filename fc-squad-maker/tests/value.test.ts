@@ -67,8 +67,13 @@ describe('clampGrade', () => {
 
 describe('baseValueOf — 오버롤 → 기준 BP', () => {
   it('오버롤이 오르면 값도 오른다', () => {
-    for (let ovr = 61; ovr <= 110; ovr += 1) {
-      expect(baseValueOf(ovr)).toBeGreaterThan(baseValueOf(ovr - 1));
+    /*
+     * pivot(87) 아래는 바닥값 900 으로 눌려 있어 단조 증가가 성립하지 않는다.
+     * 카드 오버롤 표기가 FC 온라인 범위(90~145)로 올라가면서 그 구간은 실제
+     * 카드가 존재하지 않는 영역이 됐으므로, 카드가 실제로 놓이는 구간에서 본다.
+     */
+    for (let ovr = 89; ovr <= 145; ovr += 1) {
+      expect(baseValueOf(ovr), `OVR ${ovr}`).toBeGreaterThan(baseValueOf(ovr - 1));
     }
   });
 
@@ -79,7 +84,9 @@ describe('baseValueOf — 오버롤 → 기준 BP', () => {
   });
 
   it('오버롤 1 차이의 값 배수는 대략 1.3 배다', () => {
-    expect(baseValueOf(90) / baseValueOf(89)).toBeCloseTo(1.315, 1);
+    // 낮은 오버롤에서는 100 단위 반올림이 비율을 흔든다(2000/1600 = 1.25).
+    // 곡선의 기울기를 보는 테스트이므로 반올림이 묻히는 구간에서 잰다.
+    expect(baseValueOf(120) / baseValueOf(119)).toBeCloseTo(1.315, 1);
   });
 });
 

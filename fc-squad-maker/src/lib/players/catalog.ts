@@ -5,8 +5,8 @@ import { playerImageUrl, seasonIdOf, seasonImageUrl, pidOf } from '@/lib/nexon/e
 import { choseongKey, matchScore, normalize } from '@/lib/utils/hangul';
 import { PLAYER_SEED } from './dataset';
 import { estimateProfile } from './estimate';
-import { cardOvr, seasonRule, type SeasonTier } from './seasons';
-import type { PlayerCardData, PlayerProfile, PositionCode } from './types';
+import { cardOvr, cardStatFactor, seasonRule, type SeasonTier } from './seasons';
+import type { GkStats, HexStats, PlayerCardData, PlayerProfile, PositionCode } from './types';
 
 /**
  * 선수 카드 카탈로그.
@@ -93,6 +93,11 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
   const profile = seeded ?? estimateProfile({ name: entry.name });
 
   const ovr = cardOvr(profile.baseOvr, season?.className);
+  /*
+   * 스탯도 카드 표기에 맞춰 민다. 오버롤만 올리면 OVR 125 카드에 페이스 56 이
+   * 붙어, 같은 카드를 설명하는 두 숫자가 서로 다른 게임을 말하게 된다.
+   */
+  const factor = cardStatFactor(profile.baseOvr, season?.className);
 
   return {
     spid: entry.spid,
@@ -104,8 +109,8 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
     name: entry.name,
     positions: profile.positions as PositionCode[],
     ovr,
-    stats: profile.stats,
-    gk: profile.gk,
+    stats: scaleHexStats(profile.stats, factor),
+    gk: profile.gk ? scaleGkStats(profile.gk, factor) : undefined,
     skillMoves: profile.skillMoves,
     weakFoot: profile.weakFoot,
     foot: profile.foot,
@@ -113,6 +118,32 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
     club: profile.club,
     league: profile.league,
     statSource: seeded ? 'seed' : 'estimated',
+  };
+}
+
+/** 카드 표기 배율을 세부 능력치에 적용한다 (상한은 오버롤 상한과 같은 145). */
+const scaleStat = (n: number, factor: number) =>
+  Math.max(1, Math.min(145, Math.round(n * factor)));
+
+function scaleHexStats(stats: HexStats, factor: number): HexStats {
+  return {
+    pace: scaleStat(stats.pace, factor),
+    shooting: scaleStat(stats.shooting, factor),
+    passing: scaleStat(stats.passing, factor),
+    dribbling: scaleStat(stats.dribbling, factor),
+    defending: scaleStat(stats.defending, factor),
+    physical: scaleStat(stats.physical, factor),
+  };
+}
+
+function scaleGkStats(stats: GkStats, factor: number): GkStats {
+  return {
+    diving: scaleStat(stats.diving, factor),
+    handling: scaleStat(stats.handling, factor),
+    kicking: scaleStat(stats.kicking, factor),
+    reflexes: scaleStat(stats.reflexes, factor),
+    speed: scaleStat(stats.speed, factor),
+    positioning: scaleStat(stats.positioning, factor),
   };
 }
 

@@ -51,13 +51,20 @@ export const PACK_BOXES: PackBox[] = [
     name: 'BP 프리미엄 팩',
     subtitle: 'BP 로 살 수 있는 기본 팩. 무난하게 스쿼드 뼈대를 채운다.',
     currency: 'BP',
-    price: 5_000_000,
+    /*
+     * 가격은 이 프로젝트가 정한 샘플 값이다(실제 상품가가 아니다).
+     * 카드 오버롤 표기를 FC 온라인 범위로 올리면서 등급 경계를 다시 잡았고,
+     * 그 결과 풀 구성이 바뀌어 기대값이 옛 가격을 넘어섰다. 확률형 상품은
+     * 기대값이 가격보다 낮은 게 성립 조건이라(그래야 상자를 파는 쪽이 남는다),
+     * 가격을 다시 맞춘다. 이 관계는 pack 테스트가 지킨다.
+     */
+    price: 6_300_000,
     drawCount: 3,
     tiers: [
-      { id: 'common',  label: '일반 (OVR ~79)',      probability: 0.62,  color: '#9aa7b8', rarity: 1, filter: { maxOvr: 79 } },
-      { id: 'rare',    label: '레어 (OVR 80~84)',    probability: 0.27,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 80, maxOvr: 84 } },
-      { id: 'epic',    label: '에픽 (OVR 85~88)',    probability: 0.093, color: '#22e1ff', rarity: 3, filter: { minOvr: 85, maxOvr: 88 } },
-      { id: 'legend',  label: '레전드 (OVR 89+)',    probability: 0.016, color: '#a78bfa', rarity: 4, filter: { minOvr: 89 } },
+      { id: 'common',  label: '일반 (OVR ~104)',     probability: 0.62,  color: '#9aa7b8', rarity: 1, filter: { maxOvr: 104 } },
+      { id: 'rare',    label: '레어 (OVR 105~113)',  probability: 0.27,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 105, maxOvr: 113 } },
+      { id: 'epic',    label: '에픽 (OVR 114~118)',  probability: 0.093, color: '#22e1ff', rarity: 3, filter: { minOvr: 114, maxOvr: 118 } },
+      { id: 'legend',  label: '레전드 (OVR 119+)',   probability: 0.016, color: '#a78bfa', rarity: 4, filter: { minOvr: 119 } },
       { id: 'icon',    label: '아이콘',              probability: 0.001, color: '#f0c14b', rarity: 5, filter: { seasonTiers: ['icon'] } },
     ],
   },
@@ -70,10 +77,10 @@ export const PACK_BOXES: PackBox[] = [
     drawCount: 1,
     pity: { tierId: 'legend', after: 20 },
     tiers: [
-      { id: 'common',  label: '일반 (OVR ~82)',      probability: 0.34,  color: '#9aa7b8', rarity: 1, filter: { maxOvr: 82 } },
-      { id: 'rare',    label: '레어 (OVR 83~86)',    probability: 0.42,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 83, maxOvr: 86 } },
-      { id: 'epic',    label: '에픽 (OVR 87~89)',    probability: 0.19,  color: '#22e1ff', rarity: 3, filter: { minOvr: 87, maxOvr: 89 } },
-      { id: 'legend',  label: '레전드 (OVR 90+)',    probability: 0.042, color: '#a78bfa', rarity: 4, filter: { minOvr: 90 } },
+      { id: 'common',  label: '일반 (OVR ~109)',     probability: 0.34,  color: '#9aa7b8', rarity: 1, filter: { maxOvr: 109 } },
+      { id: 'rare',    label: '레어 (OVR 110~116)',  probability: 0.42,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 110, maxOvr: 116 } },
+      { id: 'epic',    label: '에픽 (OVR 117~119)',  probability: 0.19,  color: '#22e1ff', rarity: 3, filter: { minOvr: 117, maxOvr: 119 } },
+      { id: 'legend',  label: '레전드 (OVR 120+)',   probability: 0.042, color: '#a78bfa', rarity: 4, filter: { minOvr: 120 } },
       { id: 'icon',    label: '아이콘',              probability: 0.008, color: '#f0c14b', rarity: 5, filter: { seasonTiers: ['icon'] } },
     ],
   },
@@ -85,10 +92,10 @@ export const PACK_BOXES: PackBox[] = [
     price: 2_400_000,
     drawCount: 5,
     tiers: [
-      { id: 'common',  label: '일반 (OVR ~76)',      probability: 0.78,   color: '#9aa7b8', rarity: 1, filter: { maxOvr: 76 } },
-      { id: 'rare',    label: '레어 (OVR 77~82)',    probability: 0.185,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 77, maxOvr: 82 } },
-      { id: 'epic',    label: '에픽 (OVR 83~87)',    probability: 0.032,  color: '#22e1ff', rarity: 3, filter: { minOvr: 83, maxOvr: 87 } },
-      { id: 'legend',  label: '레전드 (OVR 88+)',    probability: 0.0028, color: '#a78bfa', rarity: 4, filter: { minOvr: 88 } },
+      { id: 'common',  label: '일반 (OVR ~101)',     probability: 0.78,   color: '#9aa7b8', rarity: 1, filter: { maxOvr: 101 } },
+      { id: 'rare',    label: '레어 (OVR 102~110)',  probability: 0.185,  color: '#c6ff3d', rarity: 2, filter: { minOvr: 102, maxOvr: 110 } },
+      { id: 'epic',    label: '에픽 (OVR 111~117)',  probability: 0.032,  color: '#22e1ff', rarity: 3, filter: { minOvr: 111, maxOvr: 117 } },
+      { id: 'legend',  label: '레전드 (OVR 118+)',   probability: 0.0028, color: '#a78bfa', rarity: 4, filter: { minOvr: 118 } },
       { id: 'icon',    label: '아이콘',              probability: 0.0002, color: '#f0c14b', rarity: 5, filter: { seasonTiers: ['icon'] } },
     ],
   },
@@ -100,8 +107,8 @@ export const PACK_BOXES: PackBox[] = [
     price: 99_000,
     drawCount: 1,
     tiers: [
-      { id: 'icon-low',  label: '아이콘 (OVR ~91)', probability: 0.72, color: '#e0b64a', rarity: 4, filter: { seasonTiers: ['icon'], maxOvr: 91 } },
-      { id: 'icon-high', label: '아이콘 (OVR 92+)', probability: 0.28, color: '#f0c14b', rarity: 5, filter: { seasonTiers: ['icon'], minOvr: 92 } },
+      { id: 'icon-low',  label: '아이콘 (OVR ~118)', probability: 0.72, color: '#e0b64a', rarity: 4, filter: { seasonTiers: ['icon'], maxOvr: 118 } },
+      { id: 'icon-high', label: '아이콘 (OVR 119+)', probability: 0.28, color: '#f0c14b', rarity: 5, filter: { seasonTiers: ['icon'], minOvr: 119 } },
     ],
   },
 ];
