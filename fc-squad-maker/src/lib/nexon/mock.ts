@@ -2,7 +2,8 @@ import 'server-only';
 
 import { PLAYER_SEED } from '@/lib/players/dataset';
 import { archetypeOf } from '@/lib/players/estimate';
-import { DEMO_SEASONS } from '@/lib/players/seasons';
+import { cardOvr, DEMO_SEASONS } from '@/lib/players/seasons';
+import { clampGrade, estimateValue, GRADE_VALUE_MULTIPLIER } from '@/lib/players/value';
 import type { PositionCode } from '@/lib/players/types';
 import { createRng } from '@/lib/utils/rng';
 import { demoPidOf } from './meta';
@@ -112,12 +113,26 @@ export function mockMarketTrades(
   const taken = new Set<number>();
 
   for (let attempt = 0; pool.length < poolSize && attempt < poolSize * 20; attempt += 1) {
-    const spid = mockSpid(poolRng);
+    const season = poolRng.pick(DEMO_SEASONS);
+    const profile = poolRng.pick(PLAYER_SEED);
+    const spid = season.seasonId * 1_000_000 + demoPidOf(profile.name);
     if (taken.has(spid)) continue;
     taken.add(spid);
     pool.push({
       spid,
-      base: poolRng.int(5, 800) * 10_000,
+      /*
+       * 기준가를 난수로 뽑지 않는다.
+       *
+       * 예전에는 5만~800만 사이를 그냥 굴렸다. 그래서 아이콘 손흥민이
+       * 9만이고 2020 K리그 카드가 700만인 표가 나왔다 — 게임을 아는
+       * 사람이 한눈에 가짜라고 아는 화면이다. 카드값은 오버롤과 시즌
+       * 티어를 따라가므로, 이미 있는 가치 모델에 물려 그 형태를 지킨다.
+       */
+      base: estimateValue({
+        ovr: cardOvr(profile.baseOvr, season.className),
+        seasonClassName: season.className,
+        grade: 1,
+      }),
       // 카드마다 추세 방향을 따로 준다. 하나로 통일하면 데모에서
       // 모든 카드가 나란히 상승해 버려 가짜 티가 난다.
       slope: (poolRng.next() - 0.5) * 0.6,
@@ -133,14 +148,30 @@ export function mockMarketTrades(
     const age = i / Math.max(1, count - 1); // 0(최신) ~ 1(과거)
     const drift = 1 + card.slope * (0.5 - age);
     const noise = 0.85 + rng.next() * 0.3;
+
+    /*
+     * 등급을 먼저 굴리고, 가격은 그 등급에서 나오게 한다.
+     *
+     * 예전에는 등급과 가격을 따로 굴렸다. 그 결과 +1 과 +6 이 같은 값에
+     * 거래되는 표가 나왔는데, 강화가 값을 몇 배로 올리는 게임에서 이건
+     * 그냥 틀린 그림이다. 등급별 가격을 보러 온 사람에게는 특히 그렇다.
+     * 강화 배수는 가치 모델(GRADE_VALUE_MULTIPLIER)의 것을 그대로 쓴다 —
+     * 추정 모델이지만, 적어도 화면 곳곳이 같은 곡선을 말하게 된다.
+     */
+    const grade = rng.next() < 0.75 ? 1 : rng.int(2, 6);
+    const gradeMultiplier = GRADE_VALUE_MULTIPLIER[clampGrade(grade) - 1];
+
     return {
       tradeDate: new Date(Date.now() - (i + 1) * rng.int(1, 6) * 3_600_000)
         .toISOString()
         .slice(0, 19),
       saleSn: `${rng.int(100000, 999999)}`,
       spid: card.spid,
-      grade: rng.next() < 0.75 ? 1 : rng.int(2, 6),
-      value: Math.max(10_000, Math.round((card.base * drift * noise) / 10_000) * 10_000),
+      grade,
+      value: Math.max(
+        10_000,
+        Math.round((card.base * gradeMultiplier * drift * noise) / 10_000) * 10_000,
+      ),
     };
   });
 }

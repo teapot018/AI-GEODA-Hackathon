@@ -96,6 +96,17 @@ export function seasonRule(className: string | undefined): TierRule {
   return BASE_RULE;
 }
 
+/**
+ * 시즌 보정을 얹은 카드 오버롤.
+ *
+ * 카탈로그와 데모 생성기가 같은 값을 써야 한다 — 데모가 다른 오버롤로
+ * 가격을 매기면 화면에 뜬 OVR 과 가격이 서로 안 맞는다.
+ */
+export function cardOvr(baseOvr: number, className: string | undefined): number {
+  const bonus = seasonRule(className).ovrBonus;
+  return Math.max(40, Math.min(120, baseOvr + bonus));
+}
+
 export function seasonTier(className: string | undefined): SeasonTier {
   return seasonRule(className).tier;
 }

@@ -5,7 +5,7 @@ import { playerImageUrl, seasonIdOf, seasonImageUrl, pidOf } from '@/lib/nexon/e
 import { choseongKey, matchScore, normalize } from '@/lib/utils/hangul';
 import { PLAYER_SEED } from './dataset';
 import { estimateProfile } from './estimate';
-import { seasonRule, type SeasonTier } from './seasons';
+import { cardOvr, seasonRule, type SeasonTier } from './seasons';
 import type { PlayerCardData, PlayerProfile, PositionCode } from './types';
 
 /**
@@ -84,11 +84,6 @@ export function loadCatalog(): Promise<Catalog> {
 }
 
 /** 시즌 티어 보정을 반영한 카드 오버롤 */
-function cardOvr(baseOvr: number, className: string | undefined): number {
-  const bonus = seasonRule(className).ovrBonus;
-  return Math.max(40, Math.min(120, baseOvr + bonus));
-}
-
 async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
   const meta = await loadMeta();
   const season = meta.seasons.find((s) => s.seasonId === entry.seasonId);
