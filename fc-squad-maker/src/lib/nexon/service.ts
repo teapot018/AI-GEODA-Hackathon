@@ -21,6 +21,7 @@ import type {
   TradeRecord,
   UserBasic,
 } from './types';
+import { validateTradeRecords } from './validate';
 
 /**
  * 화면이 쓰기 좋은 형태로 가공하는 서비스 레이어.
@@ -344,10 +345,21 @@ export async function getAssetSnapshot(
 
   try {
     const [buy, sell] = await Promise.all([
-      nexonFetch<TradeRecord[]>(NX.userTrade, { ouid, tradetype: 'buy', offset: 0, limit }, { revalidate: 300 }),
-      nexonFetch<TradeRecord[]>(NX.userTrade, { ouid, tradetype: 'sell', offset: 0, limit }, { revalidate: 300 }),
+      nexonFetch<unknown>(NX.userTrade, { ouid, tradetype: 'buy', offset: 0, limit }, { revalidate: 300 }),
+      nexonFetch<unknown>(NX.userTrade, { ouid, tradetype: 'sell', offset: 0, limit }, { revalidate: 300 }),
     ]);
-    return { data: await build(buy, sell), source: 'nexon' };
+    /*
+     * 모양을 확인하고 들어간다. 행 하나가 null 이어도 나머지는 살리고,
+     * 응답이 통째로 배열이 아니면 에러를 낸다 — 빈 배열로 바꾸면
+     * "거래가 없다" 는 다른 말이 되고, 서버 오류가 정상 응답으로 둔갑한다.
+     */
+    return {
+      data: await build(
+        validateTradeRecords(buy, 'buy').rows,
+        validateTradeRecords(sell, 'sell').rows,
+      ),
+      source: 'nexon',
+    };
   } catch (error) {
     if (!shouldFallback(error)) throw error;
     return {

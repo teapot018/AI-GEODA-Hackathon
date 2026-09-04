@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { coverageNote } from '@/lib/nexon/coverage';
 
-const full = { ok: true, truncated: false, shiftedRows: 0 };
-const cut = { ok: true, truncated: true, shiftedRows: 0 };
-const missing = { ok: false, truncated: false, shiftedRows: 0 };
+const full = { ok: true, truncated: false, shiftedRows: 0, droppedRows: 0 };
+const cut = { ok: true, truncated: true, shiftedRows: 0, droppedRows: 0 };
+const missing = { ok: false, truncated: false, shiftedRows: 0, droppedRows: 0 };
 /** 페이지를 넘기는 사이 새 거래가 들어와 목록이 밀린 경우 */
-const shifted = { ok: true, truncated: false, shiftedRows: 7 };
+const shifted = { ok: true, truncated: false, shiftedRows: 7, droppedRows: 0 };
+/** 넥슨이 예상과 다른 모양의 행을 섞어 보낸 경우 */
+const malformed = { ok: true, truncated: false, shiftedRows: 0, droppedRows: 4 };
 
 describe('coverageNote', () => {
   it('둘 다 온전하면 붙일 말이 없다', () => {
@@ -55,9 +57,26 @@ describe('coverageNote', () => {
 
   it('받지 못한 쪽의 밀림은 세지 않는다', () => {
     // ok:false 면 그 방향은 아예 못 읽은 것이라 셀 겹침도 없다.
-    expect(coverageNote({ ok: false, truncated: false, shiftedRows: 5 }, full)).not.toContain(
+    expect(coverageNote({ ok: false, truncated: false, shiftedRows: 5, droppedRows: 0 }, full)).not.toContain(
       '목록이 밀렸습니다',
     );
+  });
+
+  it('모양이 다른 행을 버렸으면 몇 건인지 밝힌다', () => {
+    /*
+     * 조용히 줄어드는 표본이 제일 위험하다. 응답 형식이 바뀌어 절반이
+     * 버려지고 있어도, 말하지 않으면 화면은 그냥 "표본이 적네" 로 보인다.
+     */
+    const note = coverageNote(malformed, full);
+    expect(note).toContain('4건');
+    expect(note).toContain('예상과 다른 형태');
+  });
+
+  it('밀림과 형식 오류는 서로 다른 말로 적는다', () => {
+    // 하나는 "그 사이 거래가 있었다", 하나는 "응답이 이상하다" 다.
+    const note = coverageNote({ ...malformed, shiftedRows: 2 }, full);
+    expect(note).toContain('목록이 밀렸습니다');
+    expect(note).toContain('예상과 다른 형태');
   });
 
   it('문장은 마침표로 끝난다', () => {

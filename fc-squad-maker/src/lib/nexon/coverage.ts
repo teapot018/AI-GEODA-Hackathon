@@ -30,6 +30,14 @@ export interface SideCoverage {
    * "덜 깊이 봤다"로 적어야 맞다.
    */
   shiftedRows: number;
+  /**
+   * 모양이 맞지 않아 버린 행 수.
+   *
+   * 조용히 줄어드는 표본이 제일 위험하다. 넥슨 응답 형식이 바뀌어
+   * 절반이 버려지고 있어도, 세지 않으면 화면은 그냥 "표본이 적네" 로
+   * 보인다 — 적은 것과 버려진 것은 다른 이야기다.
+   */
+  droppedRows: number;
 }
 
 /**
@@ -54,6 +62,13 @@ export function coverageNote(buy: SideCoverage, sell: SideCoverage): string | un
   if (shifted > 0) {
     parts.push(
       `조회 중 새 거래가 들어와 목록이 밀렸습니다 — 겹친 ${shifted}건을 걸렀고 그만큼 과거로 덜 내려갔습니다`,
+    );
+  }
+
+  const dropped = (buy.ok ? buy.droppedRows : 0) + (sell.ok ? sell.droppedRows : 0);
+  if (dropped > 0) {
+    parts.push(
+      `넥슨 응답 중 ${dropped}건이 예상과 다른 형태라 통계에서 제외했습니다 (응답 형식이 바뀌었을 수 있습니다)`,
     );
   }
 

@@ -26,6 +26,7 @@ import type { PlayerCardData } from '@/lib/players/types';
 import { inferFormation, startersOf } from '@/lib/squad/import';
 import { describeFallback, MissingApiKeyError, NexonApiError, nexonFetch } from './client';
 import { coverageNote, type SideCoverage } from './coverage';
+import { validateTradeRecords } from './validate';
 import { MATCH_TYPE, NX } from './endpoints';
 import { matchTypeMap, positionMap } from './meta';
 import { mockMarketTrades, mockMatchDetail, mockMatchIds } from './mock';
@@ -157,6 +158,8 @@ async function fetchTradePages(
   pagesFetched: number;
   truncated: boolean;
   shiftedRows: number;
+  /** 모양이 맞지 않아 버린 행 수 */
+  droppedRows: number;
 }> {
   const records: TradeRecord[] = [];
   /*
@@ -172,18 +175,28 @@ async function fetchTradePages(
   const seen = new Set<string>();
   let pagesFetched = 0;
   let shiftedRows = 0;
+  let droppedRows = 0;
 
   for (let page = 0; page < pages; page += 1) {
     let batch: TradeRecord[];
     try {
-      batch = await nexonFetch<TradeRecord[]>(
+      /*
+       * `as T` 는 검사가 아니라 선언이라, 넥슨이 다른 모양을 줘도
+       * 타입스크립트는 우리 편을 든다. 여기서 실제로 확인한다 —
+       * 행 하나가 null 이면 멀쩡한 행까지 사라지고, spid 가 문자열이면
+       * 통계에 그대로 섞인다(nexon/validate.ts 주석 참고).
+       */
+      const payload = await nexonFetch<unknown>(
         NX.userTrade,
         { ouid, tradetype: side, offset: page * PAGE_SIZE, limit: PAGE_SIZE },
         { revalidate: 600 },
       );
+      const checked = validateTradeRecords(payload, side);
+      batch = checked.rows;
+      droppedRows += checked.dropped;
     } catch (error) {
       if (page === 0) throw error;
-      return { records, pagesFetched, truncated: true, shiftedRows };
+      return { records, pagesFetched, truncated: true, shiftedRows, droppedRows };
     }
     pagesFetched += 1;
     for (const row of batch) {
@@ -200,7 +213,7 @@ async function fetchTradePages(
     if (batch.length < PAGE_SIZE) break;
   }
 
-  return { records, pagesFetched, truncated: false, shiftedRows };
+  return { records, pagesFetched, truncated: false, shiftedRows, droppedRows };
 }
 
 export interface MarketOptions {
@@ -317,8 +330,13 @@ export async function getMarketReport({
 
     const coverage = (side: typeof buy): SideCoverage =>
       side
-        ? { ok: true, truncated: side.truncated, shiftedRows: side.shiftedRows }
-        : { ok: false, truncated: false, shiftedRows: 0 };
+        ? {
+            ok: true,
+            truncated: side.truncated,
+            shiftedRows: side.shiftedRows,
+            droppedRows: side.droppedRows,
+          }
+        : { ok: false, truncated: false, shiftedRows: 0, droppedRows: 0 };
 
     const observations = [
       ...tagSide(buy?.records ?? [], 'buy'),
