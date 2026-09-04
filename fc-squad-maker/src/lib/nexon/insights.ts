@@ -19,6 +19,7 @@ import {
 } from '@/lib/market/observations';
 import { pruneObservations, RETENTION_DAYS, type PoolStats, type PriceDelta } from '@/lib/market/livefeed';
 import { absorb, read as readPool } from '@/lib/market/pool';
+import { CALL_POLICY } from '@/lib/data/policy';
 import { env } from '@/lib/env';
 import { getCards } from '@/lib/players/catalog';
 import type { PlayerCardData } from '@/lib/players/types';
@@ -46,9 +47,11 @@ import { type DataSource, type Sourced } from './service';
  */
 
 /** Open API 가 한 번에 주는 최대 건수 */
-const PAGE_SIZE = 100;
+/** 계층 E — data/policy.ts CALL_POLICY.tradePageSize. 넥슨 제한이 아니다. */
+const PAGE_SIZE = CALL_POLICY.tradePageSize.value;
 /** 동시에 열어 둘 요청 수 — 429(호출량 초과)를 피하려고 낮게 잡았다. */
-const CONCURRENCY = 4;
+/** 계층 E — data/policy.ts CALL_POLICY.matchDetailConcurrency. 넥슨 제한이 아니다. */
+const CONCURRENCY = CALL_POLICY.matchDetailConcurrency.value;
 
 function shouldFallback(error: unknown, allowMock: boolean): boolean {
   if (!allowMock) return false;

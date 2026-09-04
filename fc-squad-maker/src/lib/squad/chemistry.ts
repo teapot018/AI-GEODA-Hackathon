@@ -163,7 +163,15 @@ export function computeEnhanceTeamColor(
     for (const c of candidates) {
       // bonus 0 은 그 단계에 그 인원 조건이 없다는 뜻이다(동빛 8명 등).
       if (c.bonus === 0 || count < c.need) continue;
-      if (!best || c.bonus > best.bonus) {
+      /*
+       * 보너스가 같으면 **더 높은 단계**를 고른다.
+       *
+       * 5강 5명은 동빛(3강↑)과 은빛(5강↑) 조건을 모두 만족하고 보너스도
+       * 둘 다 +1 이다. 게임 화면에는 은빛이 뜨므로, 먼저 찾은 동빛을
+       * 붙들고 있으면 안 된다. 단계를 낮은 것부터 도니 `>=` 로 두면
+       * 나중에 만난 높은 단계가 이긴다.
+       */
+      if (!best || c.bonus >= best.bonus) {
         best = {
           name: tier.name,
           minGrade: tier.minGrade,

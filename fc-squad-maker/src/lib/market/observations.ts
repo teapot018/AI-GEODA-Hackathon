@@ -173,6 +173,42 @@ export const MIN_SAMPLES = 2;
  */
 export const THIN_SAMPLES = 10;
 
+/**
+ * 표본이 얼마나 두꺼운지 — 네 단계.
+ *
+ * 예전에는 '얇다 / 아니다' 둘뿐이었다. 그런데 1건과 9건은 둘 다 '얇음'
+ * 인데도 전혀 다른 물건이다 — 1건은 분포가 아니라 그냥 그 한 건이고,
+ * 9건은 흔들리긴 해도 가운데가 있다. 한 칸에 넣으면 그 경고가 어느
+ * 쪽을 말하는지 알 수 없다.
+ *
+ * 고강화로 갈수록 표본이 얕아지므로, 이 구분이 실제로 걸리는 곳도
+ * 대부분 +8 이상이다.
+ */
+export type SampleConfidence = 'none' | 'very-thin' | 'thin' | 'ok';
+
+export const SAMPLE_CONFIDENCE_LABEL: Readonly<Record<SampleConfidence, string>> = {
+  none: '표본 없음',
+  'very-thin': '표본 매우 얇음',
+  thin: '표본 얇음',
+  ok: '관측 충분',
+};
+
+/**
+ * 'very-thin' 의 상한. 이 이하는 한 사람의 급매 하나가 중앙값을 통째로
+ * 정한다 — 계산은 하되 숫자를 믿으라고 하지 않는다.
+ *
+ * 3 이라는 값에 통계적 근거는 없다(계층: 프로젝트 정책). "손가락으로
+ * 셀 수 있으면 분포가 아니다" 는 판단이다.
+ */
+export const VERY_THIN_SAMPLES = 3;
+
+export function sampleConfidence(samples: number): SampleConfidence {
+  if (samples <= 0) return 'none';
+  if (samples <= VERY_THIN_SAMPLES) return 'very-thin';
+  if (samples < THIN_SAMPLES) return 'thin';
+  return 'ok';
+}
+
 export function tagSide(records: TradeRecord[], side: TradeSide): Observation[] {
   const timestampMeaning = meaningOf(side);
   return records.map((record) => ({ ...record, side, timestampMeaning }));

@@ -31,7 +31,17 @@ export function PackResultGrid({ cards }: { cards: PulledCard[] }) {
             >
               {pulled.tierLabel}
             </span>
-            {pulled.fromPity ? <Badge tone="violet">천장</Badge> : null}
+            {/*
+              '천장' 만 띄우면 게임의 공식 제도처럼 읽힌다. 이건 이
+              시뮬레이터가 넣은 규칙이다(boxes.ts PITY_IS_PROJECT_RULE).
+            */}
+            {pulled.fromPity ? (
+              <Badge tone="violet">
+                <span title="이 시뮬레이터의 규칙입니다. FC 온라인의 공식 천장 제도가 아닙니다.">
+                  천장 (모의)
+                </span>
+              </Badge>
+            ) : null}
           </div>
           <p className="num mt-0.5 text-center text-[10px] text-slate-500">
             {formatBP(pulled.value)} BP

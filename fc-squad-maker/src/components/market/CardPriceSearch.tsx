@@ -8,8 +8,13 @@ import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { TradeSampleNote } from './TradeSampleNote';
 import { apiGet, ApiError } from '@/lib/client/api';
 import type { CardLookupResult, CardPrice } from '@/lib/market/lookup';
-import { THIN_SAMPLES } from '@/lib/market/observations';
+import {
+  SAMPLE_CONFIDENCE_LABEL,
+  sampleConfidence,
+  THIN_SAMPLES,
+} from '@/lib/market/observations';
 import { formatAge, formatDuration } from '@/lib/data/freshness';
+import { cn } from '@/lib/utils/cn';
 import { formatBP } from '@/lib/utils/format';
 
 /**
@@ -208,7 +213,19 @@ function CardPriceRow({ card }: { card: CardPrice }) {
               */}
               <p className="text-[10px] text-slate-500">관측 중간 50%</p>
             </div>
-            <Badge tone={stat.samples >= THIN_SAMPLES ? 'violet' : 'amber'}>
+            {/*
+              1건과 9건은 둘 다 '얇음' 이지만 전혀 다른 물건이다 — 1건은
+              분포가 아니라 그냥 그 한 건이다. 네 단계로 갈라 적는다.
+            */}
+            <Badge
+              tone={
+                sampleConfidence(stat.samples) === 'ok'
+                  ? 'violet'
+                  : sampleConfidence(stat.samples) === 'thin'
+                    ? 'amber'
+                    : 'rose'
+              }
+            >
               <Database size={10} className="mr-1 inline shrink-0" />
               표본 {stat.samples}
             </Badge>
@@ -233,9 +250,21 @@ function CardPriceRow({ card }: { card: CardPrice }) {
                 읽힌다. 얇은 쪽은 색으로 갈라 둔다 — 3~4건 중앙값은 한
                 사람의 급매 하나에 통째로 끌려간다.
               */}
-              <span className={row.samples < THIN_SAMPLES ? 'text-amber-300/70' : 'text-slate-600'}>
+              <span
+                className={
+                  sampleConfidence(row.samples) === 'very-thin'
+                    ? 'text-rose-300/80'
+                    : sampleConfidence(row.samples) === 'thin'
+                      ? 'text-amber-300/70'
+                      : 'text-slate-600'
+                }
+              >
                 {' '}
-                ({row.samples}건{row.samples < THIN_SAMPLES ? ' · 표본 얇음' : ''})
+                ({row.samples}건
+                {sampleConfidence(row.samples) === 'ok'
+                  ? ''
+                  : ` · ${SAMPLE_CONFIDENCE_LABEL[sampleConfidence(row.samples)]}`}
+                )
               </span>
             </span>
           ))}
@@ -247,9 +276,19 @@ function CardPriceRow({ card }: { card: CardPrice }) {
         색만으로는 "그래서 이 값을 믿어도 되나" 에 답이 되지 않는다.
       */}
       {stat && stat.samples < THIN_SAMPLES ? (
-        <p className="mt-1.5 text-[10px] leading-relaxed text-amber-300/70">
-          관측 {stat.samples}건으로 낸 값입니다. 한두 건의 급매·바가지가 중앙값을 통째로 끌고 갈 수
-          있어, 거래 전에 다른 경로로 한 번 더 확인하세요.
+        <p
+          className={cn(
+            'mt-1.5 text-[10px] leading-relaxed',
+            sampleConfidence(stat.samples) === 'very-thin'
+              ? 'text-rose-300/80'
+              : 'text-amber-300/70',
+          )}
+        >
+          <b>{SAMPLE_CONFIDENCE_LABEL[sampleConfidence(stat.samples)]}</b> — 관측 {stat.samples}건으로
+          낸 값입니다.{' '}
+          {sampleConfidence(stat.samples) === 'very-thin'
+            ? '이 정도면 분포가 아니라 그 몇 건 자체입니다. 가격의 근거로 쓰지 마세요.'
+            : '한두 건의 급매·바가지가 중앙값을 통째로 끌고 갈 수 있어, 거래 전에 다른 경로로 한 번 더 확인하세요.'}
         </p>
       ) : null}
 

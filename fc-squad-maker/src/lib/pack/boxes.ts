@@ -50,6 +50,14 @@ export type ProbabilitySource = 'official' | 'project-sample';
  */
 export const EV_BELOW_PRICE = true;
 
+/**
+ * 천장이 이 프로젝트의 시뮬레이션 규칙인가 — 그렇다.
+ *
+ * FC 온라인 전체에 적용되는 공식 천장 제도가 있는지 확인하지 못했다.
+ * 화면이 '천장' 배지를 띄울 때 이 사실을 같이 적기 위한 상수다.
+ */
+export const PITY_IS_PROJECT_RULE = true;
+
 export interface PackTier {
   id: string;
   label: string;
@@ -83,7 +91,13 @@ export interface PackBox {
   price: number;
   /** 1회 개봉 시 나오는 카드 수 */
   drawCount: number;
-  /** 최고 등급 천장(연속 미획득 시 확정). 없으면 undefined */
+  /**
+   * 천장 — **이 시뮬레이터의 규칙**이지 FC 온라인의 공식 시스템이 아니다.
+   *
+   * 확률형 상품에 천장이 있는 상품도 있고 없는 상품도 있으며, FC 온라인
+   * 전체에 적용되는 보편적 천장 제도가 있는지 확인하지 못했다. 여기 값은
+   * 우리가 모의 상자를 설계하며 넣은 것이고, 화면에도 그렇게 적는다.
+   */
   pity?: { tierId: string; after: number };
   tiers: PackTier[];
 }
