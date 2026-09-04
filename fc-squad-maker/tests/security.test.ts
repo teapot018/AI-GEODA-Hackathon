@@ -188,3 +188,54 @@ describe('저장소에 키가 커밋되지 않았는가', () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 });
+
+describe('키가 흘러 나갈 수 있는 통로 (§84~86)', () => {
+  /*
+   * 키가 새는 길은 번들만이 아니다. URL, 로그, 에러 메시지, 스택 트레이스,
+   * 직렬화된 props — 전부 사람이 볼 수 있는 자리로 나간다. 여기서는
+   * 지금 실제로 막혀 있는 통로들을 못 박아 둔다.
+   */
+
+  it('키는 헤더로만 나가고 URL 에 들어가지 않는다', () => {
+    /*
+     * 이게 제일 중요한 한 줄이다. 키를 쿼리 파라미터로 옮기는 순간
+     * 프록시 로그, 브라우저 히스토리, Next 데이터 캐시 키, 에러 메시지에
+     * 전부 남는다. 지금은 x-nxopen-api-key 헤더로만 나간다.
+     */
+    const client = read(join(projectRoot, 'src/lib/nexon/client.ts'));
+    expect(client).toContain("headers['x-nxopen-api-key'] = env.apiKey");
+    // buildUrl 에 키를 넘기지 않는다.
+    expect(client).not.toMatch(/buildUrl\([^)]*apiKey/);
+    expect(client).not.toMatch(/[?&](?:api_?key|key)=/i);
+  });
+
+  it('로그에 키나 env 객체를 통째로 넘기지 않는다', () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles) {
+      const text = read(file);
+      for (const line of text.split('\n')) {
+        if (!/console\.(log|warn|error|info|debug)/.test(line)) continue;
+        if (/apiKey|NX_API_KEY|\benv\b\s*\)/.test(line)) offenders.push(`${rel(file)}: ${line.trim()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('응답 본문에 원본 에러 객체를 담지 않는다', () => {
+    /*
+     * handleError 는 코드와 사람이 읽을 메시지만 내보낸다. 예외를 그대로
+     * 직렬화하면 스택과 함께 요청 정보가 클라이언트로 나간다.
+     */
+    const respond = read(join(projectRoot, 'src/lib/api/respond.ts'));
+    expect(respond).toContain("fail(500, 'INTERNAL'");
+    expect(respond).not.toMatch(/JSON\.stringify\(\s*error/);
+    expect(respond).not.toMatch(/error:\s*error\b/);
+  });
+
+  it('키를 클라이언트로 내려보내는 props 가 없다', () => {
+    // 서버 컴포넌트가 env 를 그대로 props 로 넘기면 RSC 페이로드에 실린다.
+    const offenders = sourceFiles.filter((f) => /\bapiKey\b/.test(read(f)) && rel(f) !== 'src/lib/env.ts');
+    // client.ts 는 헤더에 넣기 위해 읽는다 — 그 한 곳만 허용한다.
+    expect(offenders.map(rel).filter((r) => r !== 'src/lib/nexon/client.ts')).toEqual([]);
+  });
+});
