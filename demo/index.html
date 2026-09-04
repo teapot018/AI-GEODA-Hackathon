@@ -444,7 +444,7 @@ tbody tr:last-child td{border-bottom:0}
 </div>
 
 <footer class="foot">
-  <p>넥슨 FC 온라인을 소재로 한 <b>비공식 팬 프로젝트</b>입니다. 이 페이지는 서버 없이 브라우저에서만 도는 판이라 넥슨 Open API 를 직접 호출하지 않고, 저장소와 동일한 결정적 샘플 데이터 위에서 같은 로직을 돌립니다. 능력치·오버롤·BP 가치·팀컬러는 공개 API 에 없는 항목이라 자체 추정 모델이고(게임에 뜨는 값이 아닙니다), 상자 이름·가격·확률도 이 프로젝트가 만든 모의 값입니다. 강화 단계별 오버롤 상승(+1~+13)만 넥슨 공식 값입니다.</p>
+  <p>넥슨 FC 온라인을 소재로 한 <b>비공식 팬 프로젝트</b>입니다. 이 페이지는 서버 없이 브라우저에서만 도는 판이라 넥슨 Open API 를 직접 호출하지 않고, 저장소와 동일한 결정적 샘플 데이터 위에서 같은 로직을 돌립니다. 능력치·오버롤·BP 가치·팀컬러는 공개 API 에 없는 항목이라 자체 추정 모델이고(게임에 뜨는 값이 아닙니다), 상자 이름·가격·확률도 이 프로젝트가 만든 모의 값입니다. 강화 단계별 오버롤 상승(+1~+13)만 넥슨 공식 값입니다. 강화 팀컬러(물결) 단계표는 커뮤니티 정리에서 가져온 <b>미검증</b> 값이라 종합 점수에 넣지 않습니다.</p>
 </footer>
 
 <script>
@@ -731,9 +731,44 @@ function teamColors(cards){
   return {colors: out, hints: hints.slice(0,3)};
 }
 
+/* ── 강화 팀컬러 (물결) ────────────────────────────────────
+   위 팀컬러와 축이 다르다. 저쪽은 "누구를 모았나" 고 이쪽은 "얼마나
+   강화했나" 다 — 실제 게임에서 "은카", "8금" 이라고 부르는 그것이다.
+   한 스쿼드는 조건을 만족하는 것 중 가장 센 것 하나만 받는다.
+
+   단계표는 커뮤니티 정리에서 가져왔고 넥슨 공지 원문으로 대조하지
+   못했다(본 앱 fconline/rules.ts 와 같은 표). 그래서 종합 점수에는
+   더하지 않고 화면에만 알린다.                                    */
+const WAVE_VERIFIED = false;
+const WAVE_TIERS = [
+  {name:'동빛 물결',   minGrade:3,  at5:1, at8:0},
+  {name:'은빛 물결',   minGrade:5,  at5:1, at8:3},
+  {name:'금빛 물결',   minGrade:8,  at5:3, at8:4},
+  {name:'백금빛 물결', minGrade:11, at5:4, at8:5},
+];
+const WAVE_COUNTS = {t1:5, t2:8};
+
+function enhanceWave(entries){
+  let best = null;
+  for(const tier of WAVE_TIERS){
+    const count = entries.filter(e => e.grade >= tier.minGrade).length;
+    for(const c of [{req:WAVE_COUNTS.t2, bonus:tier.at8}, {req:WAVE_COUNTS.t1, bonus:tier.at5}]){
+      if(!c.bonus || count < c.req) continue;
+      // 보너스가 같으면 더 높은 단계를 고른다(5강 5명 = 동빛도 은빛도
+      // +1 인데 게임 화면에는 은빛이 뜬다). 낮은 단계부터 도니 >= 로 둔다.
+      if(!best || c.bonus >= best.bonus){
+        best = {name:tier.name, minGrade:tier.minGrade, count, req:c.req, bonus:c.bonus};
+      }
+      break;
+    }
+  }
+  return best;
+}
+
 function rateSquad(entries){
   if(!entries.length) return null;
   const {colors, hints} = teamColors(entries.map(e => e.card));
+  const wave = enhanceWave(entries);
   const chem = Math.min(8, colors.reduce((s,c) => s+c.bonus, 0));
   const lines = {d:[], m:[], a:[]}, avg = [0,0,0,0,0,0], misfits = [];
   let wsum = 0, raw = 0, total = 0;
@@ -749,7 +784,7 @@ function rateSquad(entries){
   const mean = a => a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : 0;
   return {
     n, overall: Math.round(wsum/n + chem), raw: Math.round(raw/n),
-    chem: Math.round(chem*10)/10, colors, hints, total, misfits,
+    chem: Math.round(chem*10)/10, colors, hints, total, misfits, wave,
     lines: {d: mean(lines.d), m: mean(lines.m), a: mean(lines.a)},
     avg: avg.map(v => Math.round(v/n)),
   };
@@ -862,7 +897,14 @@ function renderRating(){
           <div style="display:grid; gap:6px">${STAT_LABELS.map((l,i) => bar(l, r.avg[i])).join('')}</div>
         </div>
         <div>
-          <p class="eyebrow" style="margin:0 0 7px">팀컬러 · 자체 근사</p>
+          <div class="note" style="margin:0 0 9px">
+            <b>강화 팀컬러</b> 🔴 규칙 미검증 —
+            ${r.wave
+              ? `<b style="color:var(--accent-text)">${esc(r.wave.name)}</b> (+${r.wave.minGrade} 이상 ${r.wave.count}명 · ${r.wave.req}명 조건) · 전 능력치 +${r.wave.bonus} 로 알려져 있습니다.`
+              : '아직 발동한 물결이 없습니다.'}
+            단계표를 넥슨 공지로 대조하지 못해 위 종합 오버롤에는 더하지 않았습니다.
+          </div>
+          <p class="eyebrow" style="margin:0 0 7px">클럽·국가·리그 팀컬러 · 자체 근사</p>
           ${r.colors.length ? `<div style="display:grid; gap:5px">${r.colors.slice(0,5).map(c =>
             `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 9px; background:var(--surface-2); border:1px solid var(--line); border-radius:7px">
               <span style="font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(c.label)}</span>
@@ -1215,7 +1257,7 @@ function renderBoxes(){
       <h3>${esc(b.name)}</h3>
       <p>${esc(b.sub)}</p>
       <span class="price">${nf(b.price)} ${b.cur} · ${b.draws}장</span>
-      ${b.pity ? `<span style="display:block; margin-top:3px; font-size:10px; color:var(--accent-text)">천장 ${b.pity.after}회</span>` : ''}
+      ${b.pity ? `<span style="display:block; margin-top:3px; font-size:10px; color:var(--accent-text)">천장 ${b.pity.after}회 (모의 규칙)</span>` : ''}
     </button>`).join('');
 }
 
@@ -1242,7 +1284,7 @@ function renderStage(){
         <div style="animation-delay:${Math.min(i*80, 780)}ms; text-align:center">
           ${cardHTML(c.card, {grade:c.grade, w:110, value:true})}
           <span class="cap" style="background:${c.tier.css}; color:#0B1512">${esc(c.tier.label.split(' · ')[0])}</span>
-          ${c.fromPity ? '<span class="badge gold" style="margin-left:3px">천장</span>' : ''}
+          ${c.fromPity ? '<span class="badge gold" style="margin-left:3px" title="이 시뮬레이터의 규칙입니다. FC 온라인의 공식 천장 제도가 아닙니다.">천장 (모의)</span>' : ''}
         </div>`).join('')}</div>
       <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:baseline;
                   margin-top:15px; padding-top:12px; border-top:1px solid var(--line); font-size:11.5px">

@@ -187,7 +187,9 @@ export function BoxSimulator() {
               {formatNumber(box.price)} {box.currency} · {box.drawCount}장
             </p>
             {box.pity ? (
-              <p className="mt-1 text-[10px] text-neon-violet">천장 {box.pity.after}회</p>
+              <p className="mt-1 text-[10px] text-neon-violet">
+                천장 {box.pity.after}회 <span className="text-slate-600">(모의 규칙)</span>
+              </p>
             ) : null}
           </button>
         ))}
@@ -208,7 +210,8 @@ export function BoxSimulator() {
             action={
               selected?.pity ? (
                 <Badge tone="violet">
-                  천장까지 {Math.max(0, selected.pity.after - pityRef.current)}회
+                  천장까지 {Math.max(0, selected.pity.after - pityRef.current)}회{' '}
+                  <span className="text-slate-600">(모의)</span>
                 </Badge>
               ) : null
             }
