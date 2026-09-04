@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { MIN_SAMPLES, THIN_SAMPLES, TRADE_SAMPLE_DISCLAIMER } from '@/lib/market/observations';
-import { ENHANCEMENT_STEPS, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
+import { ENHANCEMENT_STEPS, LISTING_BAND, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { MOCK_GRADE_CDF } from '@/lib/nexon/mock';
 
 /**
@@ -142,6 +142,43 @@ describe('우리 가격 지수를 공식 지수라고 부르지 않는다', () =
     const file = FILES.find((f) => f.path === 'components/market/MarketObservatory.tsx');
     expect(file).toBeDefined();
     expect(file!.text).toContain('넥슨이 공시하는 가격지수가 아닙니다');
+  });
+});
+
+describe('게임의 하한가/상한가를 우리 사분위값에 붙이지 않는다', () => {
+  /*
+   * FC 온라인의 하한가/상한가는 **게임이 정하는 등록 가능 구간**이다.
+   * 기준가를 중심으로 잡히고, 그 밖으로는 등록 자체가 되지 않는다.
+   *
+   * 우리 p25/p75 는 우리가 본 거래의 가운데 절반이 놓인 구간이다. 둘은
+   * 전혀 다른 물건인데, 화면에서 이름이 같아지면 사용자는 우리 관측값을
+   * 게임이 강제하는 선으로 읽고 그 아래 가격은 시도조차 하지 않는다.
+   */
+  it('배율을 확정하지 못했으므로 계산하지 않는다', () => {
+    expect(LISTING_BAND.exists).toBe(true);
+    expect(LISTING_BAND.multipliersConfirmed).toBe(false);
+    // 확정 못 한 배율로는 값을 내지 않는다. 셋이 어긋나면 둘 중 하나가
+    // 거짓말이므로 여기서 걸린다.
+    expect(LISTING_BAND.computable).toBe(false);
+  });
+
+  it('가격 화면이 하한가/상한가를 값의 이름으로 쓰지 않는다', () => {
+    for (const path of [
+      'components/market/MarketObservatory.tsx',
+      'components/market/CardPriceSearch.tsx',
+    ]) {
+      const file = FILES.find((f) => f.path === path);
+      expect(file, path).toBeDefined();
+      // label / sub 속성에 그 단어가 들어가면 그건 값의 이름으로 쓴 것이다.
+      // 설명 문장에서 "그것과 다르다" 고 적는 것은 막지 않는다.
+      expect(file!.text, path).not.toMatch(/(label|sub)=["'{][^"'}]*(하한가|상한가)/);
+    }
+  });
+
+  it('둘이 다르다는 사실을 화면에 적는다', () => {
+    const file = FILES.find((f) => f.path === 'components/market/MarketObservatory.tsx');
+    expect(file!.text).toContain('하한가·상한가');
+    expect(file!.text).toContain('알지 못합니다');
   });
 });
 

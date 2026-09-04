@@ -201,7 +201,12 @@ function CardPriceRow({ card }: { card: CardPrice }) {
               <p className="text-[11px] text-slate-300">
                 {formatBP(stat.p25)} ~ {formatBP(stat.p75)}
               </p>
-              <p className="text-[10px] text-slate-500">흥정 범위</p>
+              {/*
+                '흥정 범위' 는 이 폭이 협상으로 오간 값처럼 들린다. 실제로는
+                우리가 본 거래의 가운데 절반일 뿐이고, 게임이 정하는 등록
+                가격대(하한가/상한가)와도 무관하다.
+              */}
+              <p className="text-[10px] text-slate-500">관측 중간 50%</p>
             </div>
             <Badge tone={stat.samples >= THIN_SAMPLES ? 'violet' : 'amber'}>
               <Database size={10} className="mr-1 inline shrink-0" />

@@ -52,7 +52,7 @@ export function MarketObservatory() {
   const [scope, setScope] = useState<MarketScope>('pool');
   /**
    * 기본값 +1. 등급을 안 고르면 +1 과 고강화가 한 중앙값에 섞여 어느 쪽
-   * 시세도 아닌 숫자가 나오고, 흥정 범위는 등급 차이만큼 넓어 보인다.
+   * 가격도 아닌 숫자가 나오고, 관측 범위는 등급 차이만큼 넓어 보인다.
    */
   const [grade, setGrade] = useState<number | null>(1);
 
@@ -567,11 +567,32 @@ function PriceRow({ card }: { card: MarketCardStat }) {
       {open ? (
         <div className="space-y-3 border-t border-white/[0.06] px-3 py-3">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile label="최저" value={formatBP(card.min)} />
-            <StatTile label="하위 25%" value={formatBP(card.p25)} sub="흥정 하단" />
-            <StatTile label="상위 25%" value={formatBP(card.p75)} sub="흥정 상단" />
-            <StatTile label="최고" value={formatBP(card.max)} />
+            {/*
+              여기 네 숫자는 전부 **우리 표본의 분포**다. 게임이 정하는
+              등록 가격대(하한가/상한가)와는 아무 관계가 없다 —
+              fconline/rules.ts 의 LISTING_BAND 주석 참고.
+            */}
+            <StatTile label="관측 최저" value={formatBP(card.min)} layer="observed" />
+            <StatTile
+              label="하위 25%"
+              value={formatBP(card.p25)}
+              sub="이보다 싼 관측이 1/4"
+              layer="observed"
+            />
+            <StatTile
+              label="상위 25%"
+              value={formatBP(card.p75)}
+              sub="이보다 비싼 관측이 1/4"
+              layer="observed"
+            />
+            <StatTile label="관측 최고" value={formatBP(card.max)} layer="observed" />
           </div>
+
+          <p className="text-[10px] leading-relaxed text-slate-500">
+            위 네 값은 우리가 관측한 거래의 분포입니다. 게임이 정하는 등록 가격대
+            (<b className="text-slate-400">하한가·상한가</b>)와는 다른 값이며, 그 선이 어디인지는 이
+            프로젝트가 알지 못합니다.
+          </p>
 
           <SideSpread card={card} />
 
