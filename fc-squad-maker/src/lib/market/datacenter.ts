@@ -144,27 +144,122 @@ export interface OfficialPrice {
   parserVerified: boolean;
 }
 
-/** "1,234,567 BP" / "123만" 같은 표기를 숫자로. */
+/**
+ * 한국식 자릿수 단위. 큰 것부터 — 파서가 이 순서로만 내려간다.
+ *
+ * 경(10^16)은 넣지 않는다. Number 가 정확히 셀 수 있는 한계가
+ * 9,007,199,254,740,991(약 900조)이라, 경 단위 값은 읽어도 정확하지 않다.
+ * 정확하지 않은 숫자를 내놓느니 못 읽었다고 하는 편이 낫다.
+ */
+const BP_SCALE: ReadonlyArray<readonly [string, number]> = [
+  ['조', 1_000_000_000_000],
+  ['억', 100_000_000],
+  ['만', 10_000],
+];
+
+/** "1,234" / "1.5" 같은 수 하나와, 뒤에 붙었을 수 있는 단위 한 글자 */
+const BP_TOKEN = /(\d[\d,]*(?:\.\d+)?)(조|억|만)?/y;
+
+/**
+ * 우리가 다루지 않는 자릿수 글자.
+ *
+ * 천·백·십은 앞 단위를 **꾸미는** 말이라 따로 더할 수 없다. "3천만" 은
+ * 3,000 + 10,000 이 아니라 3,000 × 10,000 = 3천만이고, 제대로 읽으려면
+ * 한국어 수사 문법을 다 구현해야 한다. 경(10^16)은 Number 가 정확히
+ * 세지 못하는 범위다.
+ *
+ * 그래서 지원하는 대신 **막는다.** 숫자 덩어리 바로 뒤에 이 글자가
+ * 남아 있으면 우리가 못 읽은 표기라는 뜻이므로 null 을 낸다 —
+ * "2억 3천만" 을 200,003,000 으로 내놓는 것보다 못 읽었다고 하는 편이
+ * 훨씬 낫다.
+ */
+const BP_UNHANDLED_UNIT = /[천백십경]/;
+
+/**
+ * "1,234,567 BP" / "1억 2,345만" / "1.2억" 같은 표기를 숫자로.
+ *
+ * ── 왜 정규식 몇 개로는 안 되는가 ──
+ * 예전 구현은 `/(\d[\d,]*)억/` 처럼 조각을 따로 긁어 더했다. 그러면
+ * 소수점 앞자리가 통째로 사라진다:
+ *
+ *   "0.5억"  -> '5억' 이 걸려  500,000,000   (정답의 10배)
+ *   "3.75억" -> '75억' 이 걸려 7,500,000,000 (정답의 20배)
+ *   "1.2억"  -> '2억' 이 걸려  200,000,000   (정답의 1.7배)
+ *   "1조2,345억" -> 조를 몰라  234,500,000,000 (조가 통째로 증발)
+ *
+ * 전부 **틀린 값을 자신 있게 내놓는** 실패다. 파싱이 실패해 null 이
+ * 나오면 화면은 "기준가를 읽지 못했다"고 적고 끝나지만, 10배 틀린 값은
+ * 그대로 기준가로 표시되고 관측 비교에까지 흘러 들어간다. 이 파서가
+ * 아직 실물로 검증되지 않았다는 점(PARSER_VERIFIED)을 생각하면 더욱,
+ * 애매하면 null 이어야 한다.
+ *
+ * 그래서 조각을 긁는 대신 **앞에서부터 한 덩어리로 읽는다**. 단위는
+ * 조 > 억 > 만 > 천 순으로만 내려갈 수 있고, 그 규칙이 깨지는 순간
+ * 거기서 끊는다 — "1억 2,345만" 뒤에 붙은 "수수료 40만" 을 값에
+ * 더해 버리지 않기 위해서다.
+ */
 export function parseBP(text: string): number | null {
   const cleaned = text.replace(/\s/g, '');
 
-  // 한국식 축약(1억 2,345만)이 먼저다. 숫자만 긁으면 1 로 읽힌다.
-  const eok = /(\d[\d,]*)억/.exec(cleaned);
-  const man = /(\d[\d,]*)만/.exec(cleaned);
-  if (eok || man) {
-    const toNum = (m: RegExpExecArray | null) => (m ? Number(m[1].replace(/,/g, '')) : 0);
-    const rest = /만\s*(\d[\d,]*)/.exec(cleaned);
-    return (
-      toNum(eok) * 100_000_000 +
-      toNum(man) * 10_000 +
-      (rest ? Number(rest[1].replace(/,/g, '')) : 0)
-    );
+  const start = cleaned.search(/\d/);
+  if (start < 0) return null;
+
+  let total = 0;
+  let cursor = start;
+  /** 마지막으로 본 단위의 자리(내림차순이어야 한다). 단위 없는 끝수는 0. */
+  let lastScale = Number.POSITIVE_INFINITY;
+  let tokens = 0;
+  let sawUnit = false;
+
+  BP_TOKEN.lastIndex = cursor;
+  for (let match = BP_TOKEN.exec(cleaned); match; match = BP_TOKEN.exec(cleaned)) {
+    const digits = Number(match[1].replace(/,/g, ''));
+    if (!Number.isFinite(digits)) return null;
+
+    const unit = match[2];
+    const scale = unit ? (BP_SCALE.find(([name]) => name === unit)?.[1] ?? 1) : 1;
+
+    // 자리가 커지거나 같아지면 다른 수가 시작된 것이다. 여기서 끊는다.
+    if (scale >= lastScale) break;
+
+    total += digits * scale;
+    lastScale = scale;
+    cursor = BP_TOKEN.lastIndex;
+    tokens += 1;
+    if (unit) sawUnit = true;
+
+    // 단위가 없었다면 그게 끝수라 더 읽을 것이 없다.
+    if (!unit) break;
+    BP_TOKEN.lastIndex = cursor;
+    // 다음 글자가 숫자가 아니면 덩어리가 끝났다.
+    if (!/\d/.test(cleaned[cursor] ?? '')) break;
   }
 
-  const plain = /(\d[\d,]{2,})/.exec(cleaned);
-  if (!plain) return null;
-  const value = Number(plain[1].replace(/,/g, ''));
-  return Number.isFinite(value) ? value : null;
+  if (tokens === 0) return null;
+
+  // 덩어리 바로 뒤에 우리가 못 읽는 자릿수 글자가 남았으면 포기한다.
+  if (BP_UNHANDLED_UNIT.test(cleaned[cursor] ?? '')) return null;
+
+  /*
+   * 단위 없는 짧은 숫자는 값이 아니라 지나가는 수일 때가 많다 —
+   * 예전 구현이 3자리 이상만 받던 이유고, 그 선은 유지한다.
+   */
+  if (!sawUnit && cleaned.slice(start, cursor).replace(/,/g, '').length < 3) return null;
+
+  /*
+   * BP 는 정수다. "1.2억" 처럼 소수로 적힌 표기에서만 소수부가 생기는데,
+   * 그건 표기의 문제이지 값의 문제가 아니라 정수로 되돌린다.
+   */
+  const value = Math.round(total);
+  if (!Number.isFinite(value) || value < 0) return null;
+
+  /*
+   * Number 가 정확히 셀 수 있는 범위를 넘으면 읽지 않는다. 넘긴 값은
+   * 이미 반올림된 다른 숫자라, 내보내면 조용히 틀린 값이 된다.
+   */
+  if (value > Number.MAX_SAFE_INTEGER) return null;
+
+  return value;
 }
 
 /* ── 파싱 전략 ──────────────────────────────────────────────

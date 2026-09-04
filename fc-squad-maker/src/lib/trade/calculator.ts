@@ -77,6 +77,29 @@ export interface TradeResult {
   appliedFeeRate: number;
 }
 
+/**
+ * 수수료를 1 BP 단위로 떨어뜨리는 방법.
+ *
+ * ── 이 값이 왜 상수로 나와 있는가 ──
+ * 수수료율 40% 는 게임 규칙(계층 B)이지만, **끝수를 어떻게 처리하는지는
+ * 우리가 확인하지 못했다.** 넥슨이 내림하는지 반올림하는지 올림하는지
+ * 적어 둔 문서를 찾지 못했고, 이 환경에서는 게임으로 대조할 수도 없다.
+ *
+ * 그래서 반올림을 **고른 것**이지 확인한 것이 아니다 — 계층 D(프로젝트
+ * 추정)다. 코드 한가운데 `Math.round` 로 박아 두면 그 사실이 사라지므로
+ * 이름을 붙여 꺼내 둔다.
+ *
+ * 어긋나 봐야 1 BP 라 판단이 뒤집히지는 않는다. 그래도 "확인한 것" 과
+ * "고른 것" 을 섞지 않는 것이 이 프로젝트가 지키는 선이다.
+ */
+export const FEE_ROUNDING = 'round' as const;
+export const FEE_ROUNDING_VERIFIED = false;
+
+/** 수수료 끝수 처리. FEE_ROUNDING 이 가리키는 방식 한 곳. */
+export function roundFee(amount: number): number {
+  return Math.round(amount);
+}
+
 function resolveFeeRate(feeRate: number | undefined, discounts: FeeDiscounts | undefined): number {
   if (feeRate !== undefined && Number.isFinite(feeRate)) {
     return Math.min(1, Math.max(0, feeRate));
@@ -94,7 +117,7 @@ export function computeTradeProfit({
   const applied = resolveFeeRate(feeRate, discounts);
   const buyTotal = buyPrice * quantity;
   const sellGross = sellPrice * quantity;
-  const fee = Math.round(sellGross * applied);
+  const fee = roundFee(sellGross * applied);
   const sellNet = sellGross - fee;
   const profit = sellNet - buyTotal;
 

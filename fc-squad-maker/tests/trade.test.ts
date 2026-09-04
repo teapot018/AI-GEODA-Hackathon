@@ -6,6 +6,9 @@ import {
   computeTradeProfit,
   effectiveFeeRate,
   FEE_DISCOUNT,
+  FEE_ROUNDING_VERIFIED,
+  type FeeDiscounts,
+  roundFee,
   totalDiscount,
 } from '@/lib/trade/calculator';
 
@@ -154,5 +157,50 @@ describe('breakEvenSellPrice', () => {
 
   it('수수료 100%면 회수가 불가능하다', () => {
     expect(breakEvenSellPrice(1000, 1)).toBe(Infinity);
+  });
+});
+
+describe('수수료 끝수 — 부동소수점과 반올림', () => {
+  /*
+   * 감면율은 더해서 적용되므로 실효 수수료율이 이진수로 딱 떨어지지 않는다.
+   * PC방만 걸면 0.4 × 0.7 이 0.27999999999999997 이 된다. 이 오차가 반올림
+   * 결과를 바꾸면 수수료가 1 BP 씩 어긋난다.
+   *
+   * 알려진 세 요율(40% / 28% / 20%)에서는 정확히 .5 로 떨어지는 매출액이
+   * 존재하지 않는다 — 0.4·0.2·0.28 의 배수는 소수부가 .5 를 지나가지 않는다.
+   * 그래서 오차가 반올림 방향을 바꿀 수 없다. 그 사실을 정수 산술과
+   * 맞대어 못 박아 둔다.
+   */
+  const RATES: Array<[string, FeeDiscounts, number]> = [
+    ['감면 없음', {}, 400],
+    ['PC방', { pcCafe: true }, 280],
+    ['PC방+TOP CLASS', { pcCafe: true, topClass: true }, 200],
+  ];
+
+  it.each(RATES)('%s — 부동소수점 계산이 정수 계산과 어긋나지 않는다', (_l, discounts, permille) => {
+    const rate = effectiveFeeRate(discounts);
+    for (let gross = 1; gross <= 500_000; gross += 313) {
+      const float = computeTradeProfit({ buyPrice: 0, sellPrice: gross, discounts }).fee;
+      // 같은 반올림을 정수만으로: floor((gross * permille + 500) / 1000)
+      const exact = Math.floor((gross * permille + 500) / 1000);
+      expect(float, `gross=${gross} rate=${rate}`).toBe(exact);
+    }
+  });
+
+  it('수수료 끝수 처리는 확인한 규칙이 아니라 고른 값이다', () => {
+    // 40% 는 게임 규칙이지만 끝수를 내림/반올림/올림 중 무엇으로 하는지는
+    // 확인하지 못했다. 확인 못 한 것을 확인한 것처럼 표시하지 않는다.
+    expect(FEE_ROUNDING_VERIFIED).toBe(false);
+    expect(roundFee(1.5)).toBe(2);
+    expect(roundFee(1.4)).toBe(1);
+  });
+
+  it('큰 금액에서도 정수로 떨어진다', () => {
+    // 억 단위 거래에서 수수료가 소수로 남으면 화면에 0.0000001 이 뜬다.
+    for (const gross of [1_234_567_890, 99_999_999_999, 1_000_000_000_000]) {
+      const r = computeTradeProfit({ buyPrice: 0, sellPrice: gross, discounts: { pcCafe: true } });
+      expect(Number.isInteger(r.fee)).toBe(true);
+      expect(Number.isInteger(r.sellNet)).toBe(true);
+    }
   });
 });
