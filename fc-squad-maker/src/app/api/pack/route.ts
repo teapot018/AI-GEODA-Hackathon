@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     if (boxId) {
-      return ok(await describeBox(boxId), { cacheSeconds: 600 });
+      return ok(await describeBox(boxId), { cache: { scope: 'shared', seconds: 600 } });
     }
     return ok(
       {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
           tiers: box.tiers,
         })),
       },
-      { cacheSeconds: 3600 },
+      { cache: { scope: 'shared', seconds: 3600 } },
     );
   } catch (error) {
     return handleError(error);

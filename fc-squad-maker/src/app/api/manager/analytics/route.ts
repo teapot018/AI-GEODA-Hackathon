@@ -21,7 +21,11 @@ export async function GET(request: NextRequest) {
       matchType: intParam(params.get('matchType'), 50, { min: 0, max: 999 }),
       limit: intParam(params.get('limit'), 20, { min: 1, max: 40 }),
     });
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 180 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 180 },
+    });
   } catch (error) {
     return handleError(error);
   }

@@ -16,7 +16,11 @@ export async function GET(
       matchId,
       request.nextUrl.searchParams.get('nickname')?.trim() || undefined,
     );
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 600 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 600 },
+    });
   } catch (error) {
     return handleError(error);
   }

@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
       params.get('nickname')?.trim() || undefined,
       intParam(params.get('limit'), 30, { min: 1, max: 100 }),
     );
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 120 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 120 },
+    });
   } catch (error) {
     return handleError(error);
   }

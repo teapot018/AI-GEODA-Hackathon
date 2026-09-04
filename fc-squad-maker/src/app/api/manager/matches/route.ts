@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
       offset: intParam(params.get('offset'), 0, { max: 1000 }),
       limit: intParam(params.get('limit'), 8, { min: 1, max: 20 }),
     });
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 60 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 60 },
+    });
   } catch (error) {
     return handleError(error);
   }

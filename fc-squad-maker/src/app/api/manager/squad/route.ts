@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
       ouid: params.get('ouid')?.trim() || undefined,
       nicknameForMock: params.get('nickname')?.trim() || undefined,
     });
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 600 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 600 },
+    });
   } catch (error) {
     return handleError(error);
   }

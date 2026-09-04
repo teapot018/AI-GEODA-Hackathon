@@ -15,7 +15,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await getManagerOverview(nickname);
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 60 });
+    // 닉네임으로 특정되는 한 사람의 정보다 — 공용 캐시에 두지 않는다.
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 60 },
+    });
   } catch (error) {
     return handleError(error);
   }

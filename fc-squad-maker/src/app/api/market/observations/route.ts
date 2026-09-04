@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
       // 0 이면 등급을 가리지 않는다(합친 값). 화면은 기본으로 +1 을 보낸다.
       grade: intParam(params.get('grade'), 0, { min: 0, max: MAX_ENHANCEMENT }) || undefined,
     });
-    return ok(result.data, { source: result.source, note: result.note, cacheSeconds: 300 });
+    return ok(result.data, {
+      source: result.source,
+      note: result.note,
+      cache: { scope: 'user', seconds: 300 },
+    });
   } catch (error) {
     return handleError(error);
   }

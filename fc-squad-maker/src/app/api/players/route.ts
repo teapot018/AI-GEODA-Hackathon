@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
 
     return ok(payload, {
       source: result.source === 'demo' ? 'demo' : 'nexon',
-      cacheSeconds: 300,
+      // 도감 검색은 요청자가 누구든 같은 결과다.
+      cache: { scope: 'shared', seconds: 300 },
     });
   } catch (error) {
     return handleError(error);

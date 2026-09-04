@@ -34,7 +34,7 @@ export async function GET(
           [5, 8, 10, MAX_ENHANCEMENT].map((to) => [`1to${to}`, upgradeOdds(1, to)]),
         ),
       },
-      { cacheSeconds: 3600 },
+      { cache: { scope: 'shared', seconds: 3600 } },
     );
   } catch (error) {
     return handleError(error);
