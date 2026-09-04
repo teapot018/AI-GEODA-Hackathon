@@ -8,7 +8,12 @@ import {
   ENHANCE_TEAMCOLOR_COUNTS,
   ENHANCE_TEAMCOLOR_TIERS,
 } from '@/lib/fconline/rules';
-import { enhanceCard, enhanceCurve, upgradeOdds } from '@/lib/players/enhance';
+import {
+  ENHANCED_CARD_LAYERS,
+  enhanceCard,
+  enhanceCurve,
+  upgradeOdds,
+} from '@/lib/players/enhance';
 import { MAX_GRADE } from '@/lib/players/value';
 import type { Formation } from '@/lib/squad/formations';
 import { rateSquad, type SquadEntry, type SquadRating } from '@/lib/squad/rating';
@@ -61,29 +66,33 @@ function EnhancePanel({ slotId }: { slotId: string }) {
           {/*
             같은 줄에 성격이 다른 세 숫자가 뜬다.
              - 오버롤: 기본값은 우리 추정(카탈로그), 상승분은 공식 표.
-               섞여 있으므로 더 약한 쪽(추정)으로 표시한다.
              - 가치: 전부 우리 모델. 게임에 이런 숫자는 없다.
              - 성공률: 넥슨이 공개한 강화 확률.
+
+            계층은 여기서 고르지 않는다. 예전에는 세 칸에 각각 문자열을
+            적어 두고 옆에 "섞였으니 약한 쪽으로" 라는 주석을 달았는데,
+            그러면 규칙이 화면마다 다시 지켜져야 한다. 지금은 값을 만든
+            쪽(players/enhance.ts)이 mixLayers 로 접어 둔 것을 읽는다.
           */}
           <StatTile
             label="추정 오버롤"
             value={current.ovr}
             sub={`추정 기본 ${entry.card.ovr} + 공식 강화 ${current.ovr - entry.card.ovr}`}
-            layer="project-estimate"
+            layer={ENHANCED_CARD_LAYERS.ovr}
           />
           <StatTile
             label="추정 가치"
             value={`${formatBP(current.estimatedValue)}`}
             sub="BP"
             tone="good"
-            layer="project-estimate"
+            layer={ENHANCED_CARD_LAYERS.estimatedValue}
           />
           <StatTile
             label="+1→현재 성공률"
             value={formatPercent(odds.straightRate, 1)}
             sub={`기대 시도 ${odds.expectedAttempts.toFixed(1)}회`}
             tone={odds.straightRate < 0.05 ? 'bad' : 'neutral'}
-            layer="official-rule"
+            layer={ENHANCED_CARD_LAYERS.odds}
           />
         </div>
 
@@ -128,10 +137,10 @@ function EnhancePanel({ slotId }: { slotId: string }) {
             ))}
           </div>
           <p className="mt-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] leading-relaxed text-slate-600">
-            <DataLayerTag layer="project-estimate" />
+            <DataLayerTag layer={ENHANCED_CARD_LAYERS.estimatedValue} />
             가치와 기본 오버롤은 공개 API 에 없는 항목이라 자체 추정 모델을 씁니다 — 게임에 뜨는 값이
             아니고, 실제 거래 가격과도 다릅니다.
-            <DataLayerTag layer="official-rule" />
+            <DataLayerTag layer={ENHANCED_CARD_LAYERS.odds} />
             강화 단계별 오버롤 상승과 성공 확률은 넥슨이 공개한 값입니다.
           </p>
         </div>

@@ -1,10 +1,13 @@
 import type { GkStats, HexStats, PlayerCardData } from './types';
 import {
+  ENHANCEMENT_ODDS_LAYER,
   ENHANCEMENT_OVR_BONUS,
   ENHANCEMENT_STEPS,
+  ENHANCEMENT_TABLE_LAYER,
 } from '@/lib/fconline/rules';
-import { MAX_ESTIMATED_OVR } from './seasons';
-import { clampGrade, estimateValue } from './value';
+import { mixLayers } from '@/lib/data/provenance';
+import { CARD_OVR_LAYER, MAX_ESTIMATED_OVR } from './seasons';
+import { clampGrade, estimateValue, VALUE_MODEL_LAYER } from './value';
 
 /**
  * ── 강화 단계 시뮬레이션 ───────────────────────────────────
@@ -42,6 +45,27 @@ const STAT_GAIN_BY_GRADE: readonly number[] = OVR_GAIN_BY_GRADE.map(
 // 상한은 카드 오버롤 상한(seasons.ts)과 같은 자리에 둔다 — 13강까지 오른
 // 카드의 스탯이 그보다 낮은 천장에 눌리면 안 된다.
 const clampStat = (n: number) => Math.max(1, Math.min(MAX_ESTIMATED_OVR, Math.round(n)));
+
+/**
+ * 이 파일이 내놓는 숫자들의 계층 — **손으로 고르지 않고 계산한다.**
+ *
+ * 지금까지 이 규칙은 주석과 JSX 리터럴로만 있었다. SquadSummary 에
+ * `layer="project-estimate"` 라고 적어 두고 그 옆에 "섞여 있으므로 더
+ * 약한 쪽으로 표시한다" 는 주석을 달아 두는 식이었다. 규칙은 맞았지만
+ * 지키는 것은 사람의 습관이라, 새 화면을 만드는 사람에게는 따라오지
+ * 않는다. 여기서 mixLayers 로 접어 두면 배지가 입력을 따라간다 —
+ * 강화 표가 미검증으로 내려가면 오버롤 배지도 같이 내려간다.
+ */
+export const ENHANCED_CARD_LAYERS = {
+  /** 추정 기본 오버롤(D) + 공식 상승분(B) → 약한 쪽인 D */
+  ovr: mixLayers(CARD_OVR_LAYER, ENHANCEMENT_TABLE_LAYER),
+  /** 세부 능력치는 공식 곡선에서 유도한 우리 추정 */
+  stats: mixLayers(CARD_OVR_LAYER, ENHANCEMENT_TABLE_LAYER),
+  /** 가치는 곱 중 하나가 우리 곡선이라 추정 */
+  estimatedValue: mixLayers(CARD_OVR_LAYER, ENHANCEMENT_TABLE_LAYER, VALUE_MODEL_LAYER),
+  /** 성공 확률은 넥슨이 공개한 값 하나만 쓴다 */
+  odds: ENHANCEMENT_ODDS_LAYER,
+} as const;
 
 export interface EnhancedCard {
   grade: number;

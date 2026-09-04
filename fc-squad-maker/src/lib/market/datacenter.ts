@@ -28,6 +28,7 @@
  */
 
 import { CALL_POLICY } from '@/lib/data/policy';
+import { mixLayers, type DataLayer } from '@/lib/data/provenance';
 
 /** 공개 데이터센터 선수 정보 페이지. spid 와 강화등급을 쿼리로 받는다. */
 export const DATACENTER_PLAYER_URL = 'https://fconline.nexon.com/DataCenter/PlayerInfo';
@@ -450,6 +451,22 @@ export function resetDatacenterState(gapMs = POLITE_GAP_MS): void {
 
 /* ── 체결가와의 비교 ──────────────────────────────────────── */
 
+/**
+ * 기준가 한 건이 실제로 어느 층인가.
+ *
+ * 페이지에서 읽어 온 값이므로 원래는 계층 A(공식 API/공시값)다. 그런데
+ * **그 페이지를 읽는 파서가 실물로 검증되지 않았다**(PARSER_VERIFIED).
+ * 검증 안 된 파서가 뽑은 숫자는 넥슨이 말한 값이라는 보장이 없으므로
+ * 계층 A 로 표시하면 안 된다.
+ *
+ * 이 판정을 화면이 따로 하지 않게 여기서 낸다 — 파서가 검증되는 날
+ * 이 함수 하나가 바뀌고, 이 값을 쓰는 모든 배지가 따라 올라간다.
+ */
+export function officialPriceLayer(price: Pick<OfficialPrice, 'price' | 'parserVerified'>): DataLayer {
+  if (price.price === null) return 'unverified';
+  return price.parserVerified ? 'official-api' : 'unverified';
+}
+
 export interface PriceComparison {
   spid: number;
   /** 우리가 관측한 체결가 중앙값 */
@@ -462,6 +479,15 @@ export interface PriceComparison {
   gapPercent: number | null;
   /** 체결가가 기준가보다 확실히 높으면 'above' */
   verdict: 'above' | 'below' | 'near' | 'unknown';
+  /**
+   * 이 비교 결과의 계층.
+   *
+   * 관측(C)과 기준가를 뺀 값이라 **약한 쪽**을 따른다. 파서가 검증되지
+   * 않은 지금은 기준가 쪽이 '미검증' 이므로 비교 결과도 미검증이다 —
+   * 두 값을 나란히 놓는 화면에서 각각의 배지만 맞고 **뺀 결과의 배지가
+   * 없으면**, 그 차이가 어느 층의 이야기인지 아무도 말하지 않게 된다.
+   */
+  layer: DataLayer;
 }
 
 /** 이 폭 안쪽이면 사실상 같은 값으로 본다. */
@@ -471,9 +497,16 @@ export function comparePrice(
   spid: number,
   observed: number,
   official: number | null,
+  { parserVerified = PARSER_VERIFIED }: { parserVerified?: boolean } = {},
 ): PriceComparison {
+  // 관측 중앙값(C)과 기준가를 섞으므로 결과는 약한 쪽을 따른다.
+  const layer = mixLayers(
+    'observation',
+    officialPriceLayer({ price: official, parserVerified }),
+  );
+
   if (official === null || official <= 0) {
-    return { spid, observed, official, gap: null, gapPercent: null, verdict: 'unknown' };
+    return { spid, observed, official, gap: null, gapPercent: null, verdict: 'unknown', layer };
   }
 
   const gap = observed - official;
@@ -487,5 +520,6 @@ export function comparePrice(
     gapPercent,
     verdict:
       Math.abs(gapPercent) < GAP_EPSILON_PERCENT ? 'near' : gapPercent > 0 ? 'above' : 'below',
+    layer,
   };
 }

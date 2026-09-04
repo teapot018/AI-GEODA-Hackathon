@@ -1,3 +1,5 @@
+import type { DataLayer } from '@/lib/data/provenance';
+
 /**
  * ══════════════════════════════════════════════════════════
  *  계층 B — FC 온라인 공식 게임 규칙
@@ -77,6 +79,18 @@ export function clampEnhancement(grade: number): number {
 export function enhancementOvrBonus(grade: number): number {
   return ENHANCEMENT_OVR_BONUS[clampEnhancement(grade)];
 }
+
+/**
+ * 강화 상승표가 어느 층에서 오는가 — **계층 B.**
+ *
+ * 위 ENHANCEMENT_OVR_BONUS 는 게임에 공개된 표다. 이 상수는 그 사실을
+ * 화면이 손으로 고르지 않고 **읽어 쓰게** 하려고 둔다. 표의 근거가
+ * 흔들리면 여기만 바꾸면 되고, 이걸 섞어 쓰는 값들의 배지가 함께 내려간다.
+ */
+export const ENHANCEMENT_TABLE_LAYER: DataLayer = 'official-rule';
+
+/** 강화 성공 확률이 어느 층에서 오는가 — 넥슨이 공개한 값이라 계층 B. */
+export const ENHANCEMENT_ODDS_LAYER: DataLayer = 'official-rule';
 
 /* ── 이적시장 수수료 ───────────────────────────────────── */
 

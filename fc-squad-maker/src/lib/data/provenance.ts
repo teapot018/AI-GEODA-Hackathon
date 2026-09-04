@@ -125,3 +125,57 @@ const STRENGTH: readonly DataLayer[] = [
 export function weakerLayer(a: DataLayer, b: DataLayer): DataLayer {
   return STRENGTH.indexOf(a) >= STRENGTH.indexOf(b) ? a : b;
 }
+
+/**
+ * 여러 계층이 한 계산에 들어갔을 때의 결과 계층.
+ *
+ * `weakerLayer` 를 접어 쓴다. 인자가 없으면 부를 이유가 없으므로
+ * 최소 하나를 요구한다 — 기본값을 두면 "아무것도 안 넣으면 공식" 같은
+ * 사고가 생긴다.
+ */
+export function mixLayers(first: DataLayer, ...rest: DataLayer[]): DataLayer {
+  return rest.reduce(weakerLayer, first);
+}
+
+/**
+ * ── 숫자에 출처를 붙여 다니게 하기 ────────────────────────
+ *
+ * 이 파일이 오래도록 반쪽이었던 이유를 적어 둔다.
+ *
+ * 계층 이름과 배지는 처음부터 있었지만, **값 자체는 출처를 들고 다니지
+ * 않았다.** 화면이 `<DataLayerTag layer="project-estimate" />` 처럼
+ * 손으로 골라 붙였고, `weakerLayer` 는 테스트에서만 불렸다. 즉 규칙은
+ * 있었지만 지키는 것은 사람의 습관이었다.
+ *
+ * 그래서 계산을 한 번 통과하면 출처가 증발했다. 추정 오버롤에 공식
+ * 강화 상승분을 더한 값은 추정이어야 하는데, 그렇게 표기되는 근거는
+ * 코드가 아니라 그 옆에 적힌 주석이었다. 주석은 다음 사람이 새 화면을
+ * 만들 때 따라오지 않는다.
+ *
+ * `SourcedValue` 는 그 습관을 타입으로 옮긴다. 값을 꺼내려면 출처도
+ * 같이 보게 되고, 두 값을 섞으면 `deriveValue` 가 약한 쪽을 고른다.
+ */
+export interface SourcedValue<T> {
+  value: T;
+  layer: DataLayer;
+}
+
+export function sourced<T>(value: T, layer: DataLayer): SourcedValue<T> {
+  return { value, layer };
+}
+
+/**
+ * 여러 출처 있는 값에서 새 값을 만든다. 결과 계층은 **가장 약한 입력**.
+ *
+ * 계산 자체는 부르는 쪽이 한다 — 여기서 하는 일은 "이 결과가 어디서
+ * 왔는가" 를 잃어버리지 않는 것뿐이다.
+ */
+export function deriveValue<T>(
+  value: T,
+  inputs: ReadonlyArray<SourcedValue<unknown>>,
+): SourcedValue<T> {
+  if (inputs.length === 0) {
+    throw new Error('deriveValue: 입력이 없으면 결과의 출처를 알 수 없다');
+  }
+  return { value, layer: mixLayers(inputs[0].layer, ...inputs.slice(1).map((i) => i.layer)) };
+}

@@ -1,3 +1,4 @@
+import type { DataLayer } from '@/lib/data/provenance';
 import type { MetaSeason } from '@/lib/nexon/types';
 
 /**
@@ -117,6 +118,16 @@ export function seasonRule(className: string | undefined): TierRule {
  * 능력치를 주지 않으므로 실측으로 맞출 방법이 없다.
  */
 export const MIN_ESTIMATED_OVR = 60;
+
+/**
+ * 카드 오버롤이 어느 층에서 오는가 — **계층 D.**
+ *
+ * 넥슨 Open API 는 카드 오버롤을 주지 않는다. 여기 나오는 숫자는 전부
+ * 이 프로젝트가 시드와 시즌 보정으로 만든 값이다. 이 상수를 두는 이유는
+ * 화면이 계층을 손으로 고르지 않게 하기 위해서다 — 이 값이 바뀌면
+ * 오버롤을 쓰는 모든 화면의 배지가 따라 바뀐다.
+ */
+export const CARD_OVR_LAYER: DataLayer = 'project-estimate';
 
 /**
  * 프로젝트 추정 오버롤의 상한.

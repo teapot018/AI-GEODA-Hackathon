@@ -755,10 +755,18 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
             </span>
           </span>
           {comparison?.gapPercent !== null && comparison?.gapPercent !== undefined ? (
-            <Badge tone={VERDICT_TONE[verdict]}>
-              {comparison.gapPercent >= 0 ? '+' : ''}
-              {comparison.gapPercent.toFixed(1)}% {VERDICT_LABEL[verdict]}
-            </Badge>
+            <span className="inline-flex items-center gap-1">
+              <Badge tone={VERDICT_TONE[verdict]}>
+                {comparison.gapPercent >= 0 ? '+' : ''}
+                {comparison.gapPercent.toFixed(1)}% {VERDICT_LABEL[verdict]}
+              </Badge>
+              {/*
+                두 숫자에 각각 배지를 달아 두고 **뺀 결과에는 아무 표시도
+                없으면**, 그 차이가 어느 층의 이야기인지 아무도 말하지 않게
+                된다. 계층은 comparePrice 가 두 입력에서 접어 준 것을 읽는다.
+              */}
+              <DataLayerTag layer={comparison.layer} />
+            </span>
           ) : null}
         </div>
       ) : (

@@ -1,3 +1,4 @@
+import type { DataLayer } from '@/lib/data/provenance';
 import { clampEnhancement, MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { seasonRule } from './seasons';
 
@@ -49,6 +50,14 @@ export const GRADE_VALUE_MULTIPLIER: readonly number[] = [
  * 최고 강화로 알고 있었다. 규칙은 한 곳에만 둔다.
  */
 export const MAX_GRADE = MAX_ENHANCEMENT;
+
+/**
+ * BP 가치 추정이 어느 층에서 오는가 — **계층 D.**
+ *
+ * 단계 수와 오버롤 상승량은 공식이지만, 그 단계가 시장에서 몇 배에
+ * 거래되는지는 우리 곡선이다. 곱이 하나라도 추정이면 결과는 추정이다.
+ */
+export const VALUE_MODEL_LAYER: DataLayer = 'project-estimate';
 
 export const clampGrade = clampEnhancement;
 

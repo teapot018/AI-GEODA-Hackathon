@@ -1,10 +1,25 @@
+import * as fs from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { DATA_LAYER, layerLine, weakerLayer, type DataLayer } from '@/lib/data/provenance';
+import {
+  DATA_LAYER,
+  deriveValue,
+  layerLine,
+  mixLayers,
+  sourced,
+  weakerLayer,
+  type DataLayer,
+} from '@/lib/data/provenance';
+import { ENHANCED_CARD_LAYERS } from '@/lib/players/enhance';
+import { CARD_OVR_LAYER } from '@/lib/players/seasons';
+import { comparePrice, officialPriceLayer } from '@/lib/market/datacenter';
 import { CALL_POLICY, NEXON_RATE_LIMIT_CONFIRMED } from '@/lib/data/policy';
 import {
   BASELINE_RANK_UPDATE,
   DATACENTER_BASELINE_CYCLE,
+  ENHANCEMENT_TABLE_LAYER,
   ENHANCE_TEAMCOLOR_COUNTS,
   ENHANCE_TEAMCOLOR_TIERS,
   ENHANCE_TEAMCOLOR_VERIFIED,
@@ -238,5 +253,94 @@ describe('갱신 주기 — 섞으면 안 되는 세 가지 (§60/§61)', () => 
     // 30분이라는 숫자가 두 곳에 각각 적혀 있었고, 주석은 2시간을 근거로
     // 대고 있었다 — 근거와 값이 서로 다른 말을 하는 상태였다.
     expect(OFFICIAL_TTL_MS).toBe(CALL_POLICY.datacenterCacheTtl.value * 60_000);
+  });
+});
+
+describe('숫자 세탁 차단 — 계산을 통과해도 출처가 남는가 (§102/§103/§104)', () => {
+  /*
+   * 이 저장소의 계층 표기는 오래도록 반쪽이었다. 이름과 배지는 있었지만
+   * **값이 출처를 들고 다니지 않았다** — 화면이 `layer="project-estimate"`
+   * 처럼 손으로 골라 붙였고, weakerLayer 는 테스트에서만 불렸다.
+   * 규칙은 있었지만 지키는 것은 사람의 습관이었고, 습관은 새 화면을
+   * 만드는 사람에게 따라오지 않는다.
+   */
+
+  it('mixLayers 는 가장 약한 입력을 고른다', () => {
+    expect(mixLayers('official-rule', 'project-estimate')).toBe('project-estimate');
+    expect(mixLayers('official-api', 'official-rule', 'observation')).toBe('observation');
+    expect(mixLayers('observation', 'unverified', 'project-estimate')).toBe('unverified');
+    expect(mixLayers('official-api')).toBe('official-api');
+  });
+
+  it('deriveValue 는 입력 없이는 결과를 못 만든다', () => {
+    // 기본값을 두면 "아무것도 안 넣으면 공식" 같은 사고가 생긴다.
+    expect(() => deriveValue(1, [])).toThrow();
+    expect(deriveValue(3, [sourced(1, 'official-api'), sourced(2, 'project-estimate')])).toEqual({
+      value: 3,
+      layer: 'project-estimate',
+    });
+  });
+
+  it('강화 카드 숫자의 계층은 손으로 고르지 않고 접어서 나온다', () => {
+    // 추정 기본 오버롤 + 공식 강화표 = 추정.
+    expect(ENHANCED_CARD_LAYERS.ovr).toBe('project-estimate');
+    // 거기에 우리 가치 곡선까지 곱하면 여전히 추정.
+    expect(ENHANCED_CARD_LAYERS.estimatedValue).toBe('project-estimate');
+    // 확률은 공식값 하나만 쓰므로 내려가지 않는다.
+    expect(ENHANCED_CARD_LAYERS.odds).toBe('official-rule');
+  });
+
+  it('입력이 내려가면 결과 배지도 따라 내려간다', () => {
+    /*
+     * 이게 하드코딩과의 진짜 차이다. 강화표가 미검증으로 바뀌는 날
+     * 화면 문자열을 찾아다니지 않아도 오버롤 배지가 함께 내려가야 한다.
+     */
+    expect(mixLayers(CARD_OVR_LAYER, 'unverified')).toBe('unverified');
+    expect(mixLayers(CARD_OVR_LAYER, ENHANCEMENT_TABLE_LAYER)).toBe(ENHANCED_CARD_LAYERS.ovr);
+  });
+
+  it('검증 안 된 파서가 뽑은 기준가는 공식으로 표시하지 않는다', () => {
+    // 파서가 숫자를 뱉었다는 것과 그 숫자가 맞다는 것은 다른 얘기다.
+    expect(officialPriceLayer({ price: 1_000_000, parserVerified: false })).toBe('unverified');
+    expect(officialPriceLayer({ price: 1_000_000, parserVerified: true })).toBe('official-api');
+    // 못 읽었으면 층을 논할 값 자체가 없다.
+    expect(officialPriceLayer({ price: null, parserVerified: true })).toBe('unverified');
+  });
+
+  it('기준가와 관측을 뺀 결과도 계층을 들고 나온다', () => {
+    /*
+     * 두 숫자에 각각 배지를 달아 두고 뺀 결과에는 아무 표시도 없으면,
+     * 그 차이가 어느 층의 이야기인지 아무도 말하지 않게 된다.
+     */
+    const unverified = comparePrice(1, 1_200_000, 1_000_000, { parserVerified: false });
+    expect(unverified.gapPercent).toBeCloseTo(20);
+    expect(unverified.layer).toBe('unverified');
+
+    const verified = comparePrice(1, 1_200_000, 1_000_000, { parserVerified: true });
+    // 관측(C)과 공시(A)를 섞었으니 약한 쪽인 관측.
+    expect(verified.layer).toBe('observation');
+
+    // 기준가를 못 읽은 경우에도 결과에 계층이 붙는다.
+    expect(comparePrice(1, 1_200_000, null, { parserVerified: true }).layer).toBe('unverified');
+  });
+
+  it('production 코드가 실제로 이 장치를 쓴다', () => {
+    /*
+     * 예전에는 weakerLayer 가 테스트에서만 불렸다. 장치가 있는데 아무도
+     * 안 쓰면 없는 것과 같으므로, 쓰이고 있다는 사실 자체를 검사한다.
+     */
+    const { readdirSync, readFileSync, statSync } = fs;
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((e) => {
+        const full = join(dir, e);
+        return statSync(full).isDirectory()
+          ? walk(full)
+          : /\.tsx?$/.test(full) && !full.endsWith('provenance.ts')
+            ? [full]
+            : [];
+      });
+
+    const users = walk('src').filter((f) => /\bmixLayers\(/.test(readFileSync(f, 'utf8')));
+    expect(users.length, 'mixLayers 를 쓰는 production 파일이 없다').toBeGreaterThan(0);
   });
 });
