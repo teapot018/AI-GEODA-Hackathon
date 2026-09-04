@@ -187,13 +187,26 @@ export interface RefreshEstimate {
   /** 마지막으로 갱신을 확인한 시각 */
   lastChangeAt: Date | null;
   /**
-   * 다음 갱신 예상. confidence 가 'none' 이면 null —
-   * 근거가 없으면 시각을 찍지 않는다는 원칙은 그대로다.
+   * 마지막 변경 **직전**의 확인 시각.
+   *
+   * 실제 갱신은 이 시각과 lastChangeAt 사이 어딘가에 있었다. 두 시각을
+   * 같이 줘야 화면이 "언제 바뀌었나" 를 구간으로 말할 수 있다.
    */
-  nextAt: Date | null;
-  /** 예상 시각이 이미 지났다 (곧 바뀔 때가 됐다는 뜻) */
-  overdue: boolean;
+  lastChangeAfterAt: Date | null;
 }
+
+/*
+ * ── nextAt 은 없다 ──
+ *
+ * 한때 여기에 `nextAt`(다음 갱신 예상)과 `overdue` 가 있었다. 관측된
+ * 주기를 마지막 갱신에 더한 값이라 `nextRefreshAt()` 시절보다는 근거가
+ * 있었지만, 결국 **우리가 만든 예보**다. 화면에 시각이 찍히면 사람은 그
+ * 시각에 맞춰 다시 들어오고, 빗나가면 그건 우리 잘못이 된다.
+ *
+ * 넥슨이 집계 시각을 공개한 적이 없다는 사실은 그대로다. 그래서 우리가
+ * 말할 수 있는 것만 남긴다 — **변경을 확인한 시각 / 그 직전 확인 시각 /
+ * 관측된 간격**. 셋 다 우리가 실제로 본 것이다.
+ */
 
 /** 간격이 서로 이 비율 넘게 벌어지면 '들쭉날쭉'으로 본다 */
 const SPREAD_LIMIT = 0.5;
@@ -231,16 +244,17 @@ export function estimateRefresh(
     windowMs: null,
     confidence: 'none',
     lastChangeAt: null,
-    nextAt: null,
-    overdue: false,
+    lastChangeAfterAt: null,
   };
   if (!history || history.changes.length === 0) return empty;
 
   const changes = history.changes;
-  const lastChangeAt = changes[changes.length - 1].noticedAt;
+  const last = changes[changes.length - 1];
+  const lastChangeAt = last.noticedAt;
+  const lastChangeAfterAt = last.afterCheckAt;
 
-  // 변경을 한 번만 봤으면 간격이 없다. 마지막 갱신 시각만 사실로 남긴다.
-  if (changes.length < 2) return { ...empty, lastChangeAt };
+  // 변경을 한 번만 봤으면 간격이 없다. 확인 구간만 사실로 남긴다.
+  if (changes.length < 2) return { ...empty, lastChangeAt, lastChangeAfterAt };
 
   const gaps: number[] = [];
   for (let i = 1; i < changes.length; i += 1) {
@@ -251,7 +265,9 @@ export function estimateRefresh(
     changes.map((c) => c.noticedAt.getTime() - c.afterCheckAt.getTime()),
   );
 
-  if (intervalMs <= 0) return { ...empty, lastChangeAt, intervalSamples: gaps.length };
+  if (intervalMs <= 0) {
+    return { ...empty, lastChangeAt, lastChangeAfterAt, intervalSamples: gaps.length };
+  }
 
   const spread = (Math.max(...gaps) - Math.min(...gaps)) / intervalMs;
   const confidence: RefreshConfidence =
@@ -259,16 +275,13 @@ export function estimateRefresh(
       ? 'fair'
       : 'weak';
 
-  const nextAt = new Date(lastChangeAt.getTime() + intervalMs);
-
   return {
     intervalMs,
     intervalSamples: gaps.length,
     windowMs,
     confidence,
     lastChangeAt,
-    nextAt,
-    overdue: nextAt.getTime() <= now.getTime(),
+    lastChangeAfterAt,
   };
 }
 

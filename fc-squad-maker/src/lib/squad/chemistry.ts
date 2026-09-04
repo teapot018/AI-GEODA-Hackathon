@@ -1,3 +1,8 @@
+import {
+  ENHANCE_TEAMCOLOR_COUNTS,
+  ENHANCE_TEAMCOLOR_TIERS,
+  ENHANCE_TEAMCOLOR_VERIFIED,
+} from '@/lib/fconline/rules';
 import { archetypeOf } from '@/lib/players/estimate';
 import type { PlayerCardData, PositionCode } from '@/lib/players/types';
 
@@ -105,6 +110,74 @@ export function computeTeamColors(cards: PlayerCardData[]): TeamColor[] {
   }
 
   return result.sort((a, b) => b.level - a.level || b.count - a.count);
+}
+
+/* ── 강화 팀컬러 (물결) ────────────────────────────────── */
+
+/**
+ * 강화 단계로 발동하는 팀컬러.
+ *
+ * 위 클럽/국가/리그 팀컬러와 축이 다르다. 저쪽은 "누구를 모았나" 고
+ * 이쪽은 "얼마나 강화했나" 다. 실제 FC 온라인에서 스쿼드를 말할 때
+ * 먼저 나오는 "은카", "8금" 이 바로 이쪽이라, 이 축이 없으면 우리
+ * 스쿼드 점수는 사람들이 실제로 신경 쓰는 것을 세지 않는 셈이다.
+ *
+ * 규칙표는 fconline/rules.ts 에 있고 **미검증**이다(넥슨 공지 원문을
+ * 이 환경에서 열지 못했다). 그래서 결과에도 그 사실을 달아 보낸다.
+ */
+export interface EnhanceTeamColor {
+  /** 단계 이름 (예: '금빛 물결') */
+  name: string;
+  /** 이 단계를 만족시킨 최소 강화 등급 */
+  minGrade: number;
+  /** 그 등급 이상인 선수 수 */
+  count: number;
+  /** 5명 조건인지 8명 조건인지 */
+  requirement: 5 | 8;
+  /** 전 능력치 보너스 */
+  bonus: number;
+  /** 이 표가 공식 자료로 검증됐는가 — 지금은 아니다 */
+  verified: boolean;
+}
+
+/**
+ * 조건을 만족하는 단계 중 **가장 센 것 하나**를 고른다.
+ *
+ * 물결은 중첩되지 않는다. 8강 8명이면 금빛 2단계 하나를 받지, 동빛·은빛까지
+ * 같이 받지 않는다. 여러 개를 더하면 실제 게임보다 후한 점수가 나온다.
+ */
+export function computeEnhanceTeamColor(
+  entries: Array<{ grade: number }>,
+): EnhanceTeamColor | null {
+  let best: EnhanceTeamColor | null = null;
+
+  for (const tier of ENHANCE_TEAMCOLOR_TIERS) {
+    const count = entries.filter((e) => e.grade >= tier.minGrade).length;
+
+    // 인원이 많은 조건(8명)이 더 세므로 먼저 본다.
+    const candidates: Array<{ requirement: 5 | 8; bonus: number; need: number }> = [
+      { requirement: 8, bonus: tier.bonusAt8, need: ENHANCE_TEAMCOLOR_COUNTS.tier2 },
+      { requirement: 5, bonus: tier.bonusAt5, need: ENHANCE_TEAMCOLOR_COUNTS.tier1 },
+    ];
+
+    for (const c of candidates) {
+      // bonus 0 은 그 단계에 그 인원 조건이 없다는 뜻이다(동빛 8명 등).
+      if (c.bonus === 0 || count < c.need) continue;
+      if (!best || c.bonus > best.bonus) {
+        best = {
+          name: tier.name,
+          minGrade: tier.minGrade,
+          count,
+          requirement: c.requirement,
+          bonus: c.bonus,
+          verified: ENHANCE_TEAMCOLOR_VERIFIED,
+        };
+      }
+      break; // 이 단계에서는 더 센 인원 조건을 이미 잡았다
+    }
+  }
+
+  return best;
 }
 
 /** 팀컬러까지 몇 명 남았는지 안내 */

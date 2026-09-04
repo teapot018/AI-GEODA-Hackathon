@@ -1,7 +1,15 @@
 import { enhanceCard } from '@/lib/players/enhance';
 import type { HexStats, PlayerCardData, PositionCode } from '@/lib/players/types';
 import { estimateValue } from '@/lib/players/value';
-import { computeTeamColors, positionFit, teamColorHints, type TeamColor, type TeamColorHint } from './chemistry';
+import {
+  computeEnhanceTeamColor,
+  computeTeamColors,
+  positionFit,
+  teamColorHints,
+  type EnhanceTeamColor,
+  type TeamColor,
+  type TeamColorHint,
+} from './chemistry';
 
 /** 슬롯에 배치된 한 명 */
 export interface SquadEntry {
@@ -22,6 +30,14 @@ export interface SquadRating {
   /** 팀컬러 보너스 합 */
   chemistryBonus: number;
   teamColors: TeamColor[];
+  /**
+   * 강화 단계로 발동하는 팀컬러(물결). 조건을 못 채우면 null.
+   *
+   * 클럽/국가/리그 팀컬러와 축이 다르다 — 저쪽은 "누구를 모았나",
+   * 이쪽은 "얼마나 강화했나" 다. 규칙표가 미검증이라 점수에는 넣지
+   * 않고 화면에만 알린다(아래 enhanceBonusApplied 주석 참고).
+   */
+  enhanceTeamColor: EnhanceTeamColor | null;
   hints: TeamColorHint[];
   /** 스쿼드 총 추정 가치(BP) */
   totalValue: number;
@@ -55,6 +71,7 @@ export function rateSquad(entries: SquadEntry[]): SquadRating {
       rawOverall: 0,
       chemistryBonus: 0,
       teamColors: [],
+      enhanceTeamColor: null,
       hints: [],
       totalValue: 0,
       lines: { defence: 0, midfield: 0, attack: 0 },
@@ -65,6 +82,16 @@ export function rateSquad(entries: SquadEntry[]): SquadRating {
 
   const cards = entries.map((e) => e.card);
   const teamColors = computeTeamColors(cards);
+
+  /*
+   * 강화 팀컬러는 **점수에 더하지 않는다.**
+   *
+   * 규칙표를 넥슨 공지로 대조하지 못했기 때문이다(rules.ts
+   * ENHANCE_TEAMCOLOR_VERIFIED = false). 미검증 보너스를 종합 점수에
+   * 섞으면 그 점수가 어디서 왔는지 아무도 못 가른다 — 검증되면 그때
+   * 더하면 되고, 그 전까지는 "이 조건을 만족했다" 는 사실만 알린다.
+   */
+  const enhanceTeamColor = computeEnhanceTeamColor(entries);
   const chemistryBonus = Math.min(
     8,
     teamColors.reduce((sum, tc) => sum + tc.bonus, 0),
@@ -116,6 +143,7 @@ export function rateSquad(entries: SquadEntry[]): SquadRating {
     rawOverall: Math.round(rawSum / n),
     chemistryBonus: Math.round(chemistryBonus * 10) / 10,
     teamColors,
+    enhanceTeamColor,
     hints: teamColorHints(cards),
     totalValue,
     lines: {

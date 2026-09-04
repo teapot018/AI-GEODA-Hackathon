@@ -50,7 +50,13 @@ export interface PlayerProfile {
   league?: string;
 }
 
-/** 실제 카드 1장 (선수 프로필 + 시즌) */
+/**
+ * 화면에 뜨는 카드 1장 (선수 프로필 + 시즌).
+ *
+ * 카드의 **존재**는 넥슨 메타(spid.json)가 정하지만, 여기 담긴 오버롤과
+ * 능력치는 이 프로젝트가 만든 값이다. '실제 카드' 라고 부르면 안에 든
+ * 숫자까지 실제인 것처럼 읽힌다.
+ */
 export interface PlayerCardData {
   spid: number;
   pid: number;

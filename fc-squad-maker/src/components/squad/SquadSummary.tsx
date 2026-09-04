@@ -1,13 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Sparkles, TrendingUp, TriangleAlert, Users2 } from 'lucide-react';
+import { Sparkles, TrendingUp, TriangleAlert, Users2, Waves } from 'lucide-react';
 
 import { Badge, Card, CardHeader, DataLayerTag, StatBar, StatTile } from '@/components/ui';
+import {
+  ENHANCE_TEAMCOLOR_COUNTS,
+  ENHANCE_TEAMCOLOR_TIERS,
+} from '@/lib/fconline/rules';
 import { enhanceCard, enhanceCurve, upgradeOdds } from '@/lib/players/enhance';
 import { MAX_GRADE } from '@/lib/players/value';
 import type { Formation } from '@/lib/squad/formations';
-import { rateSquad, type SquadEntry } from '@/lib/squad/rating';
+import { rateSquad, type SquadEntry, type SquadRating } from '@/lib/squad/rating';
 import { useSquadStore } from '@/lib/squad/store';
 import { formatBP, formatPercent } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
@@ -65,14 +69,14 @@ function EnhancePanel({ slotId }: { slotId: string }) {
             label="추정 오버롤"
             value={current.ovr}
             sub={`추정 기본 ${entry.card.ovr} + 공식 강화 ${current.ovr - entry.card.ovr}`}
-            layer="estimated"
+            layer="project-estimate"
           />
           <StatTile
             label="추정 가치"
             value={`${formatBP(current.estimatedValue)}`}
             sub="BP"
             tone="good"
-            layer="estimated"
+            layer="project-estimate"
           />
           <StatTile
             label="+1→현재 성공률"
@@ -124,7 +128,7 @@ function EnhancePanel({ slotId }: { slotId: string }) {
             ))}
           </div>
           <p className="mt-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] leading-relaxed text-slate-600">
-            <DataLayerTag layer="estimated" />
+            <DataLayerTag layer="project-estimate" />
             가치와 기본 오버롤은 공개 API 에 없는 항목이라 자체 추정 모델을 씁니다 — 게임에 뜨는 값이
             아니고, 실제 거래 가격과도 다릅니다.
             <DataLayerTag layer="official-rule" />
@@ -198,9 +202,17 @@ export function SquadSummary({ formation }: { formation: Formation }) {
             <StatBar label="피지컬" value={rating.averageStats.physical} />
           </div>
 
+          {/*
+            강화 팀컬러(물결). 클럽/국가/리그 팀컬러와 축이 다르다 —
+            실제 게임에서 "은카", "8금" 이라고 부르는 그것이고, 이 화면에는
+            그 축이 통째로 없었다. 규칙표를 넥슨 공지로 대조하지 못해
+            종합 점수에는 넣지 않고, 조건을 만족했다는 사실만 알린다.
+          */}
+          <EnhanceWaveNote wave={rating.enhanceTeamColor} entries={entries} />
+
           <div className="space-y-2">
             <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
-              <Users2 size={11} /> 팀컬러 (자체 근사)
+              <Users2 size={11} /> 클럽·국가·리그 팀컬러 (자체 근사)
             </p>
             {rating.teamColors.length === 0 ? (
               <p className="text-xs text-slate-500">
@@ -259,6 +271,71 @@ export function SquadSummary({ formation }: { formation: Formation }) {
       </Card>
 
       {selectedSlot && assignments[selectedSlot] ? <EnhancePanel slotId={selectedSlot} /> : null}
+    </div>
+  );
+}
+
+/**
+ * 강화 팀컬러(물결) 안내.
+ *
+ * 실제 FC 온라인에서 스쿼드를 말할 때 먼저 나오는 것이 "은카", "8금" 인데,
+ * 이 화면에는 그 축이 없었다. 같은 카드 11장이라도 5강이냐 8강이냐에 따라
+ * 전 선수 능력치가 달라지는데 우리는 0으로 봤다.
+ *
+ * 다만 규칙표를 넥슨 공지 원문으로 대조하지 못했다. 그래서 종합 점수에는
+ * 넣지 않고, 조건 충족 여부만 미검증 표시와 함께 알린다 — 미검증 보너스를
+ * 점수에 섞으면 그 점수가 어디서 왔는지 아무도 못 가른다.
+ */
+function EnhanceWaveNote({
+  wave,
+  entries,
+}: {
+  wave: SquadRating['enhanceTeamColor'];
+  entries: SquadEntry[];
+}) {
+  if (entries.length === 0) return null;
+
+  // 다음 단계까지 몇 명이 모자란지 — 없을 때도 방향은 알려 준다.
+  const next = ENHANCE_TEAMCOLOR_TIERS.find((tier) => {
+    const count = entries.filter((e) => e.grade >= tier.minGrade).length;
+    return count < ENHANCE_TEAMCOLOR_COUNTS.tier1;
+  });
+
+  return (
+    <div className="space-y-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+      <p className="flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+        <Waves size={11} /> 강화 팀컬러
+        <DataLayerTag layer="unverified">규칙 미검증</DataLayerTag>
+      </p>
+
+      {wave ? (
+        <p className="text-xs text-slate-300">
+          <b className="text-neon-cyan">{wave.name}</b>{' '}
+          <span className="text-slate-500">
+            (+{wave.minGrade} 이상 {wave.count}명 · {wave.requirement}명 조건)
+          </span>
+          <br />
+          <span className="text-[10px] text-slate-500">
+            전 능력치 +{wave.bonus} 로 알려져 있습니다.
+          </span>
+        </p>
+      ) : (
+        <p className="text-xs text-slate-500">
+          아직 발동한 물결이 없습니다.
+          {next ? (
+            <>
+              {' '}
+              <b className="text-slate-400">+{next.minGrade} 이상</b> 선수를{' '}
+              {ENHANCE_TEAMCOLOR_COUNTS.tier1}명 모으면 {next.name}이 발동합니다.
+            </>
+          ) : null}
+        </p>
+      )}
+
+      <p className="text-[10px] leading-relaxed text-slate-600">
+        이 단계표는 커뮤니티 정리에서 가져왔고 넥슨 공지 원문으로 대조하지 못했습니다. 그래서 위
+        <b className="text-slate-500"> 종합 오버롤에는 더하지 않았습니다</b>.
+      </p>
     </div>
   );
 }

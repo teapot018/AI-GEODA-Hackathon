@@ -185,7 +185,7 @@ export function UserSearch() {
           <EmptyState
             icon={<UserRound size={32} />}
             title="구단주를 검색해 주세요"
-            description="닉네임으로 OUID 를 조회한 뒤 레벨, 역대 최고 등급, 최근 매치 기록, 이적시장 거래 내역을 함께 보여줍니다."
+            description="닉네임으로 OUID 를 조회한 뒤 레벨, 매치 종류별 최고 등급, 최근 매치 기록, 이적시장 거래 기록을 함께 보여줍니다."
           />
         </Card>
       ) : null}

@@ -51,13 +51,13 @@ export function OddsTable({
           label="기대 가치"
           value={formatBP(expectation.expectedValue)}
           sub="BP"
-          layer="estimated"
+          layer="project-estimate"
         />
         <StatTile
           label="가치 / 가격"
           value={ratio === null ? '—' : `${ratio.toFixed(2)}배`}
           sub={ratio === null ? '캐시 상자' : ratio >= 1 ? '기대상 이득' : '기대상 손해'}
-          layer="estimated"
+          layer="project-estimate"
           tone={ratio === null ? 'neutral' : ratio >= 1 ? 'good' : 'bad'}
         />
       </div>
@@ -96,7 +96,7 @@ export function OddsTable({
                 */}
                 <td className="px-2 py-2 text-right">
                   <DataLayerTag
-                    layer={tier.probabilitySource === 'official' ? 'official-rule' : 'estimated'}
+                    layer={tier.probabilitySource === 'official' ? 'official-rule' : 'project-estimate'}
                   >
                     {tier.probabilitySource === 'official' ? '공시' : '표본'}
                   </DataLayerTag>

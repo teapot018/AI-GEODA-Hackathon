@@ -92,8 +92,9 @@ describe('estimateRefresh', () => {
   it('관측이 없으면 아무 말도 하지 않는다', () => {
     const e = estimateRefresh(null);
     expect(e.confidence).toBe('none');
-    expect(e.nextAt).toBeNull();
     expect(e.intervalMs).toBeNull();
+    expect(e.lastChangeAt).toBeNull();
+    expect(e.lastChangeAfterAt).toBeNull();
   });
 
   it('변경을 한 번만 봤으면 주기를 말하지 않는다', () => {
@@ -104,9 +105,10 @@ describe('estimateRefresh', () => {
     const e = estimateRefresh(historyOf(SPID, 1), at(3));
     expect(e.confidence).toBe('none');
     expect(e.intervalMs).toBeNull();
-    expect(e.nextAt).toBeNull();
-    // 마지막으로 바뀐 걸 확인한 시각은 사실이므로 남긴다.
+    // 변경이 있었던 **구간**은 사실이므로 남긴다: 0시에는 안 바뀌어
+    // 있었고 2시에 보니 바뀌어 있었다.
     expect(e.lastChangeAt).toEqual(at(2));
+    expect(e.lastChangeAfterAt).toEqual(at(0));
   });
 
   it('간격을 여러 번 촘촘히 보면 주기를 낸다', () => {
@@ -154,34 +156,44 @@ describe('estimateRefresh', () => {
     expect(e.confidence).toBe('weak');
   });
 
-  it('다음 예상은 마지막 갱신 + 관측 주기다', () => {
+  it('마지막 변경이 있었던 구간을 돌려준다', () => {
+    /*
+     * 우리가 아는 것은 "11시에는 이 값이었고 12시에 보니 달라져 있었다"
+     * 까지다. 실제 갱신 시각은 그 사이 어딘가고, 두 끝을 같이 줘야
+     * 화면이 구간으로 말할 수 있다.
+     */
     observeEveryHour(2, 12);
 
     const e = estimateRefresh(historyOf(SPID, 1), at(12));
     expect(e.lastChangeAt).toEqual(at(12));
-    expect(e.nextAt).toEqual(at(14));
-    expect(e.overdue).toBe(false);
+    expect(e.lastChangeAfterAt).toEqual(at(11));
   });
 
-  it('예상 시각이 지나면 지났다고 말한다', () => {
+  it('다음 갱신 시각을 예보하지 않는다', () => {
+    /*
+     * 이 프로젝트가 nextRefreshAt() 을 지운 이유가 이것이다 — 시각을
+     * 찍으면 사람은 그 시각에 맞춰 다시 들어온다.
+     *
+     * 한때 관측된 주기를 마지막 갱신에 더한 nextAt/overdue 가 있었다.
+     * 근거가 조금 나아졌을 뿐 여전히 **우리가 만든 예보**라 걷어냈다.
+     * 아무리 잘 관측해도 이 필드는 돌아오지 않아야 한다.
+     */
     observeEveryHour(2, 12);
 
-    const e = estimateRefresh(historyOf(SPID, 1), at(20));
-    expect(e.overdue).toBe(true);
+    const e = estimateRefresh(historyOf(SPID, 1), at(12)) as unknown as Record<string, unknown>;
+    expect(e.confidence).toBe('fair'); // 관측은 충분한 상태인데도
+    expect(e.nextAt).toBeUndefined();
+    expect(e.overdue).toBeUndefined();
   });
 
-  it('근거가 없으면 시각을 찍지 않는다', () => {
-    /*
-     * 이 프로젝트가 nextRefreshAt() 을 지운 이유가 이것이다 — 주기를
-     * 가정하고 시각을 찍으면 사람은 그 시각에 맞춰 다시 들어온다.
-     * 관측이 없으면 예상도 없다.
-     */
+  it('근거가 없으면 구간도 주기도 없다', () => {
     recordBaseline(SPID, 1, 1_000_000, at(0));
     recordBaseline(SPID, 1, 1_000_000, at(5));
 
     const e = estimateRefresh(historyOf(SPID, 1), at(5));
-    expect(e.nextAt).toBeNull();
     expect(e.confidence).toBe('none');
+    expect(e.intervalMs).toBeNull();
+    expect(e.lastChangeAt).toBeNull();
   });
 });
 

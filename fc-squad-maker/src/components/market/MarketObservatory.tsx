@@ -344,7 +344,7 @@ function ReportView({
           거래만 접은 값이고, 다른 구단주를 조회했다면 다른 숫자가 나온다.
         */}
         <p className="px-3 pt-1 text-[10px] leading-relaxed text-slate-500">
-          <DataLayerTag layer="observed" className="mr-1 align-middle" />
+          <DataLayerTag layer="observation" className="mr-1 align-middle" />
           넥슨이 공시하는 가격지수가 아닙니다. 이 표는 조회로 모은 거래 기록을 카드별로 접은
           값이며, 표본에 없는 거래는 반영되지 않습니다.
         </p>
@@ -572,20 +572,20 @@ function PriceRow({ card }: { card: MarketCardStat }) {
               등록 가격대(하한가/상한가)와는 아무 관계가 없다 —
               fconline/rules.ts 의 LISTING_BAND 주석 참고.
             */}
-            <StatTile label="관측 최저" value={formatBP(card.min)} layer="observed" />
+            <StatTile label="관측 최저" value={formatBP(card.min)} layer="observation" />
             <StatTile
               label="하위 25%"
               value={formatBP(card.p25)}
               sub="이보다 싼 관측이 1/4"
-              layer="observed"
+              layer="observation"
             />
             <StatTile
               label="상위 25%"
               value={formatBP(card.p75)}
               sub="이보다 비싼 관측이 1/4"
-              layer="observed"
+              layer="observation"
             />
-            <StatTile label="관측 최고" value={formatBP(card.max)} layer="observed" />
+            <StatTile label="관측 최고" value={formatBP(card.max)} layer="observation" />
           </div>
 
           <p className="text-[10px] leading-relaxed text-slate-500">
@@ -909,14 +909,22 @@ function RefreshNote({ refresh, checks }: { refresh: RefreshEstimate; checks: nu
       )}
 
       {/*
-        예상 시각은 관측된 주기가 있을 때만 찍는다. 그마저도 우리가 알아챈
-        시각에서 센 값이라, 실제 갱신은 그보다 앞섰을 수 있다고 밝힌다.
+        다음 갱신 시각은 찍지 않는다. 관측된 주기를 마지막 갱신에 더하면
+        그럴듯한 시각이 나오지만 그건 우리가 만든 예보이고, 화면에 시각이
+        찍히면 사람은 그 시각에 맞춰 다시 들어온다. 대신 실제 갱신이
+        있었을 **구간**을 보여 준다 — 그건 우리가 본 것이다.
       */}
-      {refresh.nextAt && now ? (
-        <span className={cn('inline-flex items-center gap-1', refresh.overdue && 'text-neon-amber')}>
-          {refresh.overdue
-            ? '예상 시각은 이미 지났습니다 — 곧 바뀔 때가 됐습니다'
-            : `다음 예상 ${formatDateTime(new Date(refresh.nextAt).toISOString())}`}
+      {refresh.lastChangeAfterAt && refresh.lastChangeAt ? (
+        <span className="text-slate-600">
+          마지막 변경은{' '}
+          <b className="text-slate-500">
+            {formatDateTime(new Date(refresh.lastChangeAfterAt).toISOString())}
+          </b>{' '}
+          ~{' '}
+          <b className="text-slate-500">
+            {formatDateTime(new Date(refresh.lastChangeAt).toISOString())}
+          </b>{' '}
+          사이에 있었습니다
         </span>
       ) : null}
 

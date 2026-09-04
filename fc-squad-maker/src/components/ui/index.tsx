@@ -120,8 +120,11 @@ export function Badge({
 const LAYER_TONE: Readonly<Record<DataLayer, BadgeTone>> = {
   'official-api': 'lime',
   'official-rule': 'cyan',
-  observed: 'violet',
-  estimated: 'neutral',
+  observation: 'violet',
+  'project-estimate': 'neutral',
+  'project-policy': 'neutral',
+  demo: 'amber',
+  unverified: 'rose',
 };
 
 export function DataLayerTag({

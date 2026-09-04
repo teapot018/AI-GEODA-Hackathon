@@ -485,9 +485,29 @@ export async function getSquadFromMatch({
 }: ImportOptions): Promise<Sourced<ImportedSquad>> {
   const positions = await positionMap();
 
-  const build = async (detail: MatchDetail): Promise<ImportedSquad> => {
-    const side =
-      (ouid ? detail.matchInfo.find((s) => s.ouid === ouid) : undefined) ?? detail.matchInfo[0];
+  /**
+   * `wanted` 는 "이 사람의 스쿼드를 달라" 는 요청이다.
+   *
+   * 데모 경로에서는 넘기지 않는다 — 목업의 ouid 는 닉네임에서 만들어
+   * 내므로 실제 ouid 와 맞을 리가 없고, 그걸로 404 를 내면 키 없는
+   * 사용자는 스쿼드 가져오기를 아예 못 쓴다.
+   */
+  const build = async (detail: MatchDetail, wanted?: string): Promise<ImportedSquad> => {
+    /*
+     * 지정한 사람이 이 경기에 없으면 **다른 쪽을 내주지 않는다.**
+     * 예전에는 `?? matchInfo[0]` 으로 떨어져서, A 의 스쿼드를 달라고
+     * 했는데 B 의 스쿼드가 A 의 이름표를 달고 돌아왔다. 조용히 틀린
+     * 답을 주느니 못 찾았다고 하는 편이 낫다.
+     */
+    const requested = wanted ? detail.matchInfo.find((s) => s.ouid === wanted) : undefined;
+    if (wanted && !requested) {
+      throw new NexonApiError(
+        404,
+        'OUID_NOT_IN_MATCH',
+        '이 경기에서 해당 구단주의 스쿼드를 찾지 못했습니다.',
+      );
+    }
+    const side = requested ?? detail.matchInfo[0];
     if (!side) {
       throw new NexonApiError(404, 'NO_SIDE', '해당 경기에서 스쿼드를 찾지 못했습니다.');
     }
@@ -539,7 +559,7 @@ export async function getSquadFromMatch({
       { matchid: matchId },
       { revalidate: 3600 },
     );
-    return { data: await build(detail), source: 'nexon' };
+    return { data: await build(detail, ouid), source: 'nexon' };
   } catch (error) {
     if (!shouldFallback(error, allowMock)) throw error;
     return {

@@ -1,5 +1,6 @@
 import { fail, handleError, ok } from '@/lib/api/respond';
 import { getCard } from '@/lib/players/catalog';
+import { MAX_ENHANCEMENT } from '@/lib/fconline/rules';
 import { enhanceCurve, upgradeOdds } from '@/lib/players/enhance';
 
 /**
@@ -24,11 +25,14 @@ export async function GET(
       {
         card,
         curve: enhanceCurve(card),
-        odds: {
-          '1to5': upgradeOdds(1, 5),
-          '1to8': upgradeOdds(1, 8),
-          '1to10': upgradeOdds(1, 10),
-        },
+        /*
+         * 구간 이름을 상수에서 만든다. 예전에는 '1to10' 이 마지막 칸이라
+         * 응답만 보면 +10 이 상한처럼 보였다 — 게임은 +13 까지 열려 있다.
+         * 상한은 한 곳(fconline/rules.ts)에서만 정한다.
+         */
+        odds: Object.fromEntries(
+          [5, 8, 10, MAX_ENHANCEMENT].map((to) => [`1to${to}`, upgradeOdds(1, to)]),
+        ),
       },
       { cacheSeconds: 3600 },
     );
