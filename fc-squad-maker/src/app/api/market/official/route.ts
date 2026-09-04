@@ -16,8 +16,8 @@ import { estimateRefresh, recordBaseline } from '@/lib/market/refresh';
  * 않는다. 사용자가 특정 카드를 펼쳤을 때만 1회 부른다 — 남의 서버에
  * 예의를 지키는 선이 이 정도다.
  *
- * 기준가는 체결가를 대체하지 않는다. 2시간 주기 집계값이라 체감과
- * 어긋날 수 있고, 어긋나는 폭 자체가 정보라서 화면에서도 나란히 둔다.
+ * 기준가는 체결가를 대체하지 않는다. 접어 만든 집계값이라 체감과 어긋날
+ * 수 있고, 어긋나는 폭 자체가 정보라서 화면에서도 나란히 둔다.
  *
  * 읽은 값은 갱신 관측기(refresh.ts)에도 넘긴다. 값이 언제 달라졌는지를
  * 쌓아 두면 "이 카드는 몇 시간마다 갱신되더라"를 **추측이 아니라 관측으로**
@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
         checks: history.checks,
       },
       {
-        // 넥슨 집계 주기가 2시간이라 그보다 촘촘히 다시 부를 이유가 없다.
-        // 서버 쪽 기억 수명과 같은 상수를 써서 둘이 어긋나지 않게 한다.
+        // 집계 주기를 모르니 짧게 잡는다. 서버 쪽 기억 수명과 같은 상수를
+        // 써서 둘이 어긋나지 않게 한다(datacenter.ts OFFICIAL_TTL_MS).
         cache: { scope: 'shared', seconds: OFFICIAL_TTL_MS / 1000 },
         note:
           official.strategy === 'none'

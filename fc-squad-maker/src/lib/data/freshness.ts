@@ -7,24 +7,32 @@
  * "현재 호가가 아니다"라고 못 박아 둔 것과 같은 이유로, 데이터가
  * 언제 것인지도 같이 보여 줘야 한다.
  *
- * 넥슨 데이터센터의 기준가는 2시간 주기로 집계된다. 우리가 쓰는
- * /user/trade 는 그 집계값이 아니라 체결 기록 원본이라 주기가 따로
- * 없지만, "얼마나 묵은 값인가"를 재는 눈금으로는 이 2시간이 쓸 만하다.
- * 표본의 최신 체결이 2시간 안쪽이면 게임 내 기준가와 대체로 같은
- * 시대를 보고 있는 셈이고, 하루가 넘어가면 다른 이야기다.
+ * 눈금의 첫 칸은 2시간이다. 이 숫자의 출처를 분명히 해 둔다 —
+ * **넥슨이 기준가를 2시간마다 집계한다고 확인한 것이 아니다.** 우리가
+ * 들은 것은 Open API 쪽 규칙(매시 정각 갱신, 2시간 전 데이터)이고,
+ * 그것도 이 환경에서는 원문을 대조하지 못했다
+ * (fconline/rules.ts 의 OPEN_API_UPDATE / DATACENTER_BASELINE_CYCLE).
+ *
+ * 그러니 이 2시간은 **우리가 고른 눈금**이지 게임 규칙이 아니다.
+ * 고른 근거는 이렇다: Open API 가 2시간 전 데이터를 준다면 그보다 최근
+ * 것을 관측했을 리 없으므로, 2시간이 "가장 최신일 수 있는 구간" 의
+ * 자연스러운 경계가 된다. 쓸 만한 눈금이지만 규칙은 아니다.
  *
  * 모든 함수는 순수 함수다. `now` 를 인자로 받는 이유도 그것 —
  * Date.now() 를 안에서 부르면 테스트에서 시간을 고정할 수 없다.
  */
 
 /**
- * 넥슨 데이터센터 기준가 집계 주기(시간). 신선도 눈금의 기준.
+ * 신선도 눈금의 첫 칸(시간) — **계층 E, 우리가 고른 값이다.**
  *
- * 이 값은 "얼마나 묵었나"를 재는 눈금으로만 쓴다. 다음 집계가 **몇 시에**
- * 도는지를 여기서 계산하지는 않는다 — 그건 우리가 모르는 값이다.
- * 자세한 이유는 파일 아래쪽 주석 참고.
+ * 예전 이름은 `REFRESH_INTERVAL_HOURS` 였고 주석은 "넥슨 데이터센터 기준가
+ * 집계 주기" 라고 적혀 있었다. 확인한 적 없는 주기를 상수 이름에 못 박아
+ * 둔 셈이라, 이 값을 읽는 곳마다 넥슨 규칙처럼 퍼졌다 — 화면 문구까지.
+ *
+ * 값은 그대로 두되 이름과 설명을 사실에 맞춘다. 이건 "얼마나 묵었나" 를
+ * 재는 우리 눈금이고, 다음 갱신 시각을 계산하는 데는 쓰지 않는다.
  */
-export const REFRESH_INTERVAL_HOURS = 2;
+export const FRESH_WINDOW_HOURS = 2;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -51,7 +59,7 @@ export type Staleness = 'fresh' | 'recent' | 'aging' | 'stale';
  *  stale  : 그 이상 — 시세로 쓰기엔 위험
  */
 export function stalenessOf(ageMs: number): Staleness {
-  if (ageMs < REFRESH_INTERVAL_HOURS * HOUR) return 'fresh';
+  if (ageMs < FRESH_WINDOW_HOURS * HOUR) return 'fresh';
   if (ageMs < 12 * HOUR) return 'recent';
   if (ageMs < DAY) return 'aging';
   return 'stale';
@@ -101,7 +109,7 @@ export function formatAge(ageMs: number): string {
  *    들어온다. 빗나가면 그건 빗나간 예상이 아니라 헛걸음이다.
  *
  * 주기가 대략 2시간이라는 것까지는 말할 수 있다. 그래서 주기는 주기로만
- * 밝히고(신선도 눈금 REFRESH_INTERVAL_HOURS), 시각은 찍지 않는다.
+ * 밝히고(신선도 눈금 FRESH_WINDOW_HOURS), 시각은 찍지 않는다.
  * 이 프로젝트가 능력치·상자 확률에 "추정"이라고 적어 둔 것과 같은 선이다.
  */
 

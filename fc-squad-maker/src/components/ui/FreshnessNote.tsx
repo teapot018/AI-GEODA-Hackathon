@@ -6,7 +6,7 @@ import { Clock, RefreshCw } from 'lucide-react';
 import {
   formatDuration,
   measureFreshness,
-  REFRESH_INTERVAL_HOURS,
+  FRESH_WINDOW_HOURS,
   STALENESS_LABEL,
   type Staleness,
 } from '@/lib/data/freshness';
@@ -96,13 +96,15 @@ export function FreshnessNote({ dates, noun = '체결', showInterval = true, cla
         <span
           className="inline-flex items-center gap-1 text-slate-500"
           title={
-            `넥슨 데이터센터 기준가는 약 ${REFRESH_INTERVAL_HOURS}시간 주기로 집계됩니다. ` +
-            '다만 집계가 몇 시에 도는지는 공개돼 있지 않고 카드마다 갱신 시각도 달라, ' +
-            '다음 갱신 시각은 표시하지 않습니다.'
+            `${FRESH_WINDOW_HOURS}시간은 이 앱이 '최신' 으로 보는 구간이며, ` +
+            '넥슨이 밝힌 집계 주기가 아닙니다. Open API 는 매시 정각에 갱신되고 ' +
+            '2시간 전까지의 데이터를 주므로, 그보다 최근 거래는 애초에 보이지 않습니다. ' +
+            '데이터센터 기준가가 몇 시간마다 집계되는지는 확인하지 못했고, ' +
+            '대신 값이 달라진 순간을 직접 세어 관측 주기로 보여 줍니다.'
           }
         >
           <RefreshCw size={11} className="shrink-0" />
-          기준가 집계 약 {REFRESH_INTERVAL_HOURS}시간 주기
+          최신 기준 {FRESH_WINDOW_HOURS}시간 (앱 기준)
         </span>
       ) : null}
     </div>

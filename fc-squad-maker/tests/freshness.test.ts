@@ -5,7 +5,7 @@ import {
   formatDuration,
   measureFreshness,
   parseApiDate,
-  REFRESH_INTERVAL_HOURS,
+  FRESH_WINDOW_HOURS,
   stalenessOf,
 } from '@/lib/data/freshness';
 
@@ -43,11 +43,11 @@ describe('parseApiDate', () => {
 describe('stalenessOf', () => {
   it('갱신 주기 안쪽은 최신', () => {
     expect(stalenessOf(0)).toBe('fresh');
-    expect(stalenessOf(REFRESH_INTERVAL_HOURS * HOUR - 1)).toBe('fresh');
+    expect(stalenessOf(FRESH_WINDOW_HOURS * HOUR - 1)).toBe('fresh');
   });
 
   it('주기를 넘기면 최신이 아니다', () => {
-    expect(stalenessOf(REFRESH_INTERVAL_HOURS * HOUR)).toBe('recent');
+    expect(stalenessOf(FRESH_WINDOW_HOURS * HOUR)).toBe('recent');
   });
 
   it('반나절·하루를 경계로 단계가 올라간다', () => {
@@ -97,8 +97,8 @@ describe('다음 집계 시각은 예고하지 않는다', () => {
   it('주기 상수는 신선도 눈금으로 계속 쓴다', () => {
     // 주기 자체는 말할 수 있는 값이라 남는다 — '언제 갱신되나'가 아니라
     // '얼마나 묵었나'를 재는 데만 쓴다.
-    expect(REFRESH_INTERVAL_HOURS).toBe(2);
-    expect(stalenessOf(REFRESH_INTERVAL_HOURS * HOUR - 1)).toBe('fresh');
+    expect(FRESH_WINDOW_HOURS).toBe(2);
+    expect(stalenessOf(FRESH_WINDOW_HOURS * HOUR - 1)).toBe('fresh');
   });
 });
 

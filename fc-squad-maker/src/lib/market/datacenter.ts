@@ -5,8 +5,9 @@
  *
  *   체결가(/user/trade) — 실제로 거래가 성사된 가격. 표본이 조회한
  *                         계정에 묶여 있어 카드 커버리지가 좁다.
- *   기준가(데이터센터)   — 넥슨이 2시간 주기로 집계해 공시하는 값.
- *                         전 카드를 덮지만 집계값이라 체감과 어긋날 수 있다.
+ *   기준가(데이터센터)   — 넥슨이 집계해 공시하는 값. 전 카드를 덮지만
+ *                         집계값이라 체감과 어긋날 수 있다. 집계 주기는
+ *                         확인하지 못했다(rules.ts DATACENTER_BASELINE_CYCLE).
  *
  * 둘은 서로를 대체하지 않는다. 어긋나는 폭 자체가 정보라서, 화면에서도
  * 한 칸에 섞지 않고 나란히 보여 준다.
@@ -26,6 +27,8 @@
  * 실제 구조는 `npm run probe:datacenter` 로 확인한다.
  */
 
+import { CALL_POLICY } from '@/lib/data/policy';
+
 /** 공개 데이터센터 선수 정보 페이지. spid 와 강화등급을 쿼리로 받는다. */
 export const DATACENTER_PLAYER_URL = 'https://fconline.nexon.com/DataCenter/PlayerInfo';
 
@@ -39,10 +42,19 @@ export const DATACENTER_DAILY_TRADE_URL = 'https://fconline.nexon.com/datacenter
 export const POLITE_GAP_MS = 1_000;
 
 /**
- * 기준가를 기억해 두는 시간. 넥슨 집계 주기가 2시간이라 그 안에서는
- * 같은 답이 온다 — 라우트의 응답 캐시와 같은 값을 쓰도록 여기서 정한다.
+ * 기준가를 기억해 두는 시간 — **계층 E, 우리 정책이다.**
+ *
+ * 예전 주석은 "넥슨 집계 주기가 2시간이라 그 안에서는 같은 답이 온다"
+ * 였는데, 두 가지가 어긋나 있었다. 첫째로 그 2시간은 우리가 확인한 넥슨
+ * 기준가 주기가 아니라 Open API 쪽 이야기에서 흘러온 숫자다
+ * (rules.ts DATACENTER_BASELINE_CYCLE). 둘째로 값 자체가 2시간이 아니라
+ * 30분이었다 — 근거와 숫자가 서로 다른 말을 하고 있었다.
+ *
+ * 실제 근거는 이쪽이다: 주기를 모르니 짧게 잡아, 값이 바뀌었는데도 낡은
+ * 답을 오래 들고 있지 않게 한다. 같은 값이 data/policy.ts 에도 있으므로
+ * 거기서 가져와 두 곳이 어긋나지 않게 한다.
  */
-export const OFFICIAL_TTL_MS = 30 * 60_000;
+export const OFFICIAL_TTL_MS = CALL_POLICY.datacenterCacheTtl.value * 60_000;
 
 /**
  * ── 나가는 요청 사이의 간격을 강제하는 게이트 ──

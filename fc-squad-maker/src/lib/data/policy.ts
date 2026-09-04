@@ -52,7 +52,7 @@ export const CALL_POLICY: Readonly<Record<string, PolicyValue>> = {
   datacenterCacheTtl: {
     value: 30,
     unit: '분',
-    why: '기준가 재사용 기간. 집계 주기(2시간)보다 짧게 잡아 너무 낡은 값을 들고 있지 않게 한다.',
+    why: '기준가 재사용 기간. 넥슨의 집계 주기를 확인하지 못했으므로 짧게 잡아, 값이 바뀌었는데도 낡은 답을 오래 들고 있지 않게 한다.',
   },
   observationRetention: {
     value: 30,

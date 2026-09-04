@@ -3,12 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { DATA_LAYER, layerLine, weakerLayer, type DataLayer } from '@/lib/data/provenance';
 import { CALL_POLICY, NEXON_RATE_LIMIT_CONFIRMED } from '@/lib/data/policy';
 import {
+  BASELINE_RANK_UPDATE,
+  DATACENTER_BASELINE_CYCLE,
   ENHANCE_TEAMCOLOR_COUNTS,
   ENHANCE_TEAMCOLOR_TIERS,
   ENHANCE_TEAMCOLOR_VERIFIED,
   LISTING_BAND,
   MAX_ENHANCEMENT,
+  OPEN_API_UPDATE,
 } from '@/lib/fconline/rules';
+import { FRESH_WINDOW_HOURS } from '@/lib/data/freshness';
+import { OFFICIAL_TTL_MS } from '@/lib/market/datacenter';
 import { computeEnhanceTeamColor } from '@/lib/squad/chemistry';
 import { sampleConfidence, SAMPLE_CONFIDENCE_LABEL } from '@/lib/market/observations';
 import { PITY_IS_PROJECT_RULE } from '@/lib/pack/boxes';
@@ -181,5 +186,57 @@ describe('공식이라고 주장하지 않는 것들', () => {
   it('등록 가격대는 개념만 알고 값은 모른다', () => {
     expect(LISTING_BAND.exists).toBe(true);
     expect(LISTING_BAND.computable).toBe(false);
+  });
+});
+
+describe('갱신 주기 — 섞으면 안 되는 세 가지 (§60/§61)', () => {
+  /*
+   * 전부 "몇 시간마다 바뀌나" 한 문장으로 요약되기 때문에 한 숫자로
+   * 뭉치기 쉽다. 뭉치면 한쪽에서 들은 사실이 다른 쪽의 근거처럼 쓰인다 —
+   * 실제로 이 저장소에 그 뭉침이 있었다.
+   */
+
+  it('Open API 갱신 규칙은 매시 정각 + 2시간 전 데이터다', () => {
+    expect(OPEN_API_UPDATE.onTheHour).toBe(true);
+    expect(OPEN_API_UPDATE.dataLagHours).toBe(2);
+  });
+
+  it('그 규칙조차 원문을 대조하지 못했다고 표시한다', () => {
+    // 넥슨 도메인이 이그레스 정책에 막혀 있다(CONNECT 403). 전해 들은
+    // 내용을 확인한 것처럼 표시하지 않는다.
+    expect(OPEN_API_UPDATE.verified).toBe(false);
+  });
+
+  it('데이터센터 기준가 집계 주기는 모른다고 말한다', () => {
+    // 흔히 쓰이는 "2시간" 은 위 Open API 쪽에서 흘러온 숫자일 수 있다.
+    expect(DATACENTER_BASELINE_CYCLE.known).toBe(false);
+    // 모른다고 아무 말도 못 하는 건 아니다 — 관측으로 잰다.
+    expect(DATACENTER_BASELINE_CYCLE.observed).toBe(true);
+  });
+
+  it('기준가 순위 갱신은 집계와 별개다', () => {
+    expect(BASELINE_RANK_UPDATE.daily).toBe(true);
+    expect(BASELINE_RANK_UPDATE.window).toContain('00');
+    expect(BASELINE_RANK_UPDATE.verified).toBe(false);
+    // 이 프로젝트는 순위를 읽지 않는다. 안 쓰는 것을 쓰는 것처럼 두지 않는다.
+    expect(BASELINE_RANK_UPDATE.used).toBe(false);
+  });
+
+  it('신선도 눈금은 넥슨 규칙이 아니라 우리가 고른 값이다', () => {
+    /*
+     * 예전 이름 REFRESH_INTERVAL_HOURS 는 "넥슨 데이터센터 기준가 집계
+     * 주기" 라는 주석을 달고 있었다. 확인한 적 없는 주기를 상수 이름에
+     * 못 박아 두면 그 값을 읽는 곳마다 넥슨 규칙처럼 퍼진다.
+     */
+    expect(FRESH_WINDOW_HOURS).toBe(2);
+    // 같은 2 라도 출처가 다르다. 눈금이 기준가 주기를 '아는' 것으로
+    // 둔갑하지 않았는지 확인한다.
+    expect(DATACENTER_BASELINE_CYCLE.known).toBe(false);
+  });
+
+  it('기준가 캐시 수명은 정책 파일 한 곳에서만 정해진다', () => {
+    // 30분이라는 숫자가 두 곳에 각각 적혀 있었고, 주석은 2시간을 근거로
+    // 대고 있었다 — 근거와 값이 서로 다른 말을 하는 상태였다.
+    expect(OFFICIAL_TTL_MS).toBe(CALL_POLICY.datacenterCacheTtl.value * 60_000);
   });
 });

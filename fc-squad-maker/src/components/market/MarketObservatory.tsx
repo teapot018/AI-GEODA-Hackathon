@@ -637,7 +637,7 @@ const VERDICT: Record<PriceVerdict, { text: string; className: string }> = {
 /**
  * 넥슨 공시 기준가와 대조.
  *
- * 우리가 가진 건 실제 체결가고, 저쪽은 2시간 주기 집계값이다. 어느 쪽이
+ * 우리가 가진 건 실제 체결가고, 저쪽은 넥슨이 접어 만든 집계값이다. 어느 쪽이
  * 옳다기보다 **어긋나는 폭 자체가 정보**라서 한 칸에 섞지 않고 나란히 둔다.
  * 체결가가 기준가보다 계속 높으면 그 카드는 지금 기준가로는 못 산다는 뜻이다.
  *
@@ -799,8 +799,9 @@ function OfficialPriceCheck({ card }: { card: MarketCardStat }) {
       {result?.price ? <RefreshNote refresh={result.refresh} checks={result.checks} /> : null}
 
       <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-        기준가는 넥슨이 2시간 주기로 집계·공시하는 값이고, 위 가격은 우리가 관측한 거래 기록입니다.
-        둘은 서로를 대체하지 않으며 어긋나는 폭이 곧 정보입니다.
+        기준가는 넥슨이 집계해 공시하는 값이고, 위 가격은 우리가 관측한 거래 기록입니다. 둘은
+        서로를 대체하지 않으며 어긋나는 폭이 곧 정보입니다. 기준가가 몇 시간마다 집계되는지는
+        확인하지 못해, 값이 달라진 순간을 세어 관측 주기로만 말합니다.
       </p>
     </div>
   );
