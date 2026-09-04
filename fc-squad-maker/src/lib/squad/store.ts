@@ -103,6 +103,122 @@ function remap(
   return placed;
 }
 
+/* ── 저장된 상태 되살리기 ──────────────────────────────────
+ *
+ * localStorage 에 있는 값은 **이 코드가 쓴 것이라는 보장이 없다.** 몇 달
+ * 전 버전이 쓴 것일 수도, 사람이 콘솔에서 고친 것일 수도 있다. 그대로
+ * 스토어에 부으면 화면은 그 값을 오늘 계산한 값처럼 보여 준다.
+ *
+ * ── 왜 옛 스쿼드를 버리는가 ──
+ * 이 프로젝트는 카드 오버롤 표기를 두 자리(92)에서 FC 온라인 범위(121)로
+ * 옮긴 적이 있다. 그런데 저장되는 것은 spid 가 아니라 **카드 객체 통째**라,
+ * 그 전에 저장된 스쿼드에는 두 자리 오버롤 카드가 그대로 남아 있다.
+ * 거기에 새로 검색한 카드를 한 명 넣으면, 한 스쿼드 안에서 92 와 121 이
+ * 같은 평균에 들어간다 — 스쿼드 평점이 조용히 틀린다.
+ *
+ * 저장된 값만 보고 어느 쪽 눈금인지 가려낼 방법은 없다. 92 도 121 도
+ * MIN_ESTIMATED_OVR~MAX_ESTIMATED_OVR 안에 들어가기 때문이다. 그래서
+ * 추측해서 고치지 않고, **버전이 다르면 배치를 버린다.** 사용자는 스쿼드를
+ * 다시 짜야 하지만, 그건 틀린 평점을 믿는 것보다 낫다.
+ *
+ * 버전이 같아도 검증은 한다. 형식이 깨진 항목 하나가 화면 전체를
+ * 무너뜨리게 두지 않는다.
+ */
+
+/** 저장 스키마 버전. 저장되는 값의 **의미**가 바뀌면 올린다. */
+export const SQUAD_STORE_VERSION = 1;
+
+export interface PersistedSquad {
+  formationId: string;
+  assignments: Record<string, Assignment>;
+  imported: ImportProvenance | null;
+}
+
+const EMPTY: PersistedSquad = {
+  formationId: DEFAULT_FORMATION.id,
+  assignments: {},
+  imported: null,
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** 카드로 쓸 수 있을 만큼 모양이 갖춰졌는가. 없는 필드는 지어내지 않는다. */
+function looksLikeCard(value: unknown): value is PlayerCardData {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.spid === 'number' &&
+    Number.isFinite(value.spid) &&
+    value.spid > 0 &&
+    typeof value.name === 'string' &&
+    Array.isArray(value.positions) &&
+    value.positions.length > 0 &&
+    typeof value.ovr === 'number' &&
+    Number.isFinite(value.ovr) &&
+    isRecord(value.stats)
+  );
+}
+
+function readImported(value: unknown): ImportProvenance | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.matchId !== 'string' || typeof value.nickname !== 'string') return null;
+  const num = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  return {
+    matchId: value.matchId,
+    nickname: value.nickname,
+    formationConfidence: num(value.formationConfidence, 0),
+    starters: num(value.starters, 0),
+    missing: num(value.missing, 0),
+  };
+}
+
+/**
+ * 저장된 값을 오늘의 스키마로 되살린다. 살릴 수 없는 항목은 버린다.
+ *
+ * `dropAssignments` 는 버전이 다를 때 쓴다 — 형식은 멀쩡해도 숫자의
+ * 의미가 달라졌을 수 있어서, 형식 검사로는 걸러지지 않는다.
+ */
+export function sanitizePersistedSquad(
+  raw: unknown,
+  { dropAssignments = false }: { dropAssignments?: boolean } = {},
+): PersistedSquad {
+  if (!isRecord(raw)) return EMPTY;
+
+  const formation =
+    typeof raw.formationId === 'string' ? findFormation(raw.formationId) : DEFAULT_FORMATION;
+
+  if (dropAssignments) {
+    // 포메이션 선택은 눈금이 바뀌어도 뜻이 같아서 남긴다.
+    return { formationId: formation.id, assignments: {}, imported: null };
+  }
+
+  const valid = new Set(formation.slots.map((slot) => slot.id));
+  const assignments: Record<string, Assignment> = {};
+  let dropped = 0;
+
+  const source = isRecord(raw.assignments) ? raw.assignments : {};
+  for (const [slotId, entry] of Object.entries(source)) {
+    // 이 포메이션에 없는 자리에 붙은 카드는 화면에 그릴 곳이 없다.
+    if (!valid.has(slotId) || !isRecord(entry) || !looksLikeCard(entry.card)) {
+      dropped += 1;
+      continue;
+    }
+    // 강화 단계는 저장 당시의 상한이 지금과 다를 수 있다. 오늘 규칙으로 자른다.
+    const grade = typeof entry.grade === 'number' ? entry.grade : 1;
+    assignments[slotId] = { card: entry.card, grade: clampGrade(grade) };
+  }
+
+  /*
+   * 한 명이라도 버렸다면 "이 경기에서 가져온 스쿼드" 라는 표시는 더 이상
+   * 사실이 아니다. 출처만 남겨 두면 화면이 없는 근거를 대게 된다.
+   */
+  const imported = dropped > 0 ? null : readImported(raw.imported);
+
+  return { formationId: formation.id, assignments, imported };
+}
+
 export const useSquadStore = create<SquadState>()(
   persist(
     (set, get) => ({
@@ -231,12 +347,24 @@ export const useSquadStore = create<SquadState>()(
     {
       name: 'fc-squad-maker:squad',
       storage: createJSONStorage(() => localStorage),
+      version: SQUAD_STORE_VERSION,
       // 함수는 저장하지 않는다.
       partialize: (state) => ({
         formationId: state.formationId,
         assignments: state.assignments,
         imported: state.imported,
       }),
+      /*
+       * 버전이 다른 값. 형식은 멀쩡할 수 있지만 숫자의 뜻이 달라졌을 수
+       * 있어(오버롤 눈금 변경) 배치는 버린다. 추측해서 변환하지 않는다.
+       */
+      migrate: (persisted, from) =>
+        sanitizePersistedSquad(persisted, { dropAssignments: from < SQUAD_STORE_VERSION }),
+      /*
+       * 버전이 같은 값도 그대로 믿지 않는다. 저장소는 누구나 고칠 수 있고,
+       * 깨진 항목 하나가 화면 전체를 무너뜨리게 둘 이유가 없다.
+       */
+      merge: (persisted, current) => ({ ...current, ...sanitizePersistedSquad(persisted) }),
     },
   ),
 );
