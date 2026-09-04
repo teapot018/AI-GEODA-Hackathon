@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -28,7 +29,8 @@ import {
   OPEN_API_UPDATE,
 } from '@/lib/fconline/rules';
 import { FRESH_WINDOW_HOURS } from '@/lib/data/freshness';
-import { OFFICIAL_TTL_MS } from '@/lib/market/datacenter';
+import { OFFICIAL_TTL_MS, POLITE_GAP_MS } from '@/lib/market/datacenter';
+import { MIN_POLL_MS, RETENTION_DAYS } from '@/lib/market/livefeed';
 import { computeEnhanceTeamColor } from '@/lib/squad/chemistry';
 import { sampleConfidence, SAMPLE_CONFIDENCE_LABEL } from '@/lib/market/observations';
 import { PITY_IS_PROJECT_RULE } from '@/lib/pack/boxes';
@@ -342,5 +344,80 @@ describe('숫자 세탁 차단 — 계산을 통과해도 출처가 남는가 (�
 
     const users = walk('src').filter((f) => /\bmixLayers\(/.test(readFileSync(f, 'utf8')));
     expect(users.length, 'mixLayers 를 쓰는 production 파일이 없다').toBeGreaterThan(0);
+  });
+});
+
+describe('숫자 감시표 — 같은 값을 두 곳에 적지 않는다 (§201)', () => {
+  /*
+   * 이 저장소에서 반복해서 나온 실패 유형이다. 정책 숫자를 한 곳에
+   * 모아 두고도, 실제로 쓰는 자리에는 같은 숫자를 다시 적어 두는 것.
+   *
+   * 그러면 세 가지가 어긋난다.
+   *   1. 한쪽만 고쳐진다.
+   *   2. 근거와 값이 서로 다른 말을 한다 (OFFICIAL_TTL_MS 의 주석은
+   *      "집계 주기가 2시간이라" 인데 값은 30분이었다).
+   *   3. '단일 출처' 로 둔 상수를 아무도 안 읽고 죽어 있다
+   *      (DATACENTER_AGGREGATION_HOURS 가 그랬다).
+   */
+
+  it('운영 정책 숫자는 policy.ts 에서만 나온다', () => {
+    expect(RETENTION_DAYS).toBe(CALL_POLICY.observationRetention.value);
+    expect(MIN_POLL_MS).toBe(CALL_POLICY.marketRefreshCooldown.value * 1_000);
+    expect(POLITE_GAP_MS).toBe(CALL_POLICY.datacenterGap.value * 1_000);
+    expect(OFFICIAL_TTL_MS).toBe(CALL_POLICY.datacenterCacheTtl.value * 60_000);
+  });
+
+  it('policy.ts 의 숫자를 소스에 그대로 다시 적지 않았다', () => {
+    /*
+     * 값이 우연히 같아지는 것으로는 안 된다 — 리터럴이 남아 있으면
+     * 다음 사람이 그걸 고치고 정책 파일은 그대로 둔다. 실제로 파일을
+     * 읽어 리터럴이 사라졌는지 본다.
+     */
+    const read = (f: string) => readFileSync(f, 'utf8');
+    expect(read('src/lib/market/livefeed.ts')).not.toMatch(/RETENTION_DAYS\s*=\s*\d/);
+    expect(read('src/lib/market/livefeed.ts')).not.toMatch(/MIN_POLL_MS\s*=\s*\d/);
+    expect(read('src/lib/market/datacenter.ts')).not.toMatch(/POLITE_GAP_MS\s*=\s*\d/);
+    expect(read('src/lib/market/datacenter.ts')).not.toMatch(/OFFICIAL_TTL_MS\s*=\s*\d/);
+  });
+
+  it('규칙 상수를 아무도 안 읽는 채로 두지 않는다', () => {
+    /*
+     * DATACENTER_AGGREGATION_HOURS 는 "단일 출처" 로 만들어 두고 정작
+     * 아무 데서도 안 읽혔다. 같은 숫자가 freshness.ts 에 따로 적혀
+     * 있었고, 그쪽이 실제로 쓰이고 있었다. 죽은 단일 출처는 단일
+     * 출처가 아니라 그냥 오해의 소지다.
+     */
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((e) => {
+        const full = join(dir, e);
+        return statSync(full).isDirectory() ? walk(full) : /\.tsx?$/.test(full) ? [full] : [];
+      });
+    const all = walk('src');
+    const rulesText = readFileSync('src/lib/fconline/rules.ts', 'utf8');
+
+    const exported = [...rulesText.matchAll(/^export const ([A-Z][A-Z0-9_]*)/gm)].map((m) => m[1]);
+    expect(exported.length).toBeGreaterThan(5);
+
+    /*
+     * 선언 줄 자체는 사용이 아니다. 같은 파일 안에서 쓰이는 것은
+     * 사용으로 친다 — MIN_ENHANCEMENT 처럼 clampEnhancement 안에서만
+     * 쓰이는 값도 제 몫을 하고 있다.
+     */
+    const dead = exported.filter((name) => {
+      const uses = all.reduce((count, file) => {
+        const text = readFileSync(file, 'utf8');
+        const hits = text.match(new RegExp(`\\b${name}\\b`, 'g'))?.length ?? 0;
+        // rules.ts 안에서는 선언 한 번을 빼고 센다.
+        return count + (file.endsWith('fconline/rules.ts') ? Math.max(0, hits - 1) : hits);
+      }, 0);
+      return uses === 0;
+    });
+
+    /*
+     * 예외 하나. BASELINE_RANK_UPDATE 는 "이 프로젝트는 순위를 쓰지
+     * 않는다" 는 사실 자체를 적어 둔 것이라, 아무도 안 읽는 것이 맞다 —
+     * 다음 사람이 기준가 집계 주기와 헷갈리지 않게 두는 표지다.
+     */
+    expect(dead.filter((n) => n !== 'BASELINE_RANK_UPDATE')).toEqual([]);
   });
 });

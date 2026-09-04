@@ -126,7 +126,7 @@ export function TradeCalculator() {
 
       {/*
         감면율(%)과 수수료율(%)을 헷갈리기 쉬워서 식을 그대로 펼쳐 보여 준다.
-        "30% 쿠폰" 은 수수료가 30% 가 된다는 뜻이 아니라 40% 에서 30% 를 깎는다는 뜻이다.
+        "30% 쿠폰" 은 수수료가 30% 가 된다는 뜻이 아니라 기본 수수료에서 30% 를 깎는다는 뜻이다.
       */}
       <p className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10px] leading-relaxed text-slate-400">
         실효 수수료{' '}

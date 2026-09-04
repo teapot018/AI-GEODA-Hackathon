@@ -1,3 +1,4 @@
+import { CALL_POLICY } from '@/lib/data/policy';
 import type { Observation, PriceStat } from './observations';
 
 /**
@@ -38,10 +39,15 @@ import type { Observation, PriceStat } from './observations';
  * **이 프로젝트의 정책값이다.** 넥슨 약관이 요구하는 기간이라고 적지
  * 않는다 — 원문을 확인하지 못했다(§확인 불가).
  */
-export const RETENTION_DAYS = 30;
+export const RETENTION_DAYS = CALL_POLICY.observationRetention.value;
 
-/** 자동 갱신 최소 간격. 이보다 자주 넥슨을 부르지 않는다. */
-export const MIN_POLL_MS = 60_000;
+/**
+ * 자동 갱신 최소 간격. 이보다 자주 넥슨을 부르지 않는다.
+ *
+ * 정책 파일에서 읽는다 — 같은 숫자를 두 곳에 적어 두면 한쪽만 고쳐지고,
+ * 화면이 안내하는 간격과 실제로 강제되는 간격이 달라진다.
+ */
+export const MIN_POLL_MS = CALL_POLICY.marketRefreshCooldown.value * 1_000;
 
 /** 자동 갱신 기본 간격. 기준가 집계(2시간)보다 촘촘하되 과하지 않게. */
 export const DEFAULT_POLL_MS = 5 * 60_000;

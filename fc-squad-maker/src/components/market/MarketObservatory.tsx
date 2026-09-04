@@ -20,6 +20,7 @@ import { FreshnessNote } from '@/components/ui/FreshnessNote';
 import { GradeSelect, MixedGradeWarning } from './GradeSelect';
 import { TradeSampleNote } from './TradeSampleNote';
 import { Sparkline } from '@/components/ui/Sparkline';
+import { OPEN_API_DOES_NOT_PROVIDE } from '@/lib/fconline/rules';
 import { apiGet, ApiError } from '@/lib/client/api';
 import { formatAge, formatDuration, parseApiDate } from '@/lib/data/freshness';
 import type { OfficialPrice, PriceComparison } from '@/lib/market/datacenter';
@@ -360,6 +361,29 @@ function ReportView({
         ※ 여기 수치는 <b className="text-slate-400">현재 호가가 아니라 과거 체결가</b>입니다. 조회한
         구단주가 실제로 사고판 카드만 나오며, 표본이 적을수록 오차가 큽니다.
       </p>
+
+      {/*
+        "무엇을 알 수 없는가" 를 화면이 직접 말한다.
+
+        이 목록은 rules.ts 에 OPEN_API_DOES_NOT_PROVIDE 로 있었는데 아무도
+        읽지 않고 있었다. 근거로 삼으라고 만들어 둔 목록을 정작 화면이
+        안 쓰면, 한계 설명은 컴포넌트마다 손으로 다시 적히고 그때마다
+        조금씩 달라진다. 목록이 늘면 여기도 같이 는다.
+      */}
+      <details className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+        <summary className="cursor-pointer text-[10px] text-slate-500">
+          넥슨 Open API 가 주지 않는 것 ({OPEN_API_DOES_NOT_PROVIDE.length}가지)
+        </summary>
+        <ul className="mt-1.5 space-y-0.5 text-[10px] leading-relaxed text-slate-600">
+          {OPEN_API_DOES_NOT_PROVIDE.map((item) => (
+            <li key={item}>· {item}</li>
+          ))}
+        </ul>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-slate-600">
+          이 항목들은 이 앱이 <b>추정으로 메우지 않습니다.</b> 없는 값을 그럴듯하게 채우면 화면은
+          아는 척을 하게 되고, 그게 제일 고치기 어려운 거짓말입니다.
+        </p>
+      </details>
     </>
   );
 }

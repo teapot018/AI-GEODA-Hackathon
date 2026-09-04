@@ -40,7 +40,7 @@ export const DATACENTER_DAILY_TRADE_URL = 'https://fconline.nexon.com/datacenter
  * 공개 페이지를 읽는 것이라 API 키는 없지만, 그렇다고 마음껏 두드려도
  * 된다는 뜻은 아니다. 남의 서버다. 아래 게이트가 이 간격을 강제한다.
  */
-export const POLITE_GAP_MS = 1_000;
+export const POLITE_GAP_MS = CALL_POLICY.datacenterGap.value * 1_000;
 
 /**
  * 기준가를 기억해 두는 시간 — **계층 E, 우리 정책이다.**
