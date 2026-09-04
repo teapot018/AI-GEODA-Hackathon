@@ -214,13 +214,34 @@ for (const [label, url] of [['playerInfo', PLAYER_URL], ['dailyTrade', DAILY_URL
   await new Promise((r) => setTimeout(r, 1000));
 }
 
+/*
+ * 한 페이지라도 파서가 값을 뽑았는가.
+ *
+ * 페이지를 아예 못 받은 것(403·네트워크 차단)과, 받았는데 파서가 못 읽은
+ * 것은 다른 문제다. 앞은 환경을 고쳐야 하고 뒤는 코드를 고쳐야 한다.
+ */
+const parsed = Object.values(report.pages).some((p) => p.strategy && p.strategy !== 'none');
+const reached = Object.values(report.pages).some((p) => p.status && p.status < 400);
+
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  const ok = Object.values(report.pages).some((p) => p.strategy && p.strategy !== 'none');
-  say(c.bold(ok ? c.ok('파서가 통했습니다.') : c.warn('파서 조정이 필요합니다.')));
-  if (!ok) {
+  say(c.bold(parsed ? c.ok('파서가 통했습니다.') : c.warn('파서 조정이 필요합니다.')));
+  if (!reached) {
+    say(c.dim('페이지를 하나도 받지 못했습니다 — 파서 문제가 아니라 네트워크/차단입니다.'));
+    say(c.dim('이 환경에서 fconline.nexon.com 이 열리는지 먼저 확인하세요.\n'));
+  } else if (!parsed) {
     say(c.dim('위의 "주변 구조" 와 "XHR 후보" 를 그대로 복사해 주시면'));
     say(c.dim('lib/market/datacenter.ts 의 전략을 실제 구조에 맞춰 고치겠습니다.\n'));
   }
 }
+
+/*
+ * 종료 코드로도 알린다. 예전에는 아무것도 못 뚫고도 0 을 반환해서,
+ * 스크립트로 감싸 돌리면 "성공" 으로 보였다 — 탐침이 탐침에 실패한
+ * 것을 성공이라고 하면 안 된다.
+ *   0  파서가 값을 뽑음
+ *   1  페이지는 받았지만 파서가 못 읽음 (코드를 고칠 차례)
+ *   2  페이지를 못 받음 (환경 문제)
+ */
+process.exitCode = parsed ? 0 : reached ? 1 : 2;
