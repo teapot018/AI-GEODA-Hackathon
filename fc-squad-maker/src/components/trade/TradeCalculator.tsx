@@ -26,6 +26,15 @@ export function TradeCalculator() {
   const [topClass, setTopClass] = useState(false);
   const [couponPercent, setCouponPercent] = useState(0);
 
+  /*
+    즉시 판매(방출) 가격. 0 이면 비교를 띄우지 않는다.
+
+    이 값을 우리가 계산하지 않는 이유를 화면에도 적는다 — 넥슨이 공식을
+    공개한 적이 없다. 게임 화면에는 그대로 떠 있으므로 읽어서 넣게 한다.
+    모르는 값을 지어내 "즉시 판매하면 12만" 이라고 적지 않는다.
+  */
+  const [quickPrice, setQuickPrice] = useState(0);
+
   const discounts = {
     pcCafe,
     topClass,
@@ -34,6 +43,12 @@ export function TradeCalculator() {
   const feeRate = effectiveFeeRate(discounts);
   const result = computeTradeProfit({ buyPrice, sellPrice, discounts, quantity });
   const breakEven = breakEvenSellPrice(buyPrice, feeRate);
+
+  // 즉시 판매에는 이적시장 수수료가 붙지 않는다 — 같은 감면 설정이어도 0 이다.
+  const quick =
+    quickPrice > 0
+      ? computeTradeProfit({ buyPrice, sellPrice: quickPrice, path: 'quick', quantity })
+      : null;
 
   return (
     <Card className="space-y-3 p-3">
@@ -44,7 +59,12 @@ export function TradeCalculator() {
           </span>
         }
         description="이적시장 판매 수수료를 반영한 실현 손익을 계산합니다"
-        action={<DataLayerTag layer="official-rule">공식 수수료율</DataLayerTag>}
+        /*
+          배지는 기본 수수료율(40%)과 PC방·TOP CLASS 감면에만 걸린다.
+          쿠폰은 규칙이 아니라 그때그때 열리는 이벤트 값이라 이 배지가
+          덮지 않는다 — 아래 문구에서 따로 밝힌다.
+        */
+        action={<DataLayerTag layer="official-rule">기본 수수료율</DataLayerTag>}
       />
 
       <div className="grid grid-cols-2 gap-2">
@@ -82,6 +102,15 @@ export function TradeCalculator() {
         </Field>
       </div>
 
+      <Field label="즉시 판매가 (BP · 게임 화면에 뜨는 값)">
+        <Input
+          type="number"
+          min={0}
+          value={quickPrice}
+          onChange={(e) => setQuickPrice(Math.max(0, Number(e.target.value) || 0))}
+        />
+      </Field>
+
       <div className="flex flex-wrap items-center gap-2">
         <Toggle
           checked={pcCafe}
@@ -108,6 +137,17 @@ export function TradeCalculator() {
         감면율은 서로 <b>더해서</b> 적용됩니다 — PC방+TOP CLASS 면 50% 감면이라 수수료가 20% 가 됩니다.
         <br />
         수수료는 <b>판매자에게서만</b> 뗍니다. 매입가에는 붙지 않습니다.
+        <br />
+        {/*
+          쿠폰 값을 코드에 박아 두면, 이벤트가 끝난 뒤에도 계산기가 그
+          할인을 영구 규칙처럼 계속 적용한다. 그래서 이 앱은 쿠폰을
+          어떤 값도 알고 있지 않고, 매번 입력받는다.
+        */}
+        <span className="text-slate-600">
+          쿠폰 감면율은 <b>기간 한정 이벤트 값</b>이라 이 앱이 미리 알고 있지 않습니다. 지금 가진
+          쿠폰의 %를 직접 넣으세요 — 값을 코드에 박아 두면 이벤트가 끝난 뒤에도 없는 할인을 계속
+          적용하게 됩니다.
+        </span>
       </p>
 
       <div className="space-y-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-xs">
@@ -128,6 +168,36 @@ export function TradeCalculator() {
           tone={result.roi >= 0 ? 'lime' : 'rose'}
         />
       </div>
+
+      {/*
+        파는 길은 둘이고 수수료 규칙이 다르다. 이적시장만 계산하면 값싼
+        카드에서 틀린 조언을 한다 — 40% 를 떼고 나면 즉시 판매가 더
+        남는 구간이 실제로 있는데, 한쪽만 보면 그 구간이 안 보인다.
+      */}
+      {quick ? (
+        <div className="space-y-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-xs">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500">즉시 판매와 비교</p>
+          <Row label="즉시 판매 실수령" value={formatBP(quick.sellNet)} />
+          <Row label="이적시장 실수령" value={formatBP(result.sellNet)} />
+          <div className="my-1 border-t border-white/[0.06]" />
+          <Row
+            label={quick.sellNet > result.sellNet ? '즉시 판매가 더 남음' : '이적시장이 더 남음'}
+            value={`${formatBP(Math.abs(quick.sellNet - result.sellNet))} 차이`}
+            tone={quick.sellNet > result.sellNet ? 'amber' : 'lime'}
+            bold
+          />
+          <p className="pt-1 text-[10px] leading-relaxed text-slate-600">
+            즉시 판매에는 이적시장 수수료가 붙지 않습니다. 다만 <b>이적시장 쪽은 그 가격에 팔렸을
+            때</b>의 값이고, 즉시 판매는 지금 확정되는 값입니다 — 팔릴지 모르는 금액과 확정 금액을
+            나란히 둔 비교라는 점을 감안하세요.
+          </p>
+        </div>
+      ) : null}
+
+      <p className="text-[10px] leading-relaxed text-slate-500">
+        즉시 판매가는 <b>계산하지 않습니다</b> — 넥슨이 공식을 공개한 적이 없어서, 게임 화면에 뜨는
+        값을 그대로 넣으셔야 합니다. 비워 두면 비교를 띄우지 않습니다.
+      </p>
 
       <p className="text-[10px] leading-relaxed text-slate-500">
         손익분기 매도가: <span className="num font-semibold text-slate-300">{formatBP(breakEven)}</span> 이상이어야
@@ -193,7 +263,7 @@ function Row({
 }: {
   label: string;
   value: string;
-  tone?: 'lime' | 'rose';
+  tone?: 'lime' | 'rose' | 'amber';
   bold?: boolean;
 }) {
   return (
@@ -205,6 +275,7 @@ function Row({
           bold ? 'font-bold' : 'font-medium',
           tone === 'lime' && 'text-neon-lime',
           tone === 'rose' && 'text-neon-rose',
+          tone === 'amber' && 'text-neon-amber',
           !tone && 'text-slate-200',
         )}
       >

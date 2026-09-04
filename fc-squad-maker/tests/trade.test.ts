@@ -7,6 +7,7 @@ import {
   effectiveFeeRate,
   FEE_DISCOUNT,
   FEE_ROUNDING_VERIFIED,
+  PATH_HAS_MARKET_FEE,
   type FeeDiscounts,
   roundFee,
   totalDiscount,
@@ -202,5 +203,69 @@ describe('수수료 끝수 — 부동소수점과 반올림', () => {
       expect(Number.isInteger(r.fee)).toBe(true);
       expect(Number.isInteger(r.sellNet)).toBe(true);
     }
+  });
+});
+
+describe('파는 길이 둘이다 — 이적시장 vs 즉시 판매 (§13/§14)', () => {
+  /*
+   * 이 계산기는 오랫동안 이적시장 판매 하나만 알고 있었다. 그런데 값싼
+   * 카드에서는 40% 를 떼고 나면 즉시 판매가 더 남는 구간이 실제로 있다.
+   * 한쪽만 아는 계산기는 그 구간에서 틀린 조언을 한다.
+   */
+
+  it('즉시 판매에는 이적시장 수수료가 붙지 않는다', () => {
+    const quick = computeTradeProfit({ buyPrice: 0, sellPrice: 100_000, path: 'quick' });
+    expect(quick.fee).toBe(0);
+    expect(quick.appliedFeeRate).toBe(0);
+    expect(quick.sellNet).toBe(100_000);
+  });
+
+  it('감면 설정을 켜 둔 채 경로만 바꿔도 수수료는 0 이다', () => {
+    // PC방에 있다고 즉시 판매가 더 남는 게 아니다. 감면은 이적시장 쪽
+    // 수수료를 깎는 것이라, 애초에 수수료가 없는 길에는 개입하지 않는다.
+    const quick = computeTradeProfit({
+      buyPrice: 0,
+      sellPrice: 100_000,
+      path: 'quick',
+      discounts: { pcCafe: true, topClass: true },
+    });
+    expect(quick.fee).toBe(0);
+  });
+
+  it('경로를 안 주면 예전처럼 이적시장이다', () => {
+    // 기존 호출부가 조용히 수수료 0 이 되면 안 된다.
+    const market = computeTradeProfit({ buyPrice: 0, sellPrice: 100_000 });
+    expect(market.path).toBe('market');
+    expect(market.fee).toBe(40_000);
+  });
+
+  it('40% 를 떼면 즉시 판매가 더 나은 구간이 실제로 있다', () => {
+    /*
+     * 이 함수를 쪼갠 이유 자체다. 이적시장 10만은 수수료 뒤 6만이고,
+     * 즉시 판매가 7만이면 시장에 올리는 쪽이 손해다.
+     */
+    const market = computeTradeProfit({ buyPrice: 0, sellPrice: 100_000 });
+    const quick = computeTradeProfit({ buyPrice: 0, sellPrice: 70_000, path: 'quick' });
+
+    expect(market.sellNet).toBe(60_000);
+    expect(quick.sellNet).toBe(70_000);
+    expect(quick.sellNet).toBeGreaterThan(market.sellNet);
+  });
+
+  it('어느 길에 수수료가 붙는지는 한 곳에서만 정한다', () => {
+    expect(PATH_HAS_MARKET_FEE.market).toBe(true);
+    expect(PATH_HAS_MARKET_FEE.quick).toBe(false);
+  });
+
+  it('즉시 판매 가격을 우리가 계산해 주지는 않는다', () => {
+    /*
+     * 넥슨이 공식을 공개한 적이 없다. 입력받은 값을 그대로 쓸 뿐,
+     * 매입가나 오버롤에서 유도하지 않는다 — 지어낸 값을 게임 값처럼
+     * 보여 주는 것이 이 프로젝트가 하지 않는 일이다.
+     */
+    const a = computeTradeProfit({ buyPrice: 5_000_000, sellPrice: 1, path: 'quick' });
+    const b = computeTradeProfit({ buyPrice: 10, sellPrice: 1, path: 'quick' });
+    expect(a.sellGross).toBe(1);
+    expect(b.sellGross).toBe(1);
   });
 });
