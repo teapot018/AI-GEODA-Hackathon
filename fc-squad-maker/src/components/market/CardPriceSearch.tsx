@@ -12,6 +12,7 @@ import {
   SAMPLE_CONFIDENCE_LABEL,
   sampleConfidence,
   THIN_SAMPLES,
+  TRADE_TIME_RESOLUTION_MS,
 } from '@/lib/market/observations';
 import { formatAge, formatDuration } from '@/lib/data/freshness';
 import { cn } from '@/lib/utils/cn';
@@ -330,13 +331,26 @@ function CadenceNote({ cadence }: { cadence: CardPrice['cadence'] }) {
                 {now ? formatAge(Math.max(0, now.getTime() - last.getTime())) : '-'}
               </b>
             </span>
-            {side.intervalMs !== null ? (
+            {side.intervalMs === null ? (
+              <span className="text-slate-700">({side.samples}건 — 간격은 2건부터)</span>
+            ) : side.intervalMs < TRADE_TIME_RESOLUTION_MS ? (
+              /*
+               * 중앙값이 0 으로 나오는 경우다. "0분마다 거래" 라고 쓰면
+               * 숫자를 지어내는 셈이라, 왜 0 인지를 그대로 적는다 —
+               * tradeDate 가 초까지만 적혀 그보다 촘촘한 간격은 표현되지 않는다.
+               */
+              <span>
+                간격 <b className="text-slate-400">1초 미만</b>
+                <span className="text-slate-700">
+                  {' '}
+                  (기록 해상도 한계 · 같은 시각 {side.simultaneous}쌍 / {side.samples}건)
+                </span>
+              </span>
+            ) : (
               <span>
                 간격 최소 <b className="text-slate-400">{formatDuration(side.intervalMs)}</b>
                 <span className="text-slate-700"> ({side.samples}건 기준)</span>
               </span>
-            ) : (
-              <span className="text-slate-700">({side.samples}건 — 간격은 2건부터)</span>
             )}
           </p>
         );

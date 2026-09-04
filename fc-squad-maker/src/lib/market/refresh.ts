@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { TRADE_TIME_RESOLUTION_MS } from './observations';
+
 /**
  * ── 기준가 갱신 관측 ──────────────────────────────────────
  *
@@ -316,11 +318,25 @@ export interface SideCadence {
   /**
    * 간격의 중앙값(ms). 표본이 2건 미만이면 null.
    * 우리가 못 본 거래가 있으므로 **실제 빈도의 상한**이다.
+   *
+   * 0 이 나올 수 있다 — 아래 `simultaneous` 참고. 0 은 "간격이 없다"가
+   * 아니라 "기록이 더 잘게 못 적는다"는 뜻이라 그대로 시간으로 읽으면 안 된다.
    */
   intervalMs: number | null;
   /** 표본이 걸쳐 있는 기간(ms) */
   spanMs: number | null;
+  /**
+   * 같은 시각으로 적힌 연속 체결 쌍의 수.
+   *
+   * `tradeDate` 는 초까지만 적힌다(TRADE_TIME_RESOLUTION_MS). 한 초 안에 두
+   * 건이 체결되면 간격이 0 으로 남는데, 이건 "동시에 팔렸다"가 아니라
+   * **기록 해상도보다 촘촘하다**는 뜻이다. 중앙값에서 빼지 않는다 — 빼면
+   * 몰아치는 거래를 못 본 척하며 간격이 실제보다 길어 보인다. 대신 몇 번
+   * 그랬는지를 따로 세어, 화면이 "0분마다" 라고 쓰지 않게 한다.
+   */
+  simultaneous: number;
 }
+
 
 /**
  * 매입·매도를 **따로** 잰 거래 빈도.
@@ -343,10 +359,14 @@ function cadenceOf(times: readonly Date[]): SideCadence {
     .filter((t) => Number.isFinite(t))
     .sort((a, b) => a - b);
 
-  if (sorted.length === 0) return { lastAt: null, samples: 0, intervalMs: null, spanMs: null };
+  if (sorted.length === 0) {
+    return { lastAt: null, samples: 0, intervalMs: null, spanMs: null, simultaneous: 0 };
+  }
 
   const lastAt = new Date(sorted[sorted.length - 1]);
-  if (sorted.length < 2) return { lastAt, samples: 1, intervalMs: null, spanMs: null };
+  if (sorted.length < 2) {
+    return { lastAt, samples: 1, intervalMs: null, spanMs: null, simultaneous: 0 };
+  }
 
   const gaps: number[] = [];
   for (let i = 1; i < sorted.length; i += 1) gaps.push(sorted[i] - sorted[i - 1]);
@@ -354,6 +374,9 @@ function cadenceOf(times: readonly Date[]): SideCadence {
   return {
     lastAt,
     samples: sorted.length,
+    // 해상도 아래로 붙어 버린 쌍이 몇 개인지. 중앙값이 0 으로 나올 때
+    // 그게 왜 0 인지 설명하는 값이다.
+    simultaneous: gaps.filter((gap) => gap < TRADE_TIME_RESOLUTION_MS).length,
     // 중앙값을 쓰는 이유: 한 달 비어 있다가 몰아서 거래된 카드에서
     // 평균은 그 공백 하나에 통째로 끌려간다.
     intervalMs: medianOf(gaps),

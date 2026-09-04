@@ -275,6 +275,39 @@ describe('tradeCadence — 데이터센터 없이 재는 거래 빈도', () => {
     expect(merged.sale.intervalMs).not.toBe(c.purchase.intervalMs);
   });
 
+  it('같은 시각에 몰린 체결을 0 간격으로 세지 않고 따로 센다', () => {
+    /*
+     * tradeDate 는 초까지만 적힌다. 한 초 안에 두 건이 체결되면 간격이
+     * 0 으로 남는데, 그건 "동시에 팔렸다" 가 아니라 **기록 해상도보다
+     * 촘촘하다** 는 뜻이다. 화면이 "0분마다 거래" 라고 쓰지 않도록
+     * 몇 쌍이 그랬는지를 따로 들고 나온다.
+     */
+    const t = at(0);
+    const c = tradeCadence([], [t, t, t, at(1)]);
+
+    expect(c.sale.samples).toBe(4);
+    expect(c.sale.simultaneous).toBe(2); // 0, 0, 1시간 중 0 이 둘
+    expect(c.sale.intervalMs).toBe(0);
+  });
+
+  it('몰린 체결을 빼서 간격을 늘려 잡지 않는다', () => {
+    /*
+     * 0 간격을 중앙값에서 빼 버리면 간단해지지만, 몰아치는 거래를 못 본
+     * 척하며 간격이 실제보다 길어 보인다. 표본이 말하는 대로 둔다.
+     */
+    const t = at(0);
+    const c = tradeCadence([], [t, t, t, t, at(10)]);
+    expect(c.sale.intervalMs).toBe(0);
+    expect(c.sale.simultaneous).toBe(3);
+    expect(c.sale.spanMs).toBe(10 * HOUR);
+  });
+
+  it('간격이 있는 표본에서는 simultaneous 가 0 이다', () => {
+    const c = tradeCadence([at(0), at(2)], [at(0), at(3), at(6)]);
+    expect(c.sale.simultaneous).toBe(0);
+    expect(c.purchase.simultaneous).toBe(0);
+  });
+
   it('한쪽만 있어도 다른 쪽을 빌려 오지 않는다', () => {
     // 매도 기록만 있는 카드에서 매입 빈도를 지어내면, 화면은 없는 사건을
     // 있었다고 적게 된다.

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { coverageNote } from '@/lib/nexon/coverage';
 
-const full = { ok: true, truncated: false };
-const cut = { ok: true, truncated: true };
-const missing = { ok: false, truncated: false };
+const full = { ok: true, truncated: false, shiftedRows: 0 };
+const cut = { ok: true, truncated: true, shiftedRows: 0 };
+const missing = { ok: false, truncated: false, shiftedRows: 0 };
+/** 페이지를 넘기는 사이 새 거래가 들어와 목록이 밀린 경우 */
+const shifted = { ok: true, truncated: false, shiftedRows: 7 };
 
 describe('coverageNote', () => {
   it('둘 다 온전하면 붙일 말이 없다', () => {
@@ -35,6 +37,27 @@ describe('coverageNote', () => {
     const note = coverageNote(missing, cut);
     expect(note).toContain('매입 내역을 받지 못해');
     expect(note).toContain('남은 쪽도 일부 페이지');
+  });
+
+  it('목록이 밀리면 겹친 건수와 그 결과를 밝힌다', () => {
+    const note = coverageNote(shifted, full);
+    expect(note).toContain('목록이 밀렸습니다');
+    expect(note).toContain('7건');
+    // 밀림은 '누락' 이 아니라 '덜 깊이 봤다' 다. 거래 내역은 앞쪽에만
+    // 쌓이므로 밀려도 사이가 비지 않는다 — 문구가 그 둘을 뒤섞으면 안 된다.
+    expect(note).toContain('덜 내려갔습니다');
+    expect(note).not.toContain('받지 못해');
+  });
+
+  it('양쪽이 밀리면 건수를 합쳐 말한다', () => {
+    expect(coverageNote(shifted, shifted)).toContain('14건');
+  });
+
+  it('받지 못한 쪽의 밀림은 세지 않는다', () => {
+    // ok:false 면 그 방향은 아예 못 읽은 것이라 셀 겹침도 없다.
+    expect(coverageNote({ ok: false, truncated: false, shiftedRows: 5 }, full)).not.toContain(
+      '목록이 밀렸습니다',
+    );
   });
 
   it('문장은 마침표로 끝난다', () => {

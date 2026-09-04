@@ -152,9 +152,26 @@ async function fetchTradePages(
   ouid: string,
   side: TradeSide,
   pages: number,
-): Promise<{ records: TradeRecord[]; pagesFetched: number; truncated: boolean }> {
+): Promise<{
+  records: TradeRecord[];
+  pagesFetched: number;
+  truncated: boolean;
+  shiftedRows: number;
+}> {
   const records: TradeRecord[] = [];
+  /*
+   * 이미 담은 거래. `offset` 은 살아 있는 목록 위를 걷기 때문에, 0페이지와
+   * 1페이지 사이에 새 거래가 들어오면 목록이 밀려 뒷부분을 다시 준다.
+   * 그대로 두면 같은 체결이 두 번 세어져 표본 수도, 거래 빈도도 부풀고,
+   * 같은 시각 두 건이 되어 간격 중앙값이 0 으로 주저앉는다.
+   *
+   * 키에 spid 를 같이 묶는 이유는 livefeed.observationKey 와 같다 —
+   * 넥슨이 번호를 재사용해도 다른 카드의 거래가 서로를 지우지 않게 한다.
+   * side 는 호출마다 하나라서 키에 넣지 않는다.
+   */
+  const seen = new Set<string>();
   let pagesFetched = 0;
+  let shiftedRows = 0;
 
   for (let page = 0; page < pages; page += 1) {
     let batch: TradeRecord[];
@@ -166,14 +183,24 @@ async function fetchTradePages(
       );
     } catch (error) {
       if (page === 0) throw error;
-      return { records, pagesFetched, truncated: true };
+      return { records, pagesFetched, truncated: true, shiftedRows };
     }
     pagesFetched += 1;
-    records.push(...batch);
+    for (const row of batch) {
+      const key = `${row.saleSn}:${row.spid}`;
+      if (seen.has(key)) {
+        shiftedRows += 1;
+        continue;
+      }
+      seen.add(key);
+      records.push(row);
+    }
+    // 멈춤 판단은 **받은 건수**로 한다. 중복을 걸러 낸 뒤의 수로 보면
+    // 밀림이 일어난 페이지를 '마지막 페이지'로 착각해 일찍 끊는다.
     if (batch.length < PAGE_SIZE) break;
   }
 
-  return { records, pagesFetched, truncated: false };
+  return { records, pagesFetched, truncated: false, shiftedRows };
 }
 
 export interface MarketOptions {
@@ -289,7 +316,9 @@ export async function getMarketReport({
     }
 
     const coverage = (side: typeof buy): SideCoverage =>
-      side ? { ok: true, truncated: side.truncated } : { ok: false, truncated: false };
+      side
+        ? { ok: true, truncated: side.truncated, shiftedRows: side.shiftedRows }
+        : { ok: false, truncated: false, shiftedRows: 0 };
 
     const observations = [
       ...tagSide(buy?.records ?? [], 'buy'),

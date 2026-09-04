@@ -148,6 +148,14 @@ export interface MarketSummary {
   to: string | null;
 }
 
+/**
+ * `tradeDate` 가 적히는 최소 단위.
+ *
+ * 넥슨은 "2024-06-01T12:34:56" 처럼 초까지 준다. 이보다 촘촘한 간격은
+ * 표현할 방법이 없으므로, 0 으로 나온 간격은 "0" 이 아니라 "이 값 미만" 이다.
+ */
+export const TRADE_TIME_RESOLUTION_MS = 1_000;
+
 /** 추세를 '보합' 으로 볼 변동폭 (%) */
 export const TREND_EPSILON = 3;
 
