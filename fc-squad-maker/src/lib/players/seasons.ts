@@ -31,13 +31,23 @@ interface TierRule {
   color: string;
 }
 
+/*
+ * icon/legend 의 valueMultiplier 는 한때 6.0 / 3.6 이었다. baseValueOf 의
+ * 지수 곡선(오버롤 1당 약 1.315배)만으로는 ICON 카드조차 +1(무강화)
+ * 상태에서 수백~수천만 BP 대에 머물러, 실제 FC 온라인 시장에서 억~조
+ * 단위로 거래되는 상위 카드 체감과 크게 어긋났다. 강화 배수
+ * (GRADE_VALUE_MULTIPLIER, +13 에서 5000배)는 데모 대조 테스트가 값을
+ * 고정해 두어 여기서 건드리지 않고, 대신 시즌 등급 배수를 올려 "+1 이라도
+ * ICON/레전드는 급이 다르다" 는 체감을 맞춘다. 여전히 추정이며, 화면에는
+ * 항상 `추정` 으로 표기한다.
+ */
 const TIER_RULES: TierRule[] = [
   {
     tier: 'icon',
     codes: ['ICON', 'LIVEICON', 'HEROES'],
     phrases: ['아이콘'],
     ovrBonus: 32,
-    valueMultiplier: 6.0,
+    valueMultiplier: 15.0,
     color: '#f0c14b',
   },
   {
@@ -45,7 +55,7 @@ const TIER_RULES: TierRule[] = [
     codes: ['TC', 'CC', 'BTB', 'LH', 'TKI', 'TKL'],
     phrases: ['레전드'],
     ovrBonus: 30,
-    valueMultiplier: 3.6,
+    valueMultiplier: 7.0,
     color: '#a78bfa',
   },
   {

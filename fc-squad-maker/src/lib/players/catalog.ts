@@ -96,7 +96,7 @@ async function materialize(entry: CatalogEntry): Promise<PlayerCardData> {
 
   const seeded: PlayerProfile | undefined =
     entry.profileIndex >= 0 ? PLAYER_SEED[entry.profileIndex] : undefined;
-  const profile = seeded ?? estimateProfile({ name: entry.name });
+  const profile = seeded ?? estimateProfile({ name: entry.name, seasonClassName: season?.className });
 
   const ovr = estimatedCardOvr(profile.baseOvr, season?.className);
   /*
@@ -217,7 +217,7 @@ export async function getCard(spid: number): Promise<PlayerCardData | null> {
   const seasonId = seasonIdOf(spid);
   const meta = await loadMeta();
   const season = meta.seasons.find((s) => s.seasonId === seasonId);
-  const profile = estimateProfile({ name: `#${spid}` });
+  const profile = estimateProfile({ name: `#${spid}`, seasonClassName: season?.className });
 
   return {
     spid,
@@ -271,9 +271,12 @@ function poolKey(filter: PoolFilter): string {
 
 /** 카드 재료화 없이 오버롤만 싸게 계산 */
 async function quickOvr(entry: CatalogEntry, classNames: Map<number, string>): Promise<number> {
+  const seasonClassName = classNames.get(entry.seasonId);
   const profile =
-    entry.profileIndex >= 0 ? PLAYER_SEED[entry.profileIndex] : estimateProfile({ name: entry.name });
-  return estimatedCardOvr(profile.baseOvr, classNames.get(entry.seasonId));
+    entry.profileIndex >= 0
+      ? PLAYER_SEED[entry.profileIndex]
+      : estimateProfile({ name: entry.name, seasonClassName });
+  return estimatedCardOvr(profile.baseOvr, seasonClassName);
 }
 
 /** 필터에 맞는 spid 목록. 결과는 캐시된다. */

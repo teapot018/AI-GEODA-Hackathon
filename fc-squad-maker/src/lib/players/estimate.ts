@@ -1,3 +1,4 @@
+import { seasonRule, type SeasonTier } from './seasons';
 import type { HexStats, PlayerProfile, PositionCode } from './types';
 
 /**
@@ -49,22 +50,47 @@ export function archetypeOf(position: PositionCode | string): Archetype {
   return ARCHETYPE_OF[position] ?? 'cm';
 }
 
+/**
+ * 시드에 없는 이름의 "현실 기량" 기본 오버롤 범위 — 시즌 티어별.
+ *
+ * 예전에는 시즌과 무관하게 62~92 사이에서 뽑았다. 그런데 ICON·레전드는
+ * 실제 게임에서도 아무 선수나 받는 등급이 아니라 역대급 선수에게만
+ * 붙는다. 시드에 없는 이름(넥슨 실데이터 중 이 프로젝트가 못 알아본
+ * 선수)이 하필 ICON 시즌으로 잡혔을 때 바닥값 62 가 뽑히면 "아이콘인데
+ * 오버롤 94" 처럼 카드 등급과 숫자가 서로 다른 게임을 말하는 화면이
+ * 나온다. high/mid/base 는 실제로도 무명 선수가 섞이는 등급이라
+ * 범위를 그대로 둔다.
+ *
+ * 이 범위도 추정이다 — "ICON 은 전설급" 이라는 상식을 반영한 가정이지,
+ * 넥슨이 실측치를 공개해서가 아니다.
+ */
+const FALLBACK_BASE_OVR_RANGE: Record<SeasonTier, readonly [number, number]> = {
+  icon: [75, 96],
+  legend: [72, 90],
+  high: [62, 92],
+  mid: [62, 92],
+  base: [62, 92],
+};
+
 export interface EstimateInput {
   name: string;
   positions?: PositionCode[];
   /** 알고 있는 오버롤이 있으면 기준으로 사용 */
   ovr?: number;
+  /** 이 카드가 속한 시즌 — 시드에 없는 이름의 기본 오버롤 범위를 시즌 티어에 맞춘다 */
+  seasonClassName?: string;
 }
 
-export function estimateProfile({ name, positions, ovr }: EstimateInput): PlayerProfile {
+export function estimateProfile({ name, positions, ovr, seasonClassName }: EstimateInput): PlayerProfile {
   const noise = nameNoise(name);
   const pos = positions && positions.length > 0 ? positions : (['CM'] as PositionCode[]);
   const archetype = archetypeOf(pos[0]);
   const shape = ARCHETYPE_SHAPE[archetype];
 
-  // 오버롤을 모르면 62~92 사이에서 이름 기반으로 안정적으로 뽑는다.
+  // 오버롤을 모르면 시즌 티어에 맞는 범위에서 이름 기반으로 안정적으로 뽑는다.
   // 범위를 넓게 잡아야 상자 시뮬레이터의 등급별 풀이 고르게 찬다.
-  const baseOvr = ovr ?? Math.round(62 + noise * 30);
+  const [lo, hi] = FALLBACK_BASE_OVR_RANGE[seasonRule(seasonClassName).tier];
+  const baseOvr = ovr ?? Math.round(lo + noise * (hi - lo));
 
   const jitter = (key: keyof HexStats, index: number) =>
     ((nameNoise(`${name}:${key}:${index}`) - 0.5) * 6);
