@@ -1,0 +1,39 @@
+{
+  "name": "fc-squad-maker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FC 온라인 스쿼드 메이커 · 구단주 조회 · 모의 상자 개봉 시뮬레이터",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:api": "node scripts/check-api.mjs",
+    "probe:datacenter": "node scripts/probe-datacenter.mjs"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "lucide-react": "0.469.0",
+    "next": "15.5.24",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "server-only": "0.0.1",
+    "tailwind-merge": "2.6.0",
+    "zustand": "5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.5.24",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.7.3",
+    "vitest": "4.1.11"
+  }
+}

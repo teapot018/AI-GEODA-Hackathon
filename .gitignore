@@ -1,0 +1,32 @@
+# 앱은 fc-squad-maker/ 안에 있고 자체 .gitignore 를 가지고 있다.
+# 이 파일은 리포지토리 루트에서 도구를 잘못 돌렸을 때 남는 부스러기를 막는다.
+# (예: 루트에서 vitest 를 돌리면 node_modules/.vite 캐시가 여기에 생긴다.)
+
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# 빌드·테스트 캐시
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# 환경 변수 — 절대 커밋하지 않는다
+.env
+.env.local
+.env.*.local
+
+# 로그
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS·에디터
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
